@@ -149,10 +149,10 @@ udtOrder
 
 ### Poziom linii (harmonogram + maszyna stanów linii)
 
-Blok wewnętrzny PLC: liczy kolejność zleceń i trzyma nadrzędny stan linii.
+Typ wewnętrzny PLC: liczy kolejność zleceń i trzyma nadrzędny stan linii. Używany jako `Line` w `DB_Production`.
 
 ```
-DB_Line                        (Global DB, Optimized = FALSE)
+udtLine
 ├─ LineState : Int             // 0 stop /1 config /2 schedule /3 ready /4 run /5 pause /6 fault /7 done
 ├─ ScheduleMethod : Int        // 0 SPT / 1 LPT / 2 priority
 ├─ Queue : Array[1..200] of Int   // kolejnosc realizacji (indeksy do DB_Orders)
@@ -168,7 +168,7 @@ DB_Line                        (Global DB, Optimized = FALSE)
 Powierzchnia wymiany PLC <-> aplikacja web. Blazor pisze do `FromWeb`, czyta z `ToWeb`.
 
 ```
-DB_Web                         (Global DB, Optimized = FALSE)
+udtWeb
 ├─ FromWeb (Struct)            // Blazor -> PLC
 │  ├─ Feed_OrderNo : Int       // co ma robic stanowisko 1
 │  ├─ Feed_ProductCode : Int
@@ -188,23 +188,18 @@ DB_Web                         (Global DB, Optimized = FALSE)
 
 ## Organizacja bloków danych
 
-Rekomendowany podział na 3 DB (pogrupowane funkcjonalnie, zamiast wielu drobnych albo jednego molocha). Wszystkie niezoptymalizowane + PUT/GET.
+Wszystko w jednym bloku `DB_Data` (niezoptymalizowany + PUT/GET). Definicje pol UDT (`udtProduct`, `udtOrder`, `udtStationAssembly`, `udtStationQC`, `udtLine`, `udtWeb`) - w sekcjach powyzej.
 
 ```
-DB_Stations
-├─ Assembly : Array[1..3] of udtStationAssembly
-└─ QC       : udtStationQC
-
-DB_Production
+DB_Data                        (Global DB, Optimized = FALSE)
 ├─ Products : Array[1..20] of udtProduct
 ├─ Orders   : Array[1..200] of udtOrder
-└─ Line     : udtLine
-
-DB_Web                         (jedyny blok dotykany z zewnatrz przez Blazora)
-├─ FromWeb (Struct)            // Blazor -> PLC
-└─ ToWeb   (Struct)            // PLC -> Blazor
+├─ Assembly : Array[1..3] of udtStationAssembly
+├─ QC       : udtStationQC
+├─ Line     : udtLine
+└─ Web      : udtWeb
 ```
 
-Zasada: `DB_Stations` i `DB_Production` to warstwa wewnetrzna PLC; `DB_Web` to izolowana powierzchnia wymiany z aplikacja web. Definicje pol UDT (`udtStationAssembly`, `udtStationQC`, `udtProduct`, `udtOrder`, `udtLine`) - w sekcjach powyzej.
+Adresowanie: `DB_Data.Assembly[1].Commands.Start`, `DB_Data.Orders[5].Status`, `DB_Data.Web.FromWeb.Feed_OrderNo`.
 
 
