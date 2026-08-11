@@ -7,6 +7,8 @@ HMI Assembly 2  - 192.168.1.11
 HMI Assembly 3  - 192.168.1.12
 HMI QC          - 192.168.1.13
 
+Balluff Camera Config - 169.254.43.28
+
 ## Rozkład zmiennych
 
 Uwaga: DB niezoptymalizowany (Optimized access = FALSE) + PUT/GET w CPU, żeby HMI (Kinco) i Blazor widziały adresy. `(Struct)` = zagnieżdżona struktura w TIA; pozostałe grupy (Config, Production) to pola płaskie na jednym poziomie.
