@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vg ver="1" name="Dzis.vg" type="vector" width="91" height="24" discription="" color="0xffffff" transparent="no"><state id="0"><draw name="" type="roundrect" pos_sx="0" pos_sy="0" pos_ex="90" pos_ey="23" penwidth="1" penstyle="6" Flag="0" pencolor="0xcdc7c2" fillcolor="0xf7f4f2" fill="color" GradientFill="false" BackgroundColor="0xf7f4f2" ForegroundColor="0x0" lock_status="0" isgroupmember="no" spoint_x="14" spoint_y="14"><View CtrlMode="0"/><DynamicGraph flag="0"/></draw></state></vg>
