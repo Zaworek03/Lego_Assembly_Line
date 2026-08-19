@@ -1,0 +1,1049 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<?xml-stylesheet href="GSDML-Stylesheet-HTML-V2.34.xsl" type="text/xsl"?>
+
+<!--
+     If you change something here, don't forget to update the CI validation
+     script after changing the filename.
+-->
+
+<ISO15745Profile xmlns="http://www.profibus.com/GSDML/2003/11/DeviceProfile" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.profibus.com/GSDML/2003/11/DeviceProfile ..\xsd\GSDML-DeviceProfile-V2.34.xsd">
+    <!-- ProfileHeader definition as defined in ISO 15745-1. Please do not change the content. -->
+    <ProfileHeader>
+        <ProfileIdentification>PROFINET Device Profile</ProfileIdentification>
+        <ProfileRevision>1.00</ProfileRevision>
+        <ProfileName>Device Profile for PROFINET Devices</ProfileName>
+        <ProfileSource>PROFIBUS Nutzerorganisation e. V. (PNO)</ProfileSource>
+        <ProfileClassID>Device</ProfileClassID>
+        <ISO15745Reference>
+            <ISO15745Part>4</ISO15745Part>
+            <ISO15745Edition>1</ISO15745Edition>
+            <ProfileTechnology>GSDML</ProfileTechnology>
+        </ISO15745Reference>
+    </ProfileHeader>
+    <ProfileBody>
+        <DeviceIdentity VendorID="0x01C3" DeviceID="0x00D2">
+            <InfoText TextId="TOK_DevIdent_InfoText"/>
+            <VendorName Value="Banner Engineering Corp."/>
+        </DeviceIdentity>
+        <DeviceFunction>
+            <Family MainFamily="I/O" ProductFamily="DXM Series"/>
+        </DeviceFunction>
+        <ApplicationProcess>
+            <DeviceAccessPointList>
+                <DeviceAccessPointItem ID="1-port device" PhysicalSlots="0..10"
+                ModuleIdentNumber="0x00000001" MinDeviceInterval="1024"
+                ImplementationType="GOAL_PROFINET_Device_Stack" DNS_CompatibleName="dxm"
+                FixedInSlots="0" ObjectUUID_LocalIndex="1"
+                RequiredSchemaVersion="V2.2" MaxSupportedRecordSize="4068"
+                ParameterizationSpeedupSupported="false" PowerOnToCommReady="10000"
+                DeviceAccessSupported="true" NumberOfDeviceAccessAR="1"
+                PNIO_Version="V2.34" ResetToFactoryModes="1 2 4"
+                CheckDeviceID_Allowed="true" MultipleWriteSupported="true"
+                LLDP_NoD_Supported="true" NameOfStationNotTransferable="true"
+                AddressAssignment="DCP">
+                    <ModuleInfo>
+                        <Name TextId="TOK_Standard_1p"/>
+                        <InfoText TextId="TOK_ModInfo_InfoTextId_DAP1"/>
+                        <VendorName Value="Banner Engineering Corp."/>
+                        <OrderNumber Value="806246"/>
+                        <HardwareRelease Value="A1.0"/>
+                        <SoftwareRelease Value="Z1.0"/>
+                    </ModuleInfo>
+                    <CertificationInfo ConformanceClass="A" ApplicationClass="" NetloadClass="I"/>
+                    <SubslotList>
+                        <SubslotItem SubslotNumber="32768" TextId="TOK_Subslot_8000"/>
+                        <SubslotItem SubslotNumber="32769" TextId="TOK_Subslot_8001"/>
+                    </SubslotList>
+                    <IOConfigData MaxInputLength="1440" MaxOutputLength="1440"/>
+                    <UseableModules>
+                        <ModuleItemRef ModuleItemTarget="Input_Integer_512" AllowedInSlots="1..3"/>
+                        <ModuleItemRef ModuleItemTarget="Input_Integer_256" AllowedInSlots="1..3"/>
+                        <ModuleItemRef ModuleItemTarget="Input_Integer_128" AllowedInSlots="1..3"/>
+                        <ModuleItemRef ModuleItemTarget="Input_Integer_64"  AllowedInSlots="1..3"/>
+                        <ModuleItemRef ModuleItemTarget="Input_FloatingPoint_512" AllowedInSlots="4..6"/>
+                        <ModuleItemRef ModuleItemTarget="Input_FloatingPoint_256" AllowedInSlots="4..6"/>
+                        <ModuleItemRef ModuleItemTarget="Input_FloatingPoint_128" AllowedInSlots="4..6"/>
+                        <ModuleItemRef ModuleItemTarget="Input_FloatingPoint_64"  AllowedInSlots="4..6"/>
+                        <ModuleItemRef ModuleItemTarget="Output_Integer_512" AllowedInSlots="7..9"/>
+                        <ModuleItemRef ModuleItemTarget="Output_Integer_256" AllowedInSlots="7..9"/>
+                        <ModuleItemRef ModuleItemTarget="Output_Integer_128" AllowedInSlots="7..9"/>
+                        <ModuleItemRef ModuleItemTarget="Output_Integer_64"  AllowedInSlots="7..9"/>
+                        <ModuleItemRef ModuleItemTarget="Banner IO-Link Master Info"  AllowedInSlots="1"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 32I/32O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 16I/16O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 8I/8O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 4I/4O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 2I/2O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link 1I/1O PQI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link DO"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IDS IO-Link DI"  AllowedInSlots="2..9"/>
+                        <ModuleItemRef ModuleItemTarget="IO-Link ISDU 190I/190O"  AllowedInSlots="10"/>
+                        <ModuleItemRef ModuleItemTarget="IO-Link ISDU 80I/80O"  AllowedInSlots="10"/>
+                    </UseableModules>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="DAP1" SubmoduleIdentNumber="0x0001" Writeable_IM_Records="1 2 3 4" MayIssueProcessAlarm="false">
+                            <IOData/>
+                            <ModuleInfo>
+                                <Name TextId="TOK_Standard"/>
+                                <InfoText TextId="TOK_ModInfo_InfoTextId_DAP1"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                    <SystemDefinedSubmoduleList>
+                        <InterfaceSubmoduleItem ID="DAP1_IDS_2I" SubslotNumber="32768" SubmoduleIdentNumber="0x8000" SupportedRT_Classes="RT_CLASS_1" TextId="TOK_DAP_InterfaceModule" IsochroneModeSupported="false" SupportedProtocols="LLDP" NetworkComponentDiagnosisSupported="false" PTP_BoundarySupported="true" DCP_BoundarySupported="true">
+                            <ApplicationRelations NumberOfAdditionalInputCR="0" NumberOfAdditionalMulticastProviderCR="0" NumberOfAdditionalOutputCR="0" NumberOfMulticastConsumerCR="0" StartupMode="Advanced;Legacy">
+                                <TimingProperties SendClock="32" ReductionRatio="1 2 4 8 16 32 64 128 256 512"/>
+                            </ApplicationRelations>
+                        </InterfaceSubmoduleItem>
+                        <PortSubmoduleItem ID="DAP1_IDS_2P1" SubslotNumber="32769" SubmoduleIdentNumber="0x8001" TextId="TOK_Port1" MaxPortRxDelay="378" MaxPortTxDelay="1212" PortDeactivationSupported="false" LinkStateDiagnosisCapability="Up+Down">
+                            <MAUTypeList>
+                                <MAUTypeItem Value="16"/>
+                            </MAUTypeList>
+                        </PortSubmoduleItem>
+                    </SystemDefinedSubmoduleList>
+                    <Graphics>
+                        <GraphicItemRef Type="DeviceSymbol" GraphicItemTarget="ID_Graph_1"/>
+                    </Graphics>
+                </DeviceAccessPointItem>
+            </DeviceAccessPointList>
+            <ModuleList>
+                <ModuleItem ID="Input_Integer_512" ModuleIdentNumber="0x00000030">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_Integer_512"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_512"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="1" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_512" Length="512" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_Integer_512"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_512"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_Integer_256" ModuleIdentNumber="0x00000031">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_Integer_256"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_256"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="2" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_256" Length="256" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_Integer_256"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_256"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_Integer_128" ModuleIdentNumber="0x00000032">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_Integer_128"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_128"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="3" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_128" Length="128" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_Integer_128"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_128"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_Integer_64" ModuleIdentNumber="0x00000033">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_Integer_64"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_64"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="4" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_64" Length="64" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_Integer_64"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_Integer_64"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_FloatingPoint_512" ModuleIdentNumber="0x00000034">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_FloatingPoint_512"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_512"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="5" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_512" Length="512" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_FloatingPoint_512"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_512"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_FloatingPoint_256" ModuleIdentNumber="0x00000035">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_FloatingPoint_256"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_256"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="6" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_256" Length="256" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_FloatingPoint_256"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_256"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_FloatingPoint_128" ModuleIdentNumber="0x00000036">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_FloatingPoint_128"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_128"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="7" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_128" Length="128" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_FloatingPoint_128"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_128"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Input_FloatingPoint_64" ModuleIdentNumber="0x00000037">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Input_FloatingPoint_64"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_64"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="8" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Input_DataItem_64" Length="64" UseAsBits="true"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Input_FloatingPoint_64"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Input_FloatingPoint_64"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Output_Integer_512" ModuleIdentNumber="0x00000040">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Output_Integer_512"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_512"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="9" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Output_DataItem_512" Length="512" UseAsBits="true"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Output_Integer_512"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_512"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Output_Integer_256" ModuleIdentNumber="0x00000041">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Output_Integer_256"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_256"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="10" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Output_DataItem_256" Length="256" UseAsBits="true"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Output_Integer_256"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_256"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Output_Integer_128" ModuleIdentNumber="0x00000042">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Output_Integer_128"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_128"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="11" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Output_DataItem_128" Length="128" UseAsBits="true"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Output_Integer_128"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_128"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Output_Integer_64" ModuleIdentNumber="0x00000043">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_Output_Integer_64"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_64"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="12" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="OctetString" TextId="TOK_Output_DataItem_64" Length="64" UseAsBits="true"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_Output_Integer_64"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_Output_Integer_64"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <ModuleItem ID="Banner IO-Link Master Info" ModuleIdentNumber="0x00000044">
+                    <ModuleInfo>
+                        <Name TextId="TOK_TextId_Module_IOL_MasterInfo"/>
+                        <InfoText TextId="TOK_InfoTextId_Module_IOL_MasterInfo"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="13" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="VID"/>
+                                    <DataItem DataType="Unsigned32" UseAsBits="false" TextId="DID"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="NCH"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="FWV"/>
+                                </Input>
+                            </IOData>
+                            <ModuleInfo>
+                                <Name TextId="TOK_TextId_Module_IOL_MasterInfo"/>
+                                <InfoText TextId="TOK_InfoTextId_Module_IOL_MasterInfo"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <!-- IO-Link device proxy 32I/32O + PQI -->                
+                <ModuleItem ID="IDS IO-Link 32I/32O PQI" ModuleIdentNumber="0x00000045">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 32 I/ 32 O PQI"/>
+                        <InfoText TextId="CM IO-Link 32 I/ 32 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="14" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/>  
+                                    <DataItem DataType="OctetString" TextId="Input_Data_32" Length="32" UseAsBits="false"/>                        
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>                                
+                                    <DataItem DataType="OctetString" TextId="Output_Data_32" Length="32" UseAsBits="false"/>                 
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 32 I/ 32 O PQI"/>
+                                <InfoText TextId="CM IO-Link 32 I/ 32 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>
+                <!-- IO-Link device proxy 16I/16O + PQI -->               
+                <ModuleItem ID="IDS IO-Link 16I/16O PQI" ModuleIdentNumber="0x00000046">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 16 I/ 16 O PQI"/>
+                        <InfoText TextId="CM IO-Link 16 I/ 16 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="15" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/>
+                                    <DataItem DataType="OctetString" TextId="Input_Data_16" Length="16" UseAsBits="false"/>                          
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>                                
+                                    <DataItem DataType="OctetString" TextId="Output_Data_16" Length="16" UseAsBits="false"/>                                            
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 16 I/ 16 O PQI"/>
+                                <InfoText TextId="CM IO-Link 16 I/ 16 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>    
+                <!-- IO-Link device proxy 8I/8O + PQI -->                
+                <ModuleItem ID="IDS IO-Link 8I/8O PQI" ModuleIdentNumber="0x00000047">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 8 I/ 8 O PQI"/>
+                        <InfoText TextId="CM IO-Link 8 I/ 8 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="16" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/>   
+                                    <DataItem DataType="OctetString" TextId="Input_Data_8" Length="8" UseAsBits="false"/>                      
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>                                
+                                    <DataItem DataType="OctetString" TextId="Output_Data_8" Length="8" UseAsBits="false"/>                                            
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 8 I/ 8 O PQI"/>
+                                <InfoText TextId="CM IO-Link 8 I/ 8 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>  
+                <!-- IO-Link device proxy 4I/4O + PQI --> 
+                <ModuleItem ID="IDS IO-Link 4I/4O PQI" ModuleIdentNumber="0x00000048">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 4 I/ 4 O PQI"/>
+                        <InfoText TextId="CM IO-Link 4 I/ 4 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="17" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/>  
+                                    <DataItem DataType="OctetString" TextId="Input_Data_4" Length="4" UseAsBits="false"/>                               
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>                                
+                                    <DataItem DataType="OctetString" TextId="Output_Data_4" Length="4" UseAsBits="false"/>                                          
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 4 I/ 4 O PQI"/>
+                                <InfoText TextId="CM IO-Link 4 I/ 4 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>  
+                <!-- IO-Link device proxy 2I/2O + PQI --> 
+                <ModuleItem ID="IDS IO-Link 2I/2O PQI" ModuleIdentNumber="0x00000049">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 2 I/ 2 O PQI"/>
+                        <InfoText TextId="CM IO-Link 2 I/ 2 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="18" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/> 
+                                    <DataItem DataType="OctetString" TextId="Input_Data_2" Length="2" UseAsBits="false"/>                       
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>                                
+                                    <DataItem DataType="OctetString" TextId="Output_Data_2" Length="2" UseAsBits="false"/>                                          
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 2 I/ 2 O PQI"/>
+                                <InfoText TextId="CM IO-Link 2 I/ 2 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>     
+                <!-- IO-Link device proxy 1I/1O + PQI -->    
+                <ModuleItem ID="IDS IO-Link 1I/1O PQI" ModuleIdentNumber="0x0000004A">
+                    <ModuleInfo CategoryRef="IOL Generic">
+                        <Name TextId="CM IO-Link 1 I/ 1 O PQI"/>
+                        <InfoText TextId="CM IO-Link 1 I/ 1 O PQI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="19" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">                                    
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="CON"/>
+                                        <BitDataItem BitOffset="1" TextId="PDV"/>
+                                        <BitDataItem BitOffset="2" TextId="EP"/>
+                                        <BitDataItem BitOffset="3" TextId="ISDU"/>
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                        <BitDataItem BitOffset="11" TextId="PDSZV"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned8" TextId="PDI_Size" UseAsBits="false"/>
+                                    <DataItem DataType="Unsigned8" TextId="PDO_Size" UseAsBits="false"/>
+                                    <DataItem DataType="OctetString" TextId="Input_Data_1" Length="1" UseAsBits="false"/>
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem>
+                                    <DataItem DataType="OctetString" TextId="Output_Data_1" Length="1" UseAsBits="false"/>                                          
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="3" TextId="TOK_IOLink_ValidationBackup"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_MinCycleTime"/>
+                                    <DataItem DataType="Unsigned16" TextId="TOK_IOLink_VendorID"/>
+                                    <DataItem DataType="Unsigned32" TextId="TOK_IOLink_DeviceID"/>
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IOL Generic">
+                                <Name TextId="CM IO-Link 1 I/ 1 O PQI"/>
+                                <InfoText TextId="CM IO-Link 1 I/ 1 O PQI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>   
+                <!-- IO-Link Digital Output -->  
+                <ModuleItem ID="IDS IO-Link DO" ModuleIdentNumber="0x0000004B">
+                    <ModuleInfo CategoryRef="IO-Link Digital I/O">
+                        <Name TextId="CM IO-Link DO"/>
+                        <InfoText TextId="CM IO-Link DO"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="20" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="0" TextId="IV"/>
+                                        <BitDataItem BitOffset="1" TextId="P4OS"/>
+                                        <BitDataItem BitOffset="2" TextId="P2OS"/>
+                                    </DataItem> 
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>        
+                                    <DataItem DataType="Unsigned8" UseAsBits="true" TextId="TOK_IOLink_Pin4Config"/>                
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IO-Link Digital I/O">
+                                <Name TextId="CM IO-Link DO"/>
+                                <InfoText TextId="CM IO-Link DO"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>    
+                <!-- IO-Link Digital Input -->  
+                <ModuleItem ID="IDS IO-Link DI" ModuleIdentNumber="0x0000004C">
+                    <ModuleInfo CategoryRef="IO-Link Digital I/O">
+                        <Name TextId="CM IO-Link DI"/>
+                        <InfoText TextId="CM IO-Link DI"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="21" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="STAT">
+                                        <BitDataItem BitOffset="4" TextId="P4S"/>
+                                        <BitDataItem BitOffset="5" TextId="P2S"/>
+                                        <BitDataItem BitOffset="6" TextId="P4M"/>
+                                        <BitDataItem BitOffset="8" TextId="P2M"/>
+                                    </DataItem>
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="TOK_IOLink_Port_Config">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_PortMode"/>
+                                        <BitDataItem BitOffset="6" TextId="TOK_IQ_Behavior"/>
+                                    </DataItem>        
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="XTRA2_4">
+                                        <BitDataItem BitOffset="0" TextId="TOK_IOLink_Pin4Config"/>
+                                        <BitDataItem BitOffset="5" TextId="TOK_IOLink_Pin2Config"/>
+                                    </DataItem>            
+                                </Output>                    
+                            </IOData>
+                            <ModuleInfo CategoryRef="IO-Link Digital I/O">
+                                <Name TextId="CM IO-Link DI"/>
+                                <InfoText TextId="CM IO-Link DI"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>    
+                <!-- IO-Link ISDU Access 190 Data bytes -->
+                <ModuleItem ID="IO-Link ISDU 190I/190O" ModuleIdentNumber="0x0000004D">
+                    <ModuleInfo CategoryRef="IO-Link ISDU">
+                        <Name TextId="IO-Link ISDU 190I/190O"/>
+                        <InfoText TextId="IO-Link ISDU 190I/190O"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="22" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="OP_ST_P">
+                                        <BitDataItem BitOffset="0" TextId="OP"/>
+                                        <BitDataItem BitOffset="2" TextId="ST"/>
+                                        <BitDataItem BitOffset="4" TextId="PORT"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="I"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="SI"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="LEN"/>                    
+                                    <DataItem DataType="OctetString" TextId="ISDU_Input_Data_190" Length="190" UseAsBits="false"/>
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="OP_ST_P">
+                                        <BitDataItem BitOffset="0" TextId="OP"/>
+                                        <BitDataItem BitOffset="4" TextId="PORT"/>
+                                    </DataItem>                            
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="I"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="SI"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="LEN"/> 
+                                    <DataItem DataType="OctetString" TextId="ISDU_Input_Data_190" Length="190" UseAsBits="false"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IO-Link ISDU">
+                                <Name TextId="IO-Link ISDU 190I/190O"/>
+                                <InfoText TextId="IO-Link ISDU 190I/190O"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>    
+                <!-- IO-Link ISDU Access 80 Data bytes -->
+                <ModuleItem ID="IO-Link ISDU 80I/80O" ModuleIdentNumber="0x0000004E">
+                    <ModuleInfo CategoryRef="IO-Link ISDU">
+                        <Name TextId="IO-Link ISDU 80I/80O"/>
+                        <InfoText TextId="IO-Link ISDU 80I/80O"/>
+                        <HardwareRelease Value="1.0"/>
+                        <SoftwareRelease Value="1.0"/>
+                    </ModuleInfo>
+                    <VirtualSubmoduleList>
+                        <VirtualSubmoduleItem ID="23" SubmoduleIdentNumber="0x0001" MayIssueProcessAlarm="false">
+                            <IOData>
+                                <Input Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="OP_ST_P">
+                                        <BitDataItem BitOffset="0" TextId="OP"/>
+                                        <BitDataItem BitOffset="2" TextId="ST"/>
+                                        <BitDataItem BitOffset="4" TextId="PORT"/>
+                                    </DataItem>
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="I"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="SI"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="LEN"/> 
+                                    <DataItem DataType="OctetString" TextId="ISDU_Input_Data_80" Length="80" UseAsBits="false"/>
+                                </Input>
+                                <Output Consistency="All items consistency">
+                                    <DataItem DataType="Unsigned16" UseAsBits="true" TextId="OP_ST_P">
+                                        <BitDataItem BitOffset="0" TextId="OP"/>
+                                        <BitDataItem BitOffset="4" TextId="PORT"/>
+                                    </DataItem>                            
+                                    <DataItem DataType="Unsigned16" UseAsBits="false" TextId="I"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="SI"/>
+                                    <DataItem DataType="Unsigned8" UseAsBits="false" TextId="LEN"/> 
+                                    <DataItem DataType="OctetString" TextId="ISDU_Input_Data_80" Length="80" UseAsBits="false"/>
+                                </Output>
+                            </IOData>
+                            <ModuleInfo CategoryRef="IO-Link ISDU">
+                                <Name TextId="IO-Link ISDU 80I/80O"/>
+                                <InfoText TextId="IO-Link ISDU 80I/80O"/>
+                            </ModuleInfo>
+                        </VirtualSubmoduleItem>
+                    </VirtualSubmoduleList>
+                </ModuleItem>                                                                                                                                                                                                            
+            </ModuleList>
+      <ValueList>
+        <ValueItem ID="VIT_IOL Port_Mode">
+          <Assignments>
+            <Assign Content="1" TextId="TID_IOL Port_Mode_1"/>
+            <Assign Content="2" TextId="TID_IOL Port_Mode_2"/>
+            <Assign Content="3" TextId="TID_IOL Port_Mode_3"/>
+            <Assign Content="4" TextId="TID_IOL Port_Mode_4"/>
+          </Assignments>
+        </ValueItem>
+        <ValueItem ID="VIT_IOL Cycle_Time">
+          <Assignments>
+            <Assign Content="0" TextId="TID_IOL Cycle_Time_0"/>
+            <Assign Content="16" TextId="TID_IOL Cycle_Time_16"/>
+            <Assign Content="32" TextId="TID_IOL Cycle_Time_32"/>
+            <Assign Content="48" TextId="TID_IOL Cycle_Time_48"/>
+            <Assign Content="68" TextId="TID_IOL Cycle_Time_68"/>
+            <Assign Content="73" TextId="TID_IOL Cycle_Time_73"/>
+            <Assign Content="78" TextId="TID_IOL Cycle_Time_78"/>
+            <Assign Content="88" TextId="TID_IOL Cycle_Time_88"/>
+            <Assign Content="98" TextId="TID_IOL Cycle_Time_98"/>
+            <Assign Content="133" TextId="TID_IOL Cycle_Time_133"/>
+            <Assign Content="158" TextId="TID_IOL Cycle_Time_158"/>
+            <Assign Content="183" TextId="TID_IOL Cycle_Time_183"/>
+          </Assignments>
+        </ValueItem>        
+      </ValueList>
+            <GraphicsList>
+                <GraphicItem ID="ID_Graph_1" GraphicFile="GSDML-0x01C3-002D-Banner-DXM"/>
+            </GraphicsList>
+            <CategoryList>
+                <CategoryItem ID="ID_DXM_IODEV" TextId="TOK_Category_Desc"/>
+                <CategoryItem ID="IOL Generic" TextId="IO-Link Generic Devices"/>
+                <CategoryItem ID="IO-Link ISDU" TextId="IO-Link ISDU"/>
+                <CategoryItem ID="IO-Link Digital I/O" TextId="IO-Link Digital I/O"/>
+            </CategoryList>
+            <ExternalTextList>
+                <PrimaryLanguage>
+                    <!--english-->
+                    <Text TextId="TOK_DevIdent_InfoText" Value="Banner DXM Series"/>
+
+                    <!--DAP - port IO device example-->
+                    <Text TextId="TOK_Category_Desc" Value="DXM Wireless Controller"/>
+                    <Text TextId="TOK_Standard" Value="Standard"/>
+                    <Text TextId="TOK_Standard_1p" Value="1-port Device"/>
+
+                    <Text TextId="TOK_ModInfo_InfoTextId_DAP1" Value="1-port Device"/>
+                    <!--port name-->
+                    <Text TextId="TOK_Subslot_8000" Value="X1"/>
+                    <Text TextId="TOK_Subslot_8001" Value="P1"/>
+                    <Text TextId="TOK_DAP_InterfaceModule" Value="Interface"/>
+                    <Text TextId="TOK_Port1" Value="RJ45 10/100 MBit/s"/>
+                    <!--module name-->
+                    <Text TextId="TOK_TextId_Module_Input_Integer_512" Value="512 bytes Integer Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_Integer_256" Value="256 bytes Integer Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_Integer_128" Value="128 bytes Integer Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_Integer_64"  Value="64 bytes Integer Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_FloatingPoint_512" Value="512 bytes Floating Point Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_FloatingPoint_256" Value="256 bytes Floating Point Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_FloatingPoint_128" Value="128 bytes Floating Point Input"/>
+                    <Text TextId="TOK_TextId_Module_Input_FloatingPoint_64"  Value="64 bytes Floating Point Input"/>
+                    <Text TextId="TOK_TextId_Module_Output_Integer_512" Value="512 bytes Integer Output"/>
+                    <Text TextId="TOK_TextId_Module_Output_Integer_256" Value="256 bytes Integer Output"/>
+                    <Text TextId="TOK_TextId_Module_Output_Integer_128" Value="128 bytes Integer Output"/>
+                    <Text TextId="TOK_TextId_Module_Output_Integer_64"  Value="64 bytes Integer Output"/>
+                    <Text TextId="TOK_TextId_Module_IOL_MasterInfo" Value="Banner IO-Link Master Info"/>
+                    <Text TextId="TOK_TextId_Module_IO_Link"  Value="IO-Link Linking Module"/>
+                    <Text TextId="TOK_TextId_Module_IO_Link_ISDU"  Value="IO-Link ISDU"/>
+                    <!--module info name-->
+                    <Text TextId="TOK_InfoTextId_Module_Input_Integer_512" Value="Access 256 registers of input integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_Integer_256" Value="Access 128 registers of input integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_Integer_128" Value="Access 64 registers of input integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_Integer_64"  Value="Access 32 registers of input integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_FloatingPoint_512" Value="Access 256 registers of input floating point numbers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_FloatingPoint_256" Value="Access 128 registers of input floating point numbers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_FloatingPoint_128" Value="Access 64 registers of input floating point numbers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Input_FloatingPoint_64"  Value="Access 32 registers of input floating point numbers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Output_Integer_512" Value="Access 256 registers of output integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Output_Integer_256" Value="Access 128 registers of output integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Output_Integer_128" Value="Access 64 registers of output integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_Output_Integer_64" Value="Access 32 registers of output integers"/>
+                    <Text TextId="TOK_InfoTextId_Module_IOL_MasterInfo" Value="Banner IO-Link Master Info"/>
+                    <Text TextId="TOK_InfoTextId_Module_IO_Link" Value="IO-Link linking module for 1 port"/>
+                    <Text TextId="TOK_InfoTextId_Module_IO_Link_ISDU"  Value="IO-Link ISDU access for all ports"/>
+                    <!--dataitem name-->
+                    <Text TextId="TOK_Input_DataItem_512" Value="Input 512 bytes"/>
+                    <Text TextId="TOK_Input_DataItem_256" Value="Input 256 bytes"/>
+                    <Text TextId="TOK_Input_DataItem_128" Value="Input 128 bytes"/>
+                    <Text TextId="TOK_Input_DataItem_64"  Value="Input 64 bytes"/>
+                    <Text TextId="TOK_Output_DataItem_512" Value="Output 512 bytes"/>
+                    <Text TextId="TOK_Output_DataItem_256" Value="Output 256 bytes"/>
+                    <Text TextId="TOK_Output_DataItem_128" Value="Output 128 bytes"/>
+                    <Text TextId="TOK_Output_DataItem_64"  Value="Output 64 bytes"/>
+                    <Text TextId="ISDU_Input_Data_190" Value="Data"/>
+                    <Text TextId="ISDU_Input_Data_80" Value="Data"/>
+                    <Text TextId="ISDU_Output_Data_190" Value="Data"/>
+                    <Text TextId="ISDU_Output_Data_80" Value="Data"/>
+                    <Text TextId="Input_Data_32"  Value="Input Data 32 Bytes"/>
+                    <Text TextId="Input_Data_16"  Value="Input Data 16 Bytes"/>
+                    <Text TextId="Input_Data_8"  Value="Input Data 8 Bytes"/>
+                    <Text TextId="Input_Data_4"  Value="Input Data 4 Bytes"/>
+                    <Text TextId="Input_Data_2"  Value="Input Data 2 Bytes"/>
+                    <Text TextId="Input_Data_1"  Value="Input Data 1 Byte"/>
+                    <Text TextId="Output_Data_32"  Value="Output Data 32 Bytes"/>
+                    <Text TextId="Output_Data_16"  Value="Output Data 16 Bytes"/>
+                    <Text TextId="Output_Data_15"  Value="Output Data 15 Bytes"/>
+                    <Text TextId="Output_Data_8"  Value="Output Data 8 Bytes"/>
+                    <Text TextId="Output_Data_4"  Value="Output Data 4 Bytes"/>
+                    <Text TextId="Output_Data_2"  Value="Output Data 2 Bytes"/>
+                    <Text TextId="Output_Data_1"  Value="Output Data 1 Byte"/>
+                    <Text TextId="PDI_Size"  Value="Process Data In Size (bytes)"/>
+                    <Text TextId="PDO_Size"  Value="Process Data Out Size (bytes)"/>
+                    <!-- IO-Link Abbreviations -->
+                    <Text TextId="VID" Value="Vendor ID"/>
+                    <Text TextId="DID" Value="Device ID"/>
+                    <Text TextId="NCH" Value="Number Supported Channels"/>
+                    <Text TextId="FWV" Value="Firmware Version"/>
+                    <Text TextId="STAT" Value="Port Status"/>
+                    <Text TextId="CON" Value="Port Connected"/>
+                    <Text TextId="PDV" Value="Process Data Valid"/>
+                    <Text TextId="EP" Value="Event Pending"/>
+                    <Text TextId="ISDU" Value="Ready for ISDU"/>
+                    <Text TextId="P4S" Value="Pin 4 SIO State"/>
+                    <Text TextId="P2S" Value="Pin 2 SIO State"/>
+                    <Text TextId="P4M" Value="Pin 4 Mode"/>
+                    <Text TextId="P2M" Value="Pin 2 Mode"/>
+                    <Text TextId="PDSZV" Value="Process Data Size Valid for Submodule"/>
+                    <Text TextId="IV" Value="Is Valid"/>
+                    <Text TextId="P4OS" Value="Pin 4 Output State"/>
+                    <Text TextId="P2OS" Value="Pin 2 Output State"/>
+                    <Text TextId="OP" Value="Operation"/>
+                    <Text TextId="ST" Value="Status"/>
+                    <Text TextId="PORT" Value="Port"/>
+                    <Text TextId="I" Value="Index"/>
+                    <Text TextId="SI" Value="SubIndex"/>
+                    <Text TextId="LEN" Value="Data Length"/>
+                    <Text TextId="OP_ST_P" Value="Port Operation"/>
+                    <Text TextId="XTRA2_4" Value="Pin 2/4 Advanced Configuration"/>
+                    <!-- IO-Link linking module and categories -->
+                    <Text TextId="IO-Link Generic Devices" Value="IO-Link Generic Devices"/>
+                    <Text TextId="IO-Link Digital I/O" Value="IO-Link Digital I/O"/>
+                    <Text TextId="IO-Link ISDU" Value="IO-Link ISDU"/>
+                    <!-- IO-Link submodules -->
+                    <Text TextId="CM IO-Link 32 I/ 32 O PQI" Value="IO-Link In/Out 32/32 Byte + Status"/>
+                    <Text TextId="CM IO-Link 16 I/ 16 O PQI" Value="IO-Link In/Out 16/16 Byte + Status"/>
+                    <Text TextId="CM IO-Link 8 I/ 8 O PQI" Value="IO-Link In/Out  8/ 8 Byte + Status"/>
+                    <Text TextId="CM IO-Link 4 I/ 4 O PQI" Value="IO-Link In/Out  4/ 4 Byte + Status"/>
+                    <Text TextId="CM IO-Link 2 I/ 2 O PQI" Value="IO-Link In/Out  2/ 2 Byte + Status"/>
+                    <Text TextId="CM IO-Link 1 I/ 1 O PQI" Value="IO-Link In/Out  1/ 1 Byte + Status"/>
+                    <Text TextId="CM IO-Link DO" Value="Digital Output"/>
+                    <Text TextId="CM IO-Link DI" Value="Digital Input"/>
+                    <Text TextId="CM IO-Link INACTIVE" Value="Port deactivated"/>
+                    <Text TextId="TOK_IOLink_Port_Config" Value="Port Configuration"/>
+                    <Text TextId="TOK_IOLink_Validation" Value="Data Storage Configuration"/>
+                    <Text TextId="TOK_IOLink_PortMode" Value="Port Mode"/>
+                    <Text TextId="TOK_IOLink_MinCycleTime" Value="Port Cycle Time"/>
+                    <Text TextId="TOK_IQ_Behavior" Value="Input 2 I/Q Behavior "/>
+                    <Text TextId="TOK_IOLink_Pin4Config" Value="Pin 4 Advanced Configuration"/>
+                    <Text TextId="TOK_IOLink_Pin2Config" Value="Pin 2 Advanced Configuration"/>
+                    <Text TextId="TOK_IOLink_ValidationBackup" Value="Validation/Backup"/>
+                    <Text TextId="TOK_IOLink_VendorID" Value="Vendor ID"/>
+                    <Text TextId="TOK_IOLink_DeviceID" Value="Device ID"/>
+                    <Text TextId="IO-Link ISDU 190I/190O" Value="IO-Link ISDU 190/190 Byte"/>
+                    <Text TextId="IO-Link ISDU 80I/80O" Value="IO-Link ISDU 80/80 Byte"/>
+                    <!-- IO-Link Value Items -->
+                    <Text TextId="TID_IOL Port_Mode_1" Value="Set port configuration"/>
+                    <Text TextId="TID_IOL Port_Mode_2" Value="Autostart"/>
+                    <Text TextId="TID_IOL Port_Mode_3" Value="DI_C/Q"/>
+                    <Text TextId="TID_IOL Port_Mode_4" Value="DO_C/Q"/> 
+                    <Text TextId="TID_IOL Cycle_Time_0" Value="as fast as possible"/>
+                    <Text TextId="TID_IOL Cycle_Time_16" Value="1.6 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_32" Value="3.2 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_48" Value="4.8 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_68" Value="8.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_73" Value="10.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_78" Value="12.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_88" Value="16.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_98" Value="20.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_133" Value="40.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_158" Value="80.0 ms"/>
+                    <Text TextId="TID_IOL Cycle_Time_183" Value="120.0 ms"/>                              
+                </PrimaryLanguage>
+            </ExternalTextList>
+        </ApplicationProcess>
+    </ProfileBody>
+</ISO15745Profile>

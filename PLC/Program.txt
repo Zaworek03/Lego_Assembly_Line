@@ -1,0 +1,40 @@
+IF "DB_Data".Stanowisko1.Commands.AbortProcess.State THEN
+    "DB_Data".Stanowisko1.Production.State := 0;
+    "DB_Data".Stanowisko1.Commands.AbortProcess.State := 0;
+END_IF;
+
+CASE "DB_Data".Stanowisko1.Production.State OF
+        
+    0:
+        //Ustawienie przyciskow
+        "DB_Data".Stanowisko1.Commands.Start.Enable := 1;
+        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 0;
+        "DB_Data".Stanowisko1.Commands.FInish.Enable := 0;
+        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 0;
+        
+        //Ustawienie awarii na 0
+        "DB_Data".Stanowisko1.Commands.FaultReason.DamagedPart := 0;
+        "DB_Data".Stanowisko1.Commands.FaultReason.MissingPart := 0;
+        "DB_Data".Stanowisko1.Commands.FaultReason.Other := 0;
+        "DB_Data".Stanowisko1.Commands.FaultReason.PalletFault := 0;
+        "DB_Data".Stanowisko1.Commands.FaultReason.SensorFault := 0;
+        "DB_Data".Stanowisko1.Commands.FaultReason.WrongInstruction := 0;
+        
+        //Przejscie do montazu Start = 1
+        IF "DB_Data".Stanowisko1.Commands.Start.State AND "DB_Data".Stanowisko1.Sensors.PalletPresent THEN
+            "DB_Data".Stanowisko1.Production.State := 1;
+            "DB_Data".Stanowisko1.Commands.Start.State := 0;
+        END_IF;
+    1:
+        //Ustawienie przycisków
+        "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 1;
+        "DB_Data".Stanowisko1.Commands.FInish.Enable := 1;
+        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 1;
+        
+        //Przejscie do zakończenia
+        IF "DB_Data".Stanowisko1.Commands.FInish.State THEN
+            "DB_Data".Stanowisko1.Production.State := 2;
+            "DB_Data".Stanowisko1.Commands.FInish.State := 0;
+        END_IF;
+END_CASE;
