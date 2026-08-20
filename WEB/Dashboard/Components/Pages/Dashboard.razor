@@ -1,0 +1,292 @@
+@page "/"
+@inject AuthService Auth
+@inject ProductionDataService Svc
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Dashboard — Linia Montażowa</PageTitle>
+
+@if (!Auth.IsLoggedIn) { return; }
+
+<!-- NAGŁÓWEK -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+    <div>
+        <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">Dashboard</MudText>
+        <MudText Typo="Typo.body2" Style="color:#666;">@DateTime.Now.ToString("dddd, dd MMMM yyyy", new System.Globalization.CultureInfo("pl-PL"))</MudText>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.FiberManualRecord" Size="Size.Small">
+            Live · odświeża co 5s
+        </MudChip>
+        <MudIconButton Icon="@Icons.Material.Filled.Refresh" Color="Color.Primary"
+                       Variant="Variant.Outlined" Size="Size.Small"
+                       OnClick="@(async () => { _loading = true; await LoadDataAsync(); _loading = false; })"
+                       Title="Odśwież dane" />
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div style="display:flex;justify-content:center;padding:80px;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+    </div>
+}
+else
+{
+    <!-- KPI CARDS -->
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            @KpiCard("OEE", _kpi.OEE, "#5c6bc0", Icons.Material.Filled.Speed, "Ogólna efektywność")
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            @KpiCard("Dostępność", _kpi.Dostepnosc, "#26a69a", Icons.Material.Filled.AccessTime, "Availability (A)")
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            @KpiCard("Wydajność", _kpi.Wydajnosc, "#ffa726", Icons.Material.Filled.TrendingUp, "Performance (P)")
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            @KpiCard("Jakość", _kpi.Jakosc, "#66bb6a", Icons.Material.Filled.VerifiedUser, "Quality (Q)")
+        </MudItem>
+    </MudGrid>
+
+    <!-- PRODUKCJA + FTY -->
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Style="padding:24px;border-radius:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <MudText Typo="Typo.overline" Style="color:#999;">WYPRODUKOWANO DZIŚ</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">@_kpi.Wyprodukowano szt</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.Inventory2" Style="color:#5c6bc0;font-size:36px;" />
+                </div>
+                <MudText Typo="Typo.body2" Style="color:#ef5350;">Wadliwe: @_kpi.LiczbaWadliwych szt</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Style="padding:24px;border-radius:12px;">
+                <MudText Typo="Typo.overline" Style="color:#999;">FTY — FIRST TIME YIELD</MudText>
+                <MudText Typo="Typo.h4" Style=@($"font-weight:700;color:{FtyColor}")>@_kpi.FTY.ToString("P1")</MudText>
+                <MudProgressLinear Value="@(_kpi.FTY * 100)" Color="@FtyMudColor" Rounded="true" Class="mt-2" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="2" Style="padding:24px;border-radius:12px;">
+                <MudText Typo="Typo.overline" Style="color:#999;">ŚR. CZAS CYKLU</MudText>
+                <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">@((_kpi.AvgCyklMs / 1000.0).ToString("F1")) s</MudText>
+                <MudText Typo="Typo.body2" Style="color:#666;">@_kpi.AvgCyklMs.ToString("N0") ms</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- STATUS STANOWISK -->
+    <MudText Typo="Typo.h6" Style="font-weight:600;color:#1a2035;margin-bottom:12px;">
+        Status stanowisk
+    </MudText>
+    <MudGrid Spacing="3" Class="mb-4">
+        @foreach (var s in _stanowiska)
+        {
+            <MudItem xs="12" sm="6" md="3">
+                @StanowiskoCard(s)
+            </MudItem>
+        }
+    </MudGrid>
+
+    <!-- WYKRESY -->
+    <MudGrid Spacing="3" Class="mb-4">
+        <!-- Trend OEE -->
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Style="padding:24px;border-radius:12px;">
+                <MudText Typo="Typo.h6" Style="font-weight:600;margin-bottom:16px;">Trend OEE — ostatnie cykle</MudText>
+                @if (_trend.Count > 0)
+                {
+                    <MudChart ChartType="ChartType.Line"
+                              ChartSeries="@_chartSeries"
+                              XAxisLabels="@_chartLabels"
+                              Width="100%" Height="250px"
+                              ChartOptions="@_chartOpts" />
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true">Brak danych — uruchom middleware i symulację.</MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Postoje -->
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Style="padding:24px;border-radius:12px;">
+                <MudText Typo="Typo.h6" Style="font-weight:600;margin-bottom:16px;">Przyczyny postojów</MudText>
+                @if (_postoje.Count > 0)
+                {
+                    <MudChart ChartType="ChartType.Donut"
+                              InputData="@_postoje.Select(p => (double)p.Liczba).ToArray()"
+                              InputLabels="@_postoje.Select(p => p.Kod).ToArray()"
+                              Width="100%" Height="250px" />
+                }
+                else
+                {
+                    <div style="text-align:center;padding:40px;">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="color:#66bb6a;font-size:48px;" />
+                        <MudText Typo="Typo.body1" Style="color:#66bb6a;margin-top:8px;">Brak postojów dziś!</MudText>
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- TABELA REALIZACJI -->
+    <MudPaper Elevation="2" Style="border-radius:12px;overflow:hidden;">
+        <div style="padding:20px 24px;border-bottom:1px solid #eee;">
+            <MudText Typo="Typo.h6" Style="font-weight:600;">Ostatnie realizacje</MudText>
+        </div>
+        <MudTable Items="_realizacje" Dense="true" Hover="true" Striped="true"
+                  Style="border-radius:0;" Elevation="0">
+            <HeaderContent>
+                <MudTh>Czas</MudTh>
+                <MudTh>Stanowisko</MudTh>
+                <MudTh>Operator</MudTh>
+                <MudTh>Cykl [ms]</MudTh>
+                <MudTh>OEE</MudTh>
+                <MudTh>QC</MudTh>
+                <MudTh>Kod postoju</MudTh>
+            </HeaderContent>
+            <RowTemplate Context="r">
+                <MudTd>@r.Czas.ToString("HH:mm:ss")</MudTd>
+                <MudTd>@r.Stanowisko</MudTd>
+                <MudTd>@r.Operator</MudTd>
+                <MudTd>@r.CyklMs.ToString("N0")</MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@OeeChipColor(r.OEE)" Style="font-weight:600;">
+                        @r.OEE.ToString("P1")
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudIcon Icon="@(r.WynikQC ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                             Style="@(r.WynikQC ? "color:#66bb6a" : "color:#ef5350")" />
+                </MudTd>
+                <MudTd>@(r.KodPostoju ?? "—")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Style="padding:20px;color:#999;">Brak danych. Uruchom middleware.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    </MudPaper>
+}
+
+@code {
+    DailyKpi              _kpi      = new();
+    List<StanowiskoStatus> _stanowiska = new();
+    List<OeeTrendPoint>   _trend    = new();
+    List<PostojCause>     _postoje  = new();
+    List<RealizacjaRow>   _realizacje = new();
+    bool _loading = true;
+
+    List<ChartSeries> _chartSeries = new();
+    string[]          _chartLabels = Array.Empty<string>();
+    ChartOptions      _chartOpts   = new() { YAxisTicks = 5, InterpolationOption = InterpolationOption.NaturalSpline };
+
+    System.Timers.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsLoggedIn)
+        { Nav.NavigateTo("/login"); return; }
+        if (!Auth.CurrentUser!.IsSupervisor)
+        { Nav.NavigateTo("/moje-statystyki"); return; }
+
+        await LoadDataAsync();
+        _timer = new System.Timers.Timer(5000);
+        _timer.Elapsed += async (_, _) =>
+        {
+            await LoadDataAsync();
+            await InvokeAsync(StateHasChanged);
+        };
+        _timer.Start();
+    }
+
+    async Task LoadDataAsync()
+    {
+        _loading = false;
+        try
+        {
+            _kpi        = await Svc.GetDailyKpiAsync();
+            _stanowiska = await Svc.GetStanowiskaStatusAsync();
+            _trend      = await Svc.GetOeeTrendAsync(30);
+            _postoje    = await Svc.GetPostojeCausesAsync();
+            _realizacje = await Svc.GetLatestRealizacjeAsync(15);
+            BuildChart();
+        }
+        catch { /* baza niedostępna — zostają puste dane */ }
+    }
+
+    void BuildChart()
+    {
+        _chartLabels = _trend.Select(t => t.Czas.ToString("HH:mm")).ToArray();
+        var groups = _trend.GroupBy(t => t.Stanowisko);
+        _chartSeries = groups.Select(g => new ChartSeries
+        {
+            Name = g.Key,
+            Data = g.Select(p => Math.Round(p.OEE * 100, 1)).ToArray()
+        }).ToList();
+    }
+
+    RenderFragment KpiCard(string title, double value, string color, string icon, string subtitle) => __builder =>
+    {
+        <MudPaper Elevation="2" Style=@($"padding:24px;border-radius:12px;border-left:4px solid {color};")>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                    <MudText Typo="Typo.overline" Style="color:#999;">@title</MudText>
+                    <MudText Typo="Typo.h4" Style=@($"font-weight:700;color:{color};")>
+                        @value.ToString("P1")
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color:#aaa;">@subtitle</MudText>
+                </div>
+                <MudIcon Icon="@icon" Style=@($"color:{color};font-size:36px;opacity:0.7;") />
+            </div>
+            <MudProgressLinear Value="@(value * 100)" Rounded="true" Class="mt-3"
+                               Style=@($"background:rgba(0,0,0,0.08);") Color="Color.Inherit"
+                               Style2=@($"background:{color};") />
+        </MudPaper>;
+    };
+
+    RenderFragment StanowiskoCard(StanowiskoStatus s) => __builder =>
+    {
+        var borderColor = s.IsActive ? "#66bb6a" : (s.KodPostoju != null ? "#ef5350" : "#ffa726");
+        var statusText  = s.IsActive ? "DZIAŁA" : (s.KodPostoju ?? "NIEAKTYWNE");
+        var statusColor = s.IsActive ? "#66bb6a" : (s.KodPostoju != null ? "#ef5350" : "#ffa726");
+
+        <MudPaper Elevation="2" Style=@($"padding:20px;border-radius:12px;border-top:3px solid {borderColor};")>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#1a2035;">@s.Nazwa</MudText>
+                <div style=@($"width:10px;height:10px;border-radius:50%;background:{borderColor};")></div>
+            </div>
+            <MudText Typo="Typo.caption" Style=@($"color:{statusColor};font-weight:600;")>● @statusText</MudText>
+            <MudDivider Class="my-2" />
+            <MudText Typo="Typo.body2" Style="color:#555;">
+                <b>Operator:</b> @(s.ImieNazwisko ?? "—")
+            </MudText>
+            <MudText Typo="Typo.body2" Style="color:#555;">
+                <b>OEE:</b> @(s.OEE.HasValue ? s.OEE.Value.ToString("P1") : "—")
+            </MudText>
+            <MudText Typo="Typo.body2" Style="color:#555;">
+                <b>Cykl:</b> @(s.OstatniCyklMs.HasValue ? $"{s.OstatniCyklMs} ms" : "—")
+            </MudText>
+            @if (s.OstatniaCzas.HasValue)
+            {
+                <MudText Typo="Typo.caption" Style="color:#aaa;">
+                    Ostatnia aktywność: @s.OstatniaCzas.Value.ToString("HH:mm:ss")
+                </MudText>
+            }
+        </MudPaper>;
+    };
+
+    Color OeeChipColor(double oee) =>
+        oee >= 0.85 ? Color.Success : oee >= 0.60 ? Color.Warning : Color.Error;
+
+    string FtyColor => _kpi.FTY >= 0.95 ? "#66bb6a" : _kpi.FTY >= 0.80 ? "#ffa726" : "#ef5350";
+    Color  FtyMudColor => _kpi.FTY >= 0.95 ? Color.Success : _kpi.FTY >= 0.80 ? Color.Warning : Color.Error;
+
+    public void Dispose() => _timer?.Dispose();
+}

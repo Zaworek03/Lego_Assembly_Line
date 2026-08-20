@@ -1,0 +1,581 @@
+﻿@page "/digital-twin"
+@inject AuthService Auth
+@inject DigitalTwinService DtSvc
+@inject NavigationManager Nav
+@implements IDisposable
+@using LiniaProdukcyjnaDashboard.Models
+
+<PageTitle>Digital Twin — Linia Montażowa</PageTitle>
+
+@if (!Auth.IsLoggedIn) { return; }
+
+<style>
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .dt-root {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* ── Nagłówek ────────────────────────────────────────────────── */
+    .dt-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .dt-live-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(239,83,80,0.12);
+        border: 1px solid rgba(239,83,80,0.3);
+        border-radius: 20px;
+        padding: 5px 14px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #ef5350;
+        letter-spacing: 0.5px;
+    }
+
+    .dt-pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef5350;
+        animation: pulse-red 1.2s infinite;
+    }
+
+    @@keyframes pulse-red {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    /* ── KPI cards ───────────────────────────────────────────────── */
+    .dt-kpi-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+    @@media (max-width: 900px) { .dt-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+    .dt-kpi-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 18px 22px;
+        border-left: 4px solid var(--accent);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .dt-kpi-card .kpi-label { font-size: 0.7rem; color: #999; letter-spacing: 1px; font-weight: 600; text-transform: uppercase; }
+    .dt-kpi-card .kpi-value { font-size: 1.8rem; font-weight: 800; color: var(--accent); margin: 4px 0 2px; line-height: 1; }
+    .dt-kpi-card .kpi-sub   { font-size: 0.75rem; color: #aaa; }
+
+    /* ── SVG Viewport ────────────────────────────────────────────── */
+    .dt-svg-wrapper {
+        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        border-radius: 18px;
+        padding: 32px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dt-svg-wrapper::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Ccircle cx='20' cy='20' r='1'/%3E%3C/g%3E%3C/svg%3E");
+        pointer-events: none;
+    }
+
+    .dt-svg-title {
+        color: rgba(255,255,255,0.5);
+        font-size: 0.65rem;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+        font-weight: 600;
+    }
+
+    /* ── Stanowisko SVG box ──────────────────────────────────────── */
+    .stn-box {
+        cursor: pointer;
+        transition: filter 0.2s;
+    }
+    .stn-box:hover { filter: brightness(1.15); }
+
+    /* ── Panel boczny ────────────────────────────────────────────── */
+    .dt-side-panel {
+        background: #fff;
+        border-radius: 14px;
+        padding: 24px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        min-width: 300px;
+        max-width: 380px;
+        flex-shrink: 0;
+    }
+
+    .dt-bottom-row {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    .dt-svg-wrapper-flex {
+        flex: 1;
+    }
+
+    /* ── Przepływ animacja ────────────────────────────────────────── */
+    @@keyframes flow-right {
+        0%   { stroke-dashoffset: 60; opacity: 0.3; }
+        50%  { opacity: 1; }
+        100% { stroke-dashoffset: 0;  opacity: 0.3; }
+    }
+
+    .flow-arrow {
+        stroke-dasharray: 10 8;
+        stroke-dashoffset: 60;
+        animation: flow-right 1.8s linear infinite;
+    }
+
+    /* ── Status kółka ─────────────────────────────────────────────── */
+    @@keyframes pulse-green {
+        0%, 100% { r: 7; opacity: 0.8; }
+        50%       { r: 9; opacity: 1;   }
+    }
+    .status-dot-active { animation: pulse-green 1.5s ease-in-out infinite; }
+
+    /* ── Historia cykli ──────────────────────────────────────────── */
+    .cycle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 0.8rem;
+    }
+    .cycle-row:last-child { border-bottom: none; }
+</style>
+
+<div class="dt-root">
+    <!-- NAGŁÓWEK -->
+    <div class="dt-header">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:800;color:#1a2035;">Digital Twin</MudText>
+            <MudText Typo="Typo.body2" Style="color:#888;">
+                Wizualizacja linii montażowej w czasie rzeczywistym
+            </MudText>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span class="dt-live-badge">
+                <span class="dt-pulse"></span>
+                LIVE · odświeża co 3s
+            </span>
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh"
+                           Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small"
+                           OnClick="@OdswiezAsync" Title="Odśwież" />
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div style="display:flex;justify-content:center;padding:100px;">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        </div>
+    }
+    else
+    {
+        <!-- KPI ROW -->
+        <div class="dt-kpi-row">
+            <div class="dt-kpi-card" style="--accent:#5c6bc0">
+                <div class="kpi-label">OEE dziś</div>
+                <div class="kpi-value">@(_sum.OEEDzisiaj.ToString("P1"))</div>
+                <div class="kpi-sub">Overall Equipment Effectiveness</div>
+            </div>
+            <div class="dt-kpi-card" style="--accent:#66bb6a">
+                <div class="kpi-label">Wyprodukowano dziś</div>
+                <div class="kpi-value">@_sum.SztukOKDzisiaj <small style="font-size:1rem">szt</small></div>
+                <div class="kpi-sub">Łącznie: @_sum.SztukDzisiaj · Wadliwe: @_sum.WadliweDzisiaj</div>
+            </div>
+            <div class="dt-kpi-card" style="--accent:#ffa726">
+                <div class="kpi-label">Cykle / ostatnia godzina</div>
+                <div class="kpi-value">@_sum.CykleGodzina</div>
+                <div class="kpi-sub">Aktywność produkcji</div>
+            </div>
+            <div class="dt-kpi-card" style="--accent:#26a69a">
+                <div class="kpi-label">Aktywne zlecenie</div>
+                <div class="kpi-value" style="font-size:1rem;margin-top:8px;">
+                    @(_sum.AktywneZlecenie ?? "—")
+                </div>
+                <div class="kpi-sub">Ostatnio aktywne</div>
+            </div>
+        </div>
+
+        <!-- SVG + PANEL BOCZNY -->
+        <div class="dt-bottom-row">
+            <!-- SVG MAPA -->
+            <div class="dt-svg-wrapper dt-svg-wrapper-flex">
+                <div class="dt-svg-title">🏭 Mapa linii montażowej</div>
+
+                <svg viewBox="0 0 860 320" xmlns="http://www.w3.org/2000/svg"
+                     style="width:100%;height:auto;display:block;">
+
+                    <defs>
+                        <!-- Glowy dla stanowisk -->
+                        @foreach (var s in _stanowiska)
+                        {
+                            <filter id="glow-@s.IDStanowiska" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="6" result="blur"/>
+                                <feFlood flood-color="@s.StatusColor" flood-opacity="0.5" result="color"/>
+                                <feComposite in="color" in2="blur" operator="in" result="glow"/>
+                                <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        }
+                        <!-- Gradient tła stanowisk -->
+                        <linearGradient id="bg-idle"   x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#2a3441"/>
+                            <stop offset="100%" stop-color="#1e2832"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- LINIA PRZEPŁYWU - pozioma -->
+                    @if (_stanowiska.Count >= 2)
+                    {
+                        <!-- Przerywana linia bazowa -->
+                        <line x1="200" y1="160" x2="660" y2="160"
+                              stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+
+                        <!-- Animowane strzałki przepływu -->
+                        @for (int i = 0; i < _stanowiska.Count - 1; i++)
+                        {
+                            double x1 = 100 + i * 190 + 90;
+                            double x2 = 100 + (i + 1) * 190;
+                            var c = _stanowiska[i].StatusColor;
+                            var delay = (i * 0.5).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                            <line x1="@x1.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  y1="160"
+                                  x2="@x2.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  y2="160"
+                                  stroke="@c"
+                                  stroke-width="2.5"
+                                  class="flow-arrow"
+                                  style="animation-delay:@(delay)s;" />
+                            <!-- Grot strzałki -->
+                            <polygon points="@((x2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)),155 @((x2+10).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)),160 @((x2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture)),165"
+                                     fill="@c" opacity="0.7"/>
+                        }
+                    }
+
+                    <!-- STANOWISKA -->
+                    @for (int i = 0; i < _stanowiska.Count; i++)
+                    {
+                        var s = _stanowiska[i];
+                        double cx = 100 + i * 190;
+                        double cy = 80;
+                        double bw = 160;
+                        double bh = 160;
+                        var isSelected = _selectedId == s.IDStanowiska;
+                        var strokeW = isSelected ? "3" : "1.5";
+                        var fillOpacity = isSelected ? "0.18" : "0.10";
+                        var idx = i; // capture
+
+                        <g class="stn-box"
+                           @onclick="@(() => SelectStanowisko(s.IDStanowiska))"
+                           filter="url(#glow-@s.IDStanowiska)">
+
+                            <!-- Tło box -->
+                            <rect x="@cx.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  y="@cy.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  width="@bw.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  height="@bh.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)"
+                                  rx="12"
+                                  fill="@s.StatusColor"
+                                  fill-opacity="@fillOpacity"
+                                  stroke="@s.StatusColor"
+                                  stroke-width="@strokeW"
+                                  stroke-opacity="0.8"/>
+
+                            <!-- Nazwa stanowiska -->
+                            <text x="@((cx + bw/2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 26).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  text-anchor="middle"
+                                  fill="white"
+                                  font-size="11"
+                                  font-weight="700"
+                                  font-family="Inter, sans-serif"
+                                  letter-spacing="0.5">@s.Nazwa.ToUpper()</text>
+
+                            <!-- OEE duże -->
+                            <text x="@((cx + bw/2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 72).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  text-anchor="middle"
+                                  fill="@s.StatusColor"
+                                  font-size="32"
+                                  font-weight="800"
+                                  font-family="Inter, sans-serif">
+                                @(s.OEE.HasValue ? s.OEE.Value.ToString("P0") : "—")
+                            </text>
+
+                            <!-- OEE label -->
+                            <text x="@((cx + bw/2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 86).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  text-anchor="middle"
+                                  fill="rgba(255,255,255,0.4)"
+                                  font-size="9"
+                                  font-family="Inter, sans-serif"
+                                  letter-spacing="1">OEE</text>
+
+                            <!-- Pasek postępu OEE -->
+                            <rect x="@((cx+12).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy+94).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  width="136" height="4" rx="2"
+                                  fill="rgba(255,255,255,0.08)"/>
+                            <rect x="@((cx+12).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy+94).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  width="@((136 * (s.OEE ?? 0)).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  height="4" rx="2"
+                                  fill="@s.StatusColor"/>
+
+                            <!-- Operator -->
+                            <text x="@((cx + bw/2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 118).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  text-anchor="middle"
+                                  fill="rgba(255,255,255,0.65)"
+                                  font-size="10"
+                                  font-family="Inter, sans-serif">
+                                👤 @(s.Operator ?? "—")
+                            </text>
+
+                            <!-- Cykl -->
+                            <text x="@((cx + bw/2).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 134).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  text-anchor="middle"
+                                  fill="rgba(255,255,255,0.5)"
+                                  font-size="9"
+                                  font-family="Inter, sans-serif">
+                                @(s.CzasCykluMs.HasValue ? $"{s.CzasCykluMs/1000.0:F1}s / {(s.CzasPlanowanyMs ?? 0)/1000.0:F1}s" : "— / —")
+                            </text>
+
+                            <!-- Status kółko -->
+                            <circle cx="@((cx + bw - 18).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                    cy="@((cy + 18).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                    r="7"
+                                    fill="@s.StatusColor"
+                                    class="@(s.IsActive ? "status-dot-active" : "")"/>
+
+                            <!-- Licznik szt dziś -->
+                            <text x="@((cx + 12).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  y="@((cy + 155).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))"
+                                  fill="rgba(255,255,255,0.4)"
+                                  font-size="9"
+                                  font-family="Inter, sans-serif">
+                                ✅@(s.SztukDzisiaj - s.WadliweDzisiaj) ❌@s.WadliweDzisiaj
+                            </text>
+                        </g>
+                    }
+
+                    <!-- LEGENDA -->
+                    <g transform="translate(20, 285)">
+                        <circle cx="7" cy="7" r="5" fill="#66bb6a"/>
+                        <text x="16" y="11" fill="rgba(255,255,255,0.5)" font-size="9" font-family="Inter,sans-serif">OEE ≥ 85%</text>
+                        <circle cx="90" cy="7" r="5" fill="#ffa726"/>
+                        <text x="99" y="11" fill="rgba(255,255,255,0.5)" font-size="9" font-family="Inter,sans-serif">OEE 65–85%</text>
+                        <circle cx="180" cy="7" r="5" fill="#ef5350"/>
+                        <text x="189" y="11" fill="rgba(255,255,255,0.5)" font-size="9" font-family="Inter,sans-serif">OEE &lt; 65% / Postój</text>
+                        <circle cx="295" cy="7" r="5" fill="#546e7a"/>
+                        <text x="304" y="11" fill="rgba(255,255,255,0.5)" font-size="9" font-family="Inter,sans-serif">Idle</text>
+                    </g>
+                </svg>
+            </div>
+
+            <!-- PANEL BOCZNY -->
+            <div class="dt-side-panel">
+                @if (_selectedId == null)
+                {
+                    <MudText Typo="Typo.h6" Style="font-weight:700;color:#1a2035;margin-bottom:8px;">
+                        Szczegóły stanowiska
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="color:#aaa;">
+                        Kliknij na stanowisko na mapie, aby zobaczyć szczegółowe dane i historię cykli.
+                    </MudText>
+                    <div style="text-align:center;padding:40px 0;">
+                        <MudIcon Icon="@Icons.Material.Filled.TouchApp"
+                                 Style="font-size:56px;color:#e0e0e0;" />
+                    </div>
+                }
+                else
+                {
+                    var sel = _stanowiska.FirstOrDefault(x => x.IDStanowiska == _selectedId);
+                    if (sel != null)
+                    {
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+                            <div>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;color:#1a2035;">@sel.Nazwa</MudText>
+                                <span style="font-size:0.75rem;font-weight:700;color:@sel.StatusColor;background:@(sel.StatusColor)18;padding:2px 10px;border-radius:10px;border:1px solid @(sel.StatusColor)40;">
+                                    ● @sel.StatusLabel
+                                </span>
+                            </div>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="@(() => _selectedId = null)" />
+                        </div>
+
+                        <!-- Metryki stanowiska -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                            <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
+                                <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">OEE</div>
+                                <div style="font-size:1.4rem;font-weight:800;color:@sel.StatusColor;">
+                                    @(sel.OEE.HasValue ? sel.OEE.Value.ToString("P1") : "—")
+                                </div>
+                            </div>
+                            <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
+                                <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">FTY</div>
+                                <div style="font-size:1.4rem;font-weight:800;color:#26a69a;">
+                                    @(sel.FTY.HasValue ? sel.FTY.Value.ToString("P1") : "—")
+                                </div>
+                            </div>
+                            <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
+                                <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">CYKL</div>
+                                <div style="font-size:1.1rem;font-weight:700;color:#5c6bc0;">
+                                    @(sel.CzasCykluMs.HasValue ? $"{sel.CzasCykluMs/1000.0:F1}s" : "—")
+                                </div>
+                            </div>
+                            <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
+                                <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">DZIŚ</div>
+                                <div style="font-size:1.1rem;font-weight:700;color:#66bb6a;">
+                                    @sel.SztukDzisiaj <small style="font-size:0.7rem;color:#aaa;">szt</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Operator i zlecenie -->
+                        <MudDivider Class="mb-3"/>
+                        <div style="font-size:0.82rem;color:#555;line-height:1.9;">
+                            <div><b>👤 Operator:</b> @(sel.Operator ?? "—")</div>
+                            <div><b>📋 Zlecenie:</b> @(sel.AktywneZlecenie ?? "—")</div>
+                            <div><b>🕐 Ostatnia aktywność:</b> @(sel.OstatniaCzas?.ToString("HH:mm:ss") ?? "—")</div>
+                            @if (!string.IsNullOrEmpty(sel.KodPostoju))
+                            {
+                                <div style="color:#ef5350;"><b>⚠️ Kod postoju:</b> @sel.KodPostoju</div>
+                            }
+                        </div>
+
+                        <!-- Historia cykli -->
+                        <MudDivider Class="my-3"/>
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:#1a2035;margin-bottom:8px;">
+                            Ostatnie cykle
+                        </MudText>
+
+                        @if (_loadingCycles)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                        }
+                        else if (_cycles.Count == 0)
+                        {
+                            <MudText Typo="Typo.caption" Style="color:#aaa;">Brak danych</MudText>
+                        }
+                        else
+                        {
+                            <div style="max-height:220px;overflow-y:auto;">
+                                @foreach (var c in _cycles)
+                                {
+                                    <div class="cycle-row">
+                                        <div>
+                                            <div style="font-weight:600;color:#333;">@c.Czas.ToString("HH:mm:ss")</div>
+                                            <div style="color:#aaa;font-size:0.72rem;">@c.CyklMs ms</div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Color="@OeeColor(c.OEE)"
+                                                     Style="font-weight:600;font-size:0.72rem;">
+                                                @c.OEE.ToString("P0")
+                                            </MudChip>
+                                            @if (!c.WynikQC)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.Cancel"
+                                                         Style="color:#ef5350;font-size:16px;vertical-align:middle;margin-left:4px;"/>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    List<DigitalTwinStanowiskoVM> _stanowiska = new();
+    DigitalTwinSummaryVM          _sum        = new();
+    List<RealizacjaRow>           _cycles     = new();
+    bool  _loading       = true;
+    bool  _loadingCycles = false;
+    int?  _selectedId    = null;
+
+    System.Timers.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Auth.IsLoggedIn)      { Nav.NavigateTo("/login");            return; }
+        if (!Auth.CurrentUser!.IsSupervisor) { Nav.NavigateTo("/moje-statystyki"); return; }
+
+        await LoadDataAsync();
+
+        _timer = new System.Timers.Timer(3000);
+        _timer.Elapsed += async (_, _) =>
+        {
+            await LoadDataAsync();
+            await InvokeAsync(StateHasChanged);
+        };
+        _timer.Start();
+    }
+
+    async Task LoadDataAsync()
+    {
+        _loading = false;
+        try
+        {
+            _stanowiska = await DtSvc.GetStanowiskaLiveAsync();
+            _sum        = await DtSvc.GetDzisiejszeSummaryAsync();
+            _loading    = false;
+
+            // odśwież cykle jeśli panel boczny otwarty
+            if (_selectedId.HasValue)
+                await LoadCyclesAsync(_selectedId.Value);
+        }
+        catch { /* baza niedostępna */ }
+    }
+
+    async Task OdswiezAsync()
+    {
+        _loading = true;
+        await InvokeAsync(StateHasChanged);
+        await LoadDataAsync();
+        _loading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task SelectStanowisko(int id)
+    {
+        _selectedId = id;
+        _cycles.Clear();
+        await LoadCyclesAsync(id);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    async Task LoadCyclesAsync(int id)
+    {
+        _loadingCycles = true;
+        try   { _cycles = await DtSvc.GetOstatnieCykleAsync(id, 10); }
+        catch { _cycles = new(); }
+        _loadingCycles = false;
+    }
+
+    Color OeeColor(double oee) =>
+        oee >= 0.85 ? Color.Success : oee >= 0.60 ? Color.Warning : Color.Error;
+
+    public void Dispose() => _timer?.Dispose();
+}

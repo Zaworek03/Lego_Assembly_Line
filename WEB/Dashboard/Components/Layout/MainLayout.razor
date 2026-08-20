@@ -1,0 +1,113 @@
+@inherits LayoutComponentBase
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+
+@if (!Auth.IsLoggedIn)
+{
+    @Body
+}
+else
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Color="Color.Primary" Style="border-bottom:1px solid rgba(255,255,255,0.08);">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                           OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+            <MudText Typo="Typo.h6" Style="color:#fff;font-weight:700;letter-spacing:0.5px;">
+                🏭 Linia Montażowa LEGO
+            </MudText>
+            <MudSpacer />
+            <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Primary" Size="Size.Small">
+                @Auth.CurrentUser!.ImieNazwisko
+            </MudChip>
+            <MudChip T="string" Color="@(Auth.CurrentUser.IsSupervisor ? Color.Warning : Color.Info)" Size="Size.Small" Class="ml-1">
+                @Auth.CurrentUser.Rola
+            </MudChip>
+            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit"
+                           OnClick="Logout" Title="Wyloguj" Class="ml-2" />
+        </MudAppBar>
+
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="2"
+                   Style="background:#1a2035;" ClipMode="DrawerClipMode.Always">
+            <MudDrawerHeader>
+                <MudText Typo="Typo.subtitle2" Style="color:rgba(255,255,255,0.5);padding:8px 0;">
+                    NAWIGACJA
+                </MudText>
+            </MudDrawerHeader>
+            <MudNavMenu Color="Color.Primary">
+                <MudNavLink Href="/" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Filled.Dashboard" Style="color:#e0e0e0;">
+                    Dashboard
+                </MudNavLink>
+                @if (Auth.CurrentUser.IsSupervisor)
+                {
+                    <MudNavLink Href="/zlecenia"
+                                Icon="@Icons.Material.Filled.Assignment" Style="color:#e0e0e0;">
+                        Zlecenia
+                    </MudNavLink>
+                    <MudNavLink Href="/harmonogram"
+                                Icon="@Icons.Material.Filled.CalendarMonth" Style="color:#e0e0e0;">
+                        Harmonogram
+                    </MudNavLink>
+                    <MudNavLink Href="/magazyn"
+                                Icon="@Icons.Material.Filled.Inventory2" Style="color:#e0e0e0;">
+                        Magazyn
+                    </MudNavLink>
+                    <MudNavLink Href="/raporty"
+                                Icon="@Icons.Material.Filled.BarChart" Style="color:#e0e0e0;">
+                        Raporty
+                    </MudNavLink>
+                }
+                else
+                {
+                    <MudNavLink Href="/moje-statystyki"
+                                Icon="@Icons.Material.Filled.Person" Style="color:#e0e0e0;">
+                        Moje statystyki
+                    </MudNavLink>
+                }
+            </MudNavMenu>
+        </MudDrawer>
+
+        <MudMainContent Style="background:#f0f2f8;min-height:100vh;">
+            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
+
+@code {
+    bool _drawerOpen = true;
+
+    MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary         = "#5c6bc0",
+            Secondary       = "#26a69a",
+            Success         = "#66bb6a",
+            Warning         = "#ffa726",
+            Error           = "#ef5350",
+            Background      = "#f0f2f8",
+            Surface         = "#ffffff",
+            AppbarBackground = "#1a2035",
+            DrawerBackground = "#1a2035",
+            DrawerText      = "#e0e0e0",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Inter", "sans-serif"] }
+        }
+    };
+
+    void Logout()
+    {
+        Auth.Logout();
+        Nav.NavigateTo("/login");
+    }
+}
