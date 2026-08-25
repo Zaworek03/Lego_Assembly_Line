@@ -183,7 +183,7 @@ namespace PlcToDbMiddleware
                 public List<(int id, int modelId, int partNo, int priority)> GetActiveOrders()
         {
             const string sql = @"
-                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, Ilosc_Sztuk, PriorytetNum
+                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, ID_Wyrobu, PriorytetNum
                 FROM [dbo].[Zlecenie_Produkcyjne]
                 WHERE Status_Zlecenia IN ('W toku', 'Aktywne', 'Oczekujące') 
                   AND IsDeleted = 0
@@ -196,7 +196,13 @@ namespace PlcToDbMiddleware
             var list = new List<(int, int, int, int)>();
             while (rdr.Read())
             {
-                list.Add((Convert.ToInt32(rdr[0]), Convert.ToInt32(rdr[1]), Convert.ToInt32(rdr[2]), Convert.ToInt32(rdr[3])));
+                int idWyrobu = Convert.ToInt32(rdr[1]);
+                list.Add((
+                    Convert.ToInt32(rdr[0]),  // id = ID_Zlecenia (0-499)
+                    idWyrobu + 1,              // modelId = ID_Wyrobu + 1 (offset: wyrob 1->model 2, wyrob 6->model 7)
+                    idWyrobu,                  // partNo = ID_Wyrobu (1-6, numer wyrobu)
+                    Convert.ToInt32(rdr[3])    // priority
+                ));
             }
             return list;
         }
@@ -255,6 +261,7 @@ namespace PlcToDbMiddleware
         }
     }
 }
+
 
 
 

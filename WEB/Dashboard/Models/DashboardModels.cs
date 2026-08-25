@@ -65,22 +65,24 @@
         public string?  KodPostoju      { get; set; }
     }
 
-    // ── Priorytety zleceń ─────────────────────────────────────────────
+    // ── Priorytety zleceń (1 = najniższy, 5 = krytyczny) ──
     public static class Priorytety
     {
-        public const string Niski       = "Niski";
-        public const string Standardowy = "Standardowy";
-        public const string Wysoki      = "Wysoki";
-        public const string Krytyczny   = "Krytyczny";
+        public const string P1 = "1 - Niski";
+        public const string P2 = "2 - Niski-Standardowy";
+        public const string P3 = "3 - Standardowy";
+        public const string P4 = "4 - Wysoki";
+        public const string P5 = "5 - Krytyczny";
 
-        public static readonly string[] Wszystkie = { Niski, Standardowy, Wysoki, Krytyczny };
+        public static readonly string[] Wszystkie = { P1, P2, P3, P4, P5 };
 
         public static int ToNum(string p) => p switch
         {
-            Krytyczny   => 4,
-            Wysoki      => 3,
-            Standardowy => 2,
-            _           => 1
+            P5 => 5,
+            P4 => 4,
+            P3 => 3,
+            P2 => 2,
+            _  => 1
         };
     }
 
@@ -97,7 +99,7 @@
         public int       CzasPlanowanyMs   { get; set; }
         public string?   NazwaWyrobu       { get; set; }
         public int?      IDWyrobu          { get; set; }
-        public string    Priorytet         { get; set; } = Priorytety.Standardowy;
+        public string    Priorytet         { get; set; } = Priorytety.P3;
         public DateTime? NajpozniejszyStart { get; set; }
         public DateTime? CompletedAt       { get; set; }
         public int       SztukOK           { get; set; }
@@ -247,3 +249,6 @@
         public bool      TerminOK        => !DueTime.HasValue || !CompletedAt.HasValue || CompletedAt.Value <= DueTime.Value;
     }
 }
+
+
+

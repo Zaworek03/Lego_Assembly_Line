@@ -221,9 +221,7 @@ namespace LiniaProdukcyjnaDashboard.Services
         /// <summary>
         /// Tworzy zlecenie, wykonuje backward scheduling i rezerwuje materiały.
         /// </summary>
-        public async Task<(int idZlecenia, WalidacjaKomponentow? walidacja)> CreateZlecenieAsync(
-            string nazwa, int iloscSztuk, int idWyrobu,
-            DateTime dueTime, string priorytet)
+        public async Task<(int idZlecenia, WalidacjaKomponentow? walidacja)> CreateZlecenieAsync(string nazwa, int iloscSztuk, int idWyrobu, string priorytet)
         {
             // 1. Walidacja dostępności komponentów
             var walidacja = await _inv.WalidujDostepnoscAsync(idWyrobu, iloscSztuk);
@@ -232,7 +230,7 @@ namespace LiniaProdukcyjnaDashboard.Services
 
             // 2. Oblicz czas realizacji (TPZ + TJ * ilość) i backward scheduling
             int calkowityCzasMs = await ObliczCalkowityCzasAsync(idWyrobu, iloscSztuk);
-            DateTime najpozniejszyStart = dueTime.AddMilliseconds(-calkowityCzasMs);
+            DateTime najpozniejszyStart = DateTime.Now.AddMilliseconds(-calkowityCzasMs);
 
             // 3. Sprawdź preempcję — czy jest aktywne zlecenie niższego priorytetu
             await using var conn = new SqlConnection(_cs);
@@ -258,7 +256,7 @@ namespace LiniaProdukcyjnaDashboard.Services
                 cmd.Parameters.AddWithValue("@Nazwa",    nazwa);
                 cmd.Parameters.AddWithValue("@Ilosc",    iloscSztuk);
                 cmd.Parameters.AddWithValue("@Wyrob",    idWyrobu);
-                cmd.Parameters.AddWithValue("@Due",      dueTime);
+                cmd.Parameters.AddWithValue("@Due", DateTime.Now);
                 cmd.Parameters.AddWithValue("@Czas",     calkowityCzasMs);
                 cmd.Parameters.AddWithValue("@Prior",    priorytet);
                 cmd.Parameters.AddWithValue("@PriorNum", priorytetNum);
@@ -282,15 +280,13 @@ namespace LiniaProdukcyjnaDashboard.Services
         }
 
         // ── Edycja zlecenia ──────────────────────────────────────────────
-        public async Task<WalidacjaKomponentow?> EditZlecenieAsync(
-            int idZlecenia, string nazwa, int iloscSztuk, int idWyrobu,
-            DateTime dueTime, string priorytet)
+        public async Task<WalidacjaKomponentow?> EditZlecenieAsync(int idZlecenia, string nazwa, int iloscSztuk, int idWyrobu, string priorytet)
         {
             var walidacja = await _inv.WalidujDostepnoscAsync(idWyrobu, iloscSztuk, idZlecenia);
             if (!walidacja.CzyMozna) return walidacja;
 
             int calkowityCzasMs     = await ObliczCalkowityCzasAsync(idWyrobu, iloscSztuk);
-            DateTime najpoznStartu  = dueTime.AddMilliseconds(-calkowityCzasMs);
+            DateTime najpoznStartu  = DateTime.Now.AddMilliseconds(-calkowityCzasMs);
 
             // Zwolnij stare rezerwy i zarezerwuj ponownie
             await _inv.ZwolnijRezerwyAsync(idZlecenia);
@@ -312,7 +308,7 @@ namespace LiniaProdukcyjnaDashboard.Services
             cmd.Parameters.AddWithValue("@Nazwa",    nazwa);
             cmd.Parameters.AddWithValue("@Ilosc",    iloscSztuk);
             cmd.Parameters.AddWithValue("@Wyrob",    idWyrobu);
-            cmd.Parameters.AddWithValue("@Due",      dueTime);
+            cmd.Parameters.AddWithValue("@Due", DateTime.Now);
             cmd.Parameters.AddWithValue("@Czas",     calkowityCzasMs);
             cmd.Parameters.AddWithValue("@Prior",    priorytet);
             cmd.Parameters.AddWithValue("@PriorNum", Priorytety.ToNum(priorytet));
@@ -462,11 +458,14 @@ namespace LiniaProdukcyjnaDashboard.Services
             CzasPlanowanyMs   = r.GetInt32(7),
             NazwaWyrobu       = r.IsDBNull(8) ? null : r.GetString(8),
             IDWyrobu          = r.IsDBNull(9) ? null : r.GetInt32(9),
-            Priorytet         = r.IsDBNull(10) ? Priorytety.Standardowy : r.GetString(10),
+            Priorytet         = r.IsDBNull(10) ? Priorytety.P3 : r.GetString(10),
             NajpozniejszyStart = r.IsDBNull(11) ? null : r.GetDateTime(11),
             CompletedAt       = r.IsDBNull(12) ? null : r.GetDateTime(12),
             SztukNOK          = r.IsDBNull(13) ? 0 : r.GetInt32(13)
         };
     }
 }
+
+
+
 

@@ -237,7 +237,7 @@
                     <MudItem xs="12" sm="6">
                         <MudNumericField T="int" @bind-Value="_fIlosc"
                                          Label="Wielkość partii (szt) *"
-                                         Variant="Variant.Outlined" Min="1" Required="true"
+                                         Variant="Variant.Outlined" Min="1" Max="10" Required="true"
                                          HelperText="Liczba sztuk do wyprodukowania" />
                     </MudItem>
 
@@ -250,19 +250,6 @@
                                 <MudSelectItem Value="p">@p</MudSelectItem>
                             }
                         </MudSelect>
-                    </MudItem>
-
-                    <!-- Due date -->
-                    <MudItem xs="12" sm="6">
-                        <MudDatePicker @bind-Date="_fDueDate" Label="Data wymagalności *"
-                                       Variant="Variant.Outlined" Required="true" />
-                    </MudItem>
-
-                    <!-- Due time (godzina) -->
-                    <MudItem xs="12" sm="6">
-                        <MudTimePicker @bind-Time="_fDueTime" Label="Godzina wymagalności *"
-                                       Variant="Variant.Outlined" Required="true"
-                                       AmPm="false" />
                     </MudItem>
                 </MudGrid>
 
@@ -406,11 +393,9 @@
 
     // Pola formularza
     string   _fNazwa     = "";
-    int      _fIlosc     = 100;
+    int      _fIlosc     = 1;
     int?     _fIdWyrobu;
-    string   _fPriorytet = Priorytety.Standardowy;
-    DateTime? _fDueDate;
-    TimeSpan? _fDueTime;
+    string   _fPriorytet = Priorytety.P3;
 
     // Stan modalu szczegółów
     bool           _detailOpen = false;
@@ -459,12 +444,10 @@
     void OpenCreateModal()
     {
         _editId      = null;
-        _fNazwa      = $"ZL-{DateTime.Now:yyyyMMdd}-{_zlecenia.Count + 1:D3}";
-        _fIlosc      = 100;
+        _fNazwa     = $"ZL{_zlecenia.Count:D3}";
+        _fIlosc     = 1;
         _fIdWyrobu   = _wyroby.FirstOrDefault()?.ID;
-        _fPriorytet  = Priorytety.Standardowy;
-        _fDueDate    = DateTime.Today.AddDays(7);
-        _fDueTime    = new TimeSpan(23, 59, 0);
+        _fPriorytet  = Priorytety.P3;
         _formErrors  = new();
         _walidacjaBraki = null;
         _modalOpen   = true;
@@ -477,8 +460,6 @@
         _fIlosc      = z.IloscSztuk;
         _fIdWyrobu   = z.IDWyrobu;
         _fPriorytet  = z.Priorytet;
-        _fDueDate    = z.DueTime?.Date ?? DateTime.Today.AddDays(7);
-        _fDueTime    = z.DueTime?.TimeOfDay ?? new TimeSpan(23, 59, 0);
         _formErrors  = new();
         _walidacjaBraki = null;
         _modalOpen   = true;
@@ -499,10 +480,7 @@
         // Walidacja pól
         if (_fIdWyrobu == null)   _formErrors.Add("Wybierz wyrób (SKU).");
         if (_fIlosc < 1)          _formErrors.Add("Wielkość partii musi być ≥ 1.");
-        if (_fDueDate == null)    _formErrors.Add("Podaj datę wymagalności.");
         if (_formErrors.Any()) return;
-
-        var dueTime = _fDueDate!.Value.Add(_fDueTime ?? TimeSpan.Zero);
         _saving = true;
         StateHasChanged();
 
@@ -510,15 +488,13 @@
         {
             if (_editId.HasValue)
             {
-                var err = await Orders.EditZlecenieAsync(
-                    _editId.Value, _fNazwa, _fIlosc, _fIdWyrobu!.Value, dueTime, _fPriorytet);
+                var err = await Orders.EditZlecenieAsync(_editId.Value, _fNazwa, _fIlosc, _fIdWyrobu!.Value, _fPriorytet);
                 if (err != null) { _walidacjaBraki = err; return; }
                 Snackbar.Add("Zlecenie zaktualizowane!", Severity.Success);
             }
             else
             {
-                var (id, err) = await Orders.CreateZlecenieAsync(
-                    _fNazwa, _fIlosc, _fIdWyrobu!.Value, dueTime, _fPriorytet);
+                var (id, err) = await Orders.CreateZlecenieAsync(_fNazwa, _fIlosc, _fIdWyrobu!.Value, _fPriorytet);
                 if (err != null) { _walidacjaBraki = err; return; }
                 Snackbar.Add($"Zlecenie '{_fNazwa}' utworzone!", Severity.Success);
             }
@@ -610,9 +586,16 @@
 
     Color PriorytetColor(string p) => p switch
     {
-        Priorytety.Krytyczny   => Color.Error,
-        Priorytety.Wysoki      => Color.Warning,
-        Priorytety.Standardowy => Color.Primary,
-        _                      => Color.Default
+        Priorytety.P5 => Color.Error,
+        Priorytety.P4 => Color.Warning,
+        Priorytety.P3 => Color.Primary,
+        Priorytety.P2 => Color.Info,
+        _             => Color.Default
     };
 }
+
+
+
+
+
+
