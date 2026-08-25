@@ -76,19 +76,40 @@ namespace PlcToDbMiddleware
             };
         }
 
-                public void WriteOrderToPlc(int id, int modelId, int partNo, int priority, int index = 0)
+                        public void WriteOrderToPlc(int id, int modelId, int partNo, int priority)
         {
             if (_plc == null || !_plc.IsConnected) return;
 
-            // Zgodnie z DB3:
-            // DB3.DBW0 = ID (Int)
-            // DB3.DBW2 = Model (Int)
-            // DB3.DBW4 = PartNo (Int)
-
-            int offset = index * 114;
+            int offset = 65000;
+            
             _plc.Write("DB3.DBW" + offset, (short)id);
             _plc.Write("DB3.DBW" + (offset + 2), (short)modelId);
             _plc.Write("DB3.DBW" + (offset + 4), (short)partNo);
+            _plc.Write("DB3.DBW" + (offset + 128), (short)priority);
+        }
+
+        public void WriteWebOrderToPlc(int id, int idWyrobu, int iloscSztuk, int priority)
+        {
+            if (_plc == null || !_plc.IsConnected) return;
+            
+            _plc.Write("DB10.DBW0", (short)id);
+            _plc.Write("DB10.DBW2", (short)idWyrobu);
+            _plc.Write("DB10.DBW4", (short)iloscSztuk);
+            _plc.Write("DB10.DBW6", (short)priority);
+        }
+
+        public int ReadBufferId()
+        {
+            if (_plc == null || !_plc.IsConnected) return -1;
+            try
+            {
+                var result = _plc.Read("DB3.DBW65000");
+                return (short)((ushort)result);
+            }
+            catch
+            {
+                return -1;
+            }
         }
 
         public void ResetTrigger()
@@ -106,4 +127,6 @@ namespace PlcToDbMiddleware
         }
     }
 }
+
+
 

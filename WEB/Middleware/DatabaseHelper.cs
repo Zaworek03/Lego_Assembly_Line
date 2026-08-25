@@ -180,12 +180,12 @@ namespace PlcToDbMiddleware
         // INSERT — Wskazniki OEE / FTY per cykl
         // ============================================================
 
-                public List<(int id, int modelId, int partNo, int priority)> GetActiveOrders()
+                public List<(int id, int idWyrobu, int iloscSztuk, int priority)> GetActiveOrders()
         {
             const string sql = @"
-                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, ID_Wyrobu, PriorytetNum
+                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, Ilosc_Sztuk, PriorytetNum
                 FROM [dbo].[Zlecenie_Produkcyjne]
-                WHERE Status_Zlecenia IN ('W toku', 'Aktywne', 'Oczekujące') 
+                WHERE Status_Zlecenia IN ('W toku', 'Aktywne', 'Oczekujące', 'Nowe') 
                   AND IsDeleted = 0
                 ORDER BY PriorytetNum DESC, DueTime ASC";
 
@@ -196,12 +196,11 @@ namespace PlcToDbMiddleware
             var list = new List<(int, int, int, int)>();
             while (rdr.Read())
             {
-                int idWyrobu = Convert.ToInt32(rdr[1]);
                 list.Add((
-                    Convert.ToInt32(rdr[0]),  // id = ID_Zlecenia (0-499)
-                    idWyrobu + 1,              // modelId = ID_Wyrobu + 1 (offset: wyrob 1->model 2, wyrob 6->model 7)
-                    idWyrobu,                  // partNo = ID_Wyrobu (1-6, numer wyrobu)
-                    Convert.ToInt32(rdr[3])    // priority
+                    Convert.ToInt32(rdr[0]),  // id
+                    Convert.ToInt32(rdr[1]),  // idWyrobu
+                    Convert.ToInt32(rdr[2]),  // iloscSztuk
+                    Convert.ToInt32(rdr[3])   // priority
                 ));
             }
             return list;
@@ -261,6 +260,9 @@ namespace PlcToDbMiddleware
         }
     }
 }
+
+
+
 
 
 

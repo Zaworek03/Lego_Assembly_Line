@@ -135,37 +135,35 @@ namespace PlcToDbMiddleware
             {
                 var activeOrders = db.GetActiveOrders();
                 int highestId = activeOrders.Count > 0 ? activeOrders[0].id : -1;
-                int highestPart = activeOrders.Count > 0 ? activeOrders[0].partNo : -1;
+                int highestPart = activeOrders.Count > 0 ? activeOrders[0].iloscSztuk : -1;
 
                 if (highestId != _lastSyncedOrderId || highestPart != _lastSyncedPartNo || activeOrders.Count != _lastSyncedCount)
                 {
-                    Console.WriteLine($"[INFO] SQL -> PLC: Synchronizacja {activeOrders.Count} aktywnych zlecen do DB3...");
-                    int limit = Math.Min(activeOrders.Count, 500);
-                    for(int i = 0; i < limit; i++)
+                    Console.WriteLine("[INFO] SQL -> PLC: Synchronizacja $($activeOrders.Count) aktywnych zlecen (DB3, DB10)...");
+                    if (activeOrders.Count > 0)
+                    {
+                        Console.WriteLine("[INFO] Ostatnie zlecenie (Web) wpisane do DB10: ID=$($activeOrders[0].id) Wyrob=$($activeOrders[0].idWyrobu) Ilosc=$($activeOrders[0].iloscSztuk) Priorytet=$($activeOrders[0].priority)");
+                        plc.WriteWebOrderToPlc(activeOrders[0].id, activeOrders[0].idWyrobu, activeOrders[0].iloscSztuk, activeOrders[0].priority);
+                    }
+                    // Zapisujemy tylko pierwsze aktywne zlecenie do NastepneZlecenie
+                    if (activeOrders.Count > 0)
                     {
                         plc.WriteOrderToPlc(
-                            activeOrders[i].id,
-                            activeOrders[i].modelId,
-                            activeOrders[i].partNo,
-                            activeOrders[i].priority,
-                            i
+                            activeOrders[0].id,
+                            activeOrders[0].idWyrobu + 1,
+                            activeOrders[0].iloscSztuk,
+                            activeOrders[0].priority
                         );
-                    }
-
-                    // Wyczyść ewentualne pozostałości z poprzedniej synchronizacji
-                    for(int i = limit; i < _lastSyncedCount; i++)
-                    {
-                        plc.WriteOrderToPlc(0, 0, 0, 0, i);
                     }
 
                     _lastSyncedOrderId = highestId;
                     _lastSyncedPartNo = highestPart;
-                    _lastSyncedCount = limit;
+                    _lastSyncedCount = activeOrders.Count;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac zlecenia: {ex.Message}");
+                Console.WriteLine("[WARN] Nie udalo sie zsynchronizowac zlecenia: {ex.Message}");
             }
         }
 
@@ -328,6 +326,9 @@ namespace PlcToDbMiddleware
         }
     }
 }
+
+
+
 
 
 
