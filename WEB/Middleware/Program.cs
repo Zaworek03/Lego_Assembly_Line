@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace PlcToDbMiddleware
 {
@@ -139,12 +139,8 @@ namespace PlcToDbMiddleware
 
                 if (highestId != _lastSyncedOrderId || highestPart != _lastSyncedPartNo || activeOrders.Count != _lastSyncedCount)
                 {
-                    Console.WriteLine("[INFO] SQL -> PLC: Synchronizacja $($activeOrders.Count) aktywnych zlecen (DB3, DB10)...");
-                    if (activeOrders.Count > 0)
-                    {
-                        Console.WriteLine("[INFO] Ostatnie zlecenie (Web) wpisane do DB10: ID=$($activeOrders[0].id) Wyrob=$($activeOrders[0].idWyrobu) Ilosc=$($activeOrders[0].iloscSztuk) Priorytet=$($activeOrders[0].priority)");
-                        plc.WriteWebOrderToPlc(activeOrders[0].id, activeOrders[0].idWyrobu, activeOrders[0].iloscSztuk, activeOrders[0].priority);
-                    }
+                    Console.WriteLine($"[INFO] SQL -> PLC: Synchronizacja {activeOrders.Count} aktywnych zlecen (DB3)...");
+                    
                     // Zapisujemy tylko pierwsze aktywne zlecenie do NastepneZlecenie
                     if (activeOrders.Count > 0)
                     {
@@ -154,6 +150,7 @@ namespace PlcToDbMiddleware
                             activeOrders[0].iloscSztuk,
                             activeOrders[0].priority
                         );
+                        Console.WriteLine($"[INFO] Ostatnie zlecenie wpisane do DB3: ID={activeOrders[0].id} Wyrob={activeOrders[0].idWyrobu} Sztuka={activeOrders[0].iloscSztuk}");
                     }
 
                     _lastSyncedOrderId = highestId;
@@ -163,7 +160,7 @@ namespace PlcToDbMiddleware
             }
             catch (Exception ex)
             {
-                Console.WriteLine("[WARN] Nie udalo sie zsynchronizowac zlecenia: {ex.Message}");
+                Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac zlecenia: {ex.Message}");
             }
         }
 
@@ -326,7 +323,6 @@ namespace PlcToDbMiddleware
         }
     }
 }
-
 
 
 
