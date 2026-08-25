@@ -144,13 +144,14 @@ namespace PlcToDbMiddleware
                     // Zapisujemy tylko pierwsze aktywne zlecenie do NastepneZlecenie
                     if (activeOrders.Count > 0)
                     {
+                        int currentPartNo = activeOrders[0].rozpoczetoSztuk + 1;
                         plc.WriteOrderToPlc(
                             activeOrders[0].id,
-                            activeOrders[0].idWyrobu + 1,
-                            activeOrders[0].iloscSztuk,
+                            activeOrders[0].idWyrobu + 1, // ID modelu (+1 offset)
+                            currentPartNo,                // sztuka (PartNo) zamiast iloscSztuk
                             activeOrders[0].priority
                         );
-                        Console.WriteLine($"[INFO] Ostatnie zlecenie wpisane do DB3: ID={activeOrders[0].id} Wyrob={activeOrders[0].idWyrobu} Sztuka={activeOrders[0].iloscSztuk}");
+                        Console.WriteLine($"[INFO] Ostatnie zlecenie wpisane do DB3: ID={activeOrders[0].id} Wyrob={activeOrders[0].idWyrobu} Sztuka={currentPartNo}");
                     }
 
                     _lastSyncedOrderId = highestId;

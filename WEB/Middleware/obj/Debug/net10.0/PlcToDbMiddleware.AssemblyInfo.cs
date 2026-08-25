@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PlcToDbMiddleware")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7c4f33fbf868ac74a41c7b3db61fe0a01f68b6aa")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7de1d1504b7558354e1c38be2b2b3b559e373b28")]
 [assembly: System.Reflection.AssemblyProductAttribute("PlcToDbMiddleware")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PlcToDbMiddleware")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

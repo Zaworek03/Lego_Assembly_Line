@@ -1,4 +1,4 @@
-﻿@page "/zlecenia"
+@page "/zlecenia"
 @inject AuthService Auth
 @inject OrderService Orders
 @inject NavigationManager Nav
@@ -118,32 +118,11 @@
                 <MudProgressLinear Value="@z.PostepProcent" Rounded="true" Class="mb-2"
                                    Color="@StatusMudColor(z.StatusZlecenia)" />
 
-                <!-- Termin i czas -->
-                @if (z.DueTime.HasValue)
-                {
-                    var terminKolor = z.DueTime.Value < DateTime.Now ? "#ef5350" : "#555";
-                    <MudText Typo="Typo.body2" Style=@($"color:{terminKolor};")>
-                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small"
-                                 Style="vertical-align:middle;margin-right:2px;" />
-                        Termin: @z.DueTime.Value.ToString("dd.MM.yyyy HH:mm")
-                    </MudText>
-                }
-                @if (z.NajpozniejszyStart.HasValue)
-                {
-                    <MudText Typo="Typo.caption" Style="color:#aaa;">
-                        Najpóźniej start: @z.NajpozniejszyStart.Value.ToString("dd.MM HH:mm")
-                    </MudText>
-                }
+
 
                 <!-- Akcje quick -->
                 <div style="margin-top:12px;display:flex;gap:8px;">
-                    @if (z.MoznaRozpoczac)
-                    {
-                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
-                                   OnClick="@(() => ZmienStatus(z, "W toku"))">
-                            ▶ Rozpocznij
-                        </MudButton>
-                    }
+
                     @if (z.WToku)
                     {
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"

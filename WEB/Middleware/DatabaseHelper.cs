@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace PlcToDbMiddleware
 {
@@ -180,30 +180,46 @@ namespace PlcToDbMiddleware
         // INSERT — Wskazniki OEE / FTY per cykl
         // ============================================================
 
-                public List<(int id, int idWyrobu, int iloscSztuk, int priority)> GetActiveOrders()
+                public List<(int id, int idWyrobu, int iloscSztuk, int priority, int rozpoczetoSztuk)> GetActiveOrders()
         {
             const string sql = @"
-                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, Ilosc_Sztuk, PriorytetNum
+                SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, Ilosc_Sztuk, PriorytetNum, ISNULL(Rozpoczeto_Sztuk, 0)
                 FROM [dbo].[Zlecenie_Produkcyjne]
                 WHERE Status_Zlecenia IN ('W toku', 'Aktywne', 'Oczekujące', 'Nowe') 
                   AND IsDeleted = 0
+                  AND ISNULL(Rozpoczeto_Sztuk, 0) < Ilosc_Sztuk
                 ORDER BY PriorytetNum DESC, DueTime ASC";
 
             using var conn = OpenConnection();
             using var cmd = new SqlCommand(sql, conn);
             using var rdr = cmd.ExecuteReader();
 
-            var list = new List<(int, int, int, int)>();
+            var list = new List<(int, int, int, int, int)>();
             while (rdr.Read())
             {
                 list.Add((
                     Convert.ToInt32(rdr[0]),  // id
                     Convert.ToInt32(rdr[1]),  // idWyrobu
                     Convert.ToInt32(rdr[2]),  // iloscSztuk
-                    Convert.ToInt32(rdr[3])   // priority
+                    Convert.ToInt32(rdr[3]),  // priority
+                    Convert.ToInt32(rdr[4])   // rozpoczetoSztuk
                 ));
             }
             return list;
+        }
+
+        public void IncrementRozpoczeteSztuki(int idZlecenia)
+        {
+            const string sql = @"
+                UPDATE [dbo].[Zlecenie_Produkcyjne]
+                SET Rozpoczeto_Sztuk = ISNULL(Rozpoczeto_Sztuk, 0) + 1,
+                    Status_Zlecenia = 'W toku'
+                WHERE ID_Zlecenia = @ID;
+                ";
+            using var conn = OpenConnection();
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@ID", idZlecenia);
+            cmd.ExecuteNonQuery();
         }
 
         public void InsertWskazniki(PlcData d, int realizacjaId)
