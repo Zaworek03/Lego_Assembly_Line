@@ -1,4 +1,4 @@
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 
 namespace PlcToDbMiddleware
 {
@@ -274,15 +274,27 @@ namespace PlcToDbMiddleware
             conn.Open();
             return conn;
         }
+    
+        public bool CheckReset() {
+            using var conn = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
+            conn.Open();
+            using var cmd = new Microsoft.Data.SqlClient.SqlCommand("SELECT Wymagany_Reset FROM Ustawienia_Maszyny", conn);
+            var res = cmd.ExecuteScalar();
+            return res != null && Convert.ToInt32(res) == 1;
+        }
+        public void ClearReset() {
+            using var conn = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
+            conn.Open();
+            using var cmd = new Microsoft.Data.SqlClient.SqlCommand("UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 0", conn);
+            cmd.ExecuteNonQuery();
+        }
+        public void ExecuteNonQuery(string q) {
+            try {
+                using var conn = new Microsoft.Data.SqlClient.SqlConnection(_connectionString);
+                conn.Open();
+                using var cmd = new Microsoft.Data.SqlClient.SqlCommand(q, conn);
+                cmd.ExecuteNonQuery();
+            } catch {}
+        }
     }
 }
-
-
-
-
-
-
-
-
-
-

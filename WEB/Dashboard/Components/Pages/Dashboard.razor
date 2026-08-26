@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @inject AuthService Auth
 @inject ProductionDataService Svc
 @inject NavigationManager Nav
@@ -265,10 +265,10 @@ else
             <MudText Typo="Typo.caption" Style=@($"color:{statusColor};font-weight:600;")>● @statusText</MudText>
             <MudDivider Class="my-2" />
             <MudText Typo="Typo.body2" Style="color:#555;">
-                <b>Operator:</b> @(s.ImieNazwisko ?? "—")
+                  <b>Wydajność:</b> @(s.OEE.HasValue ? s.OEE.Value.ToString("0.0") + " szt/h" : "—")
             </MudText>
             <MudText Typo="Typo.body2" Style="color:#555;">
-                <b>OEE:</b> @(s.OEE.HasValue ? s.OEE.Value.ToString("P1") : "—")
+                  <b>Czas złożenia:</b> @(s.OstatniCyklMs.HasValue ? s.OstatniCyklMs.Value + " ms" : "—")
             </MudText>
             <MudText Typo="Typo.body2" Style="color:#555;">
                 <b>Cykl:</b> @(s.OstatniCyklMs.HasValue ? $"{s.OstatniCyklMs} ms" : "—")

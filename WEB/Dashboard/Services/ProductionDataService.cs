@@ -1,4 +1,4 @@
-using LiniaProdukcyjnaDashboard.Models;
+﻿using LiniaProdukcyjnaDashboard.Models;
 using Microsoft.Data.SqlClient;
 
 namespace LiniaProdukcyjnaDashboard.Services

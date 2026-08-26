@@ -1,4 +1,4 @@
-@page "/zlecenia"
+﻿@page "/zlecenia"
 @inject AuthService Auth
 @inject OrderService Orders
 @inject NavigationManager Nav
@@ -20,6 +20,7 @@
         </MudText>
     </div>
     <div style="display:flex;gap:10px;">
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteSweep" OnClick="PotwierdzenieNoweZajecia">Rozpocznij nowe zajęcia</MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Error"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
                    OnClick="PotwierdzenieWyczysc">
@@ -358,6 +359,12 @@
 }
 
 @code {
+    private async Task PotwierdzenieNoweZajecia()
+    {
+        bool? diag = await DialogService.ShowMessageBox("Uwaga", "Czy na pewno chcesz wyczyścić wszystkie zlecenia i PLC?", yesText:"Tak", cancelText:"Anuluj");
+        if(diag == true) { await Orders.NoweZajeciaResetAsync(); await LoadData(); }
+    }
+
     List<ZlecenieVM>     _zlecenia     = new();
     List<SelectItem>     _wyroby       = new();
     string?              _filterStatus;

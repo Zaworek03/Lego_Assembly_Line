@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 namespace PlcToDbMiddleware
 {
@@ -110,6 +110,7 @@ namespace PlcToDbMiddleware
                     Console.WriteLine($"┌─ [{now:HH:mm:ss}] SIM — cykl symulowany");
                     PrintCycleSummary(data, stan, op, zl);
                     SaveToDatabase(db, data, stan, op);
+                    db.IncrementRozpoczeteSztuki(zl.ID);
                 }
                 catch (Exception ex)
                 {
@@ -129,39 +130,33 @@ namespace PlcToDbMiddleware
         static int _lastSyncedPartNo = -1;
         static int _lastSyncedCount = 0;
 
-        static void SyncActiveOrderToPlc(PlcReader plc, DatabaseHelper db)
-        {
-            try
-            {
+        static void SyncActiveOrderToPlc(PlcReader plc, DatabaseHelper db) {
+            try {
                 var activeOrders = db.GetActiveOrders();
                 int highestId = activeOrders.Count > 0 ? activeOrders[0].id : -1;
-                int highestPart = activeOrders.Count > 0 ? activeOrders[0].iloscSztuk : -1;
+                int highestPart = activeOrders.Count > 0 ? (activeOrders[0].rozpoczetoSztuk + 1) : -1;
 
                 if (highestId != _lastSyncedOrderId || highestPart != _lastSyncedPartNo || activeOrders.Count != _lastSyncedCount)
                 {
                     Console.WriteLine($"[INFO] SQL -> PLC: Synchronizacja {activeOrders.Count} aktywnych zlecen (DB3)...");
-                    
-                    // Zapisujemy tylko pierwsze aktywne zlecenie do NastepneZlecenie
                     if (activeOrders.Count > 0)
                     {
                         int currentPartNo = activeOrders[0].rozpoczetoSztuk + 1;
                         plc.WriteOrderToPlc(
                             activeOrders[0].id,
-                            activeOrders[0].idWyrobu + 1, // ID modelu (+1 offset)
-                            currentPartNo,                // sztuka (PartNo) zamiast iloscSztuk
+                            activeOrders[0].idWyrobu + 1, 
+                            currentPartNo,
                             activeOrders[0].priority
                         );
-                        Console.WriteLine($"[INFO] Ostatnie zlecenie wpisane do DB3: ID={activeOrders[0].id} Wyrob={activeOrders[0].idWyrobu} Sztuka={currentPartNo}");
+                        Console.WriteLine($"[INFO] Przeslano nową sztukę do PLC: ZlecenieID={activeOrders[0].id} SztukaNr={currentPartNo}");
                     }
 
                     _lastSyncedOrderId = highestId;
                     _lastSyncedPartNo = highestPart;
                     _lastSyncedCount = activeOrders.Count;
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac zlecenia: {ex.Message}");
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac: {ex.Message}");
             }
         }
 
@@ -218,6 +213,7 @@ namespace PlcToDbMiddleware
 
                     PrintCycleSummary(data, stan, op, zl);
                     SaveToDatabase(db, data, stan, op);
+                    db.IncrementRozpoczeteSztuki(zl.ID);
 
                     plc.ResetTrigger();
                     Console.WriteLine("> Trigger PLC zresetowany");

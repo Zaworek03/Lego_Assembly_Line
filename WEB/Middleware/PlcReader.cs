@@ -98,6 +98,59 @@ namespace PlcToDbMiddleware
             _plc.Write("DB10.DBW6", (short)priority);
         }
 
+        
+        public void ClearAllOrdersBuffer()
+        {
+            if (_plc == null || !_plc.IsConnected) return;
+            for(int i = 0; i < 500; i++) {
+                _plc.Write("DB3.DBW" + (i*130), (short)0);
+            }
+        }
+        public (DateTime?, DateTime?) ReadStationTimes(int index, int stationOffset)
+        {
+            if (_plc == null || !_plc.IsConnected) return (null, null);
+            try {
+                int baseOffset = index * 130 + stationOffset;
+                var startBytes = _plc.ReadBytes(S7.Net.DataType.DataBlock, 3, baseOffset, 12);
+                var endBytes = _plc.ReadBytes(S7.Net.DataType.DataBlock, 3, baseOffset + 12, 12);
+                DateTime? start = ParseDTL(startBytes);
+                DateTime? end = ParseDTL(endBytes);
+                return (start, end);
+            } catch { return (null, null); }
+        }
+        private DateTime? ParseDTL(byte[] b) {
+            if (b == null || b.Length < 12) return null;
+            int year = (b[0] << 8) | b[1];
+            if (year < 2000 || year > 2100) return null;
+            int month = b[2]; int day = b[3]; int hour = b[5]; int min = b[6]; int sec = b[7];
+            uint nano = (uint)((b[8] << 24) | (b[9] << 16) | (b[10] << 8) | b[11]);
+            try { return new DateTime(year, month, day, hour, min, sec).AddTicks(nano / 100); } catch { return null; }
+        }
+        public int FindLatestOrderIndex()
+        {
+            if (_plc == null || !_plc.IsConnected) return -1;
+            for(int i = 0; i < 500; i++) {
+                try {
+                    var result = _plc.Read("DB3.DBW" + (i * 130));
+                    int id = (short)((ushort)result);
+                    if (id == 0) return i > 0 ? i - 1 : -1;
+                } catch { continue; }
+            }
+            return 499;
+        }
+        public int FindFreeOrderIndex()
+        {
+            if (_plc == null || !_plc.IsConnected) return -1;
+            for(int i = 0; i < 500; i++) {
+                try {
+                    var result = _plc.Read("DB3.DBW" + (i * 130));
+                    int id = (short)((ushort)result);
+                    if (id == 0) return i;
+                } catch { continue; }
+            }
+            return -1;
+        }
+
         public int ReadBufferId()
         {
             if (_plc == null || !_plc.IsConnected) return -1;

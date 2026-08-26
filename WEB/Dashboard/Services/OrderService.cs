@@ -1,4 +1,4 @@
-﻿using LiniaProdukcyjnaDashboard.Models;
+using LiniaProdukcyjnaDashboard.Models;
 using Microsoft.Data.SqlClient;
 
 namespace LiniaProdukcyjnaDashboard.Services
@@ -463,6 +463,14 @@ namespace LiniaProdukcyjnaDashboard.Services
             CompletedAt       = r.IsDBNull(12) ? null : r.GetDateTime(12),
             SztukNOK          = r.IsDBNull(13) ? 0 : r.GetInt32(13)
         };
+
+        public async Task NoweZajeciaResetAsync()
+        {
+            using var conn = new Microsoft.Data.SqlClient.SqlConnection(_cs);
+            await conn.OpenAsync();
+            using var cmd = new Microsoft.Data.SqlClient.SqlCommand("DELETE FROM Zlecenie_Produkcyjne; UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 1;", conn);
+            await cmd.ExecuteNonQueryAsync();
+        }
     }
 }
 
