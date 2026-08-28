@@ -161,12 +161,15 @@ namespace LiniaProdukcyjnaDashboard.Services
 
             await using var conn = new SqlConnection(_cs);
             await conn.OpenAsync();
-            await using var cmd = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@ID", id);
-            await using var rdr = await cmd.ExecuteReaderAsync();
-            if (!await rdr.ReadAsync()) return null;
-            var vm = MapZlecenieVM(rdr);
-            await rdr.CloseAsync();
+
+            ZlecenieVM vm;
+            await using (var cmd = new SqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("@ID", id);
+                await using var rdr = await cmd.ExecuteReaderAsync();
+                if (!await rdr.ReadAsync()) return null;
+                vm = MapZlecenieVM(rdr);
+            }
 
             var detail = new ZlecenieDetail
             {
@@ -188,21 +191,25 @@ namespace LiniaProdukcyjnaDashboard.Services
                 JOIN Material m ON zm.ID_Materialu = m.ID_Materialu
                 WHERE zm.ID_Zlecenia = @ID";
 
-            await using var matCmd = new SqlCommand(matSql, conn);
-            matCmd.Parameters.AddWithValue("@ID", id);
-            await using var matRdr = await matCmd.ExecuteReaderAsync();
-            while (await matRdr.ReadAsync())
-                detail.Materialy.Add(new ZlecenieMaterialVM
-                {
-                    ID_Materialu        = matRdr.GetInt32(0),
-                    NazwaMaterialu     = matRdr.GetString(1),
-                    Wymiary            = matRdr.GetString(2),
-                    TypWysokosci       = matRdr.GetString(3),
-                    Kolor              = matRdr.GetString(4),
-                    IloscWymagana      = matRdr.GetInt32(5),
-                    IloscZarezerwowana = matRdr.GetInt32(6),
-                    IloscBrakujaca     = matRdr.GetInt32(7)
-                });
+            // Czytnik musi byc zamkniety zanim na tym samym polaczeniu poleci kolejne
+            // zapytanie - inaczej SqlClient rzuca "otwarty DataReader" i modal sie nie otwiera.
+            await using (var matCmd = new SqlCommand(matSql, conn))
+            {
+                matCmd.Parameters.AddWithValue("@ID", id);
+                await using var matRdr = await matCmd.ExecuteReaderAsync();
+                while (await matRdr.ReadAsync())
+                    detail.Materialy.Add(new ZlecenieMaterialVM
+                    {
+                        ID_Materialu        = matRdr.GetInt32(0),
+                        NazwaMaterialu     = matRdr.GetString(1),
+                        Wymiary            = matRdr.GetString(2),
+                        TypWysokosci       = matRdr.GetString(3),
+                        Kolor              = matRdr.GetString(4),
+                        IloscWymagana      = matRdr.GetInt32(5),
+                        IloscZarezerwowana = matRdr.GetInt32(6),
+                        IloscBrakujaca     = matRdr.GetInt32(7)
+                    });
+            }
 
             // Oblicz całkowity czas (TPZ + TJ * ilość)
             const string czasSql = @"

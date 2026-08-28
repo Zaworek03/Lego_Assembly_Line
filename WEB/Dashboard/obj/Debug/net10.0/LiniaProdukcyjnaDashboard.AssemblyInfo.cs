@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LiniaProdukcyjnaDashboard")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d1cf8abdcfd65b9f055e0c534c0639ff73d8b135")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c96166a406981be13f252dc75ff44fea4a122a1e")]
 [assembly: System.Reflection.AssemblyProductAttribute("LiniaProdukcyjnaDashboard")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LiniaProdukcyjnaDashboard")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

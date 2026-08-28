@@ -3,6 +3,8 @@
 ║      Linia Montazowa — OEE / FTY Logger          ║
 ╚══════════════════════════════════════════════════╝
 Polaczono z PLC!
+[INFO] SQL -> PLC: Synchronizacja 1 aktywnych zlecen (DB3)...
+[INFO] Przeslano zlecenie do PLC: ZlecenieID=1 PartNo(Ilosc)=1
 
 [INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...
 
