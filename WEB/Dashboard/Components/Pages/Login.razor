@@ -4,94 +4,65 @@
 
 <PageTitle>Logowanie — Linia Montażowa</PageTitle>
 
-<MudThemeProvider />
+<MudThemeProvider IsDarkMode="true" Theme="_loginTheme" />
 
-<div style="min-height:100vh;background:linear-gradient(135deg,#1a2035 0%,#2d3561 50%,#1a2035 100%);
+<div style="min-height:100vh;background:radial-gradient(circle at 50% 0%,#25181A 0%,#131315 45%,#08080A 100%);
             display:flex;align-items:center;justify-content:center;">
-    <MudPaper Elevation="12" Style="width:400px;padding:40px;border-radius:16px;background:rgba(255,255,255,0.97);">
+    <MudPaper Elevation="12" Style="width:400px;padding:44px 40px;border-radius:20px;background:#121214;border:1px solid #1F1F23;">
 
         <div style="text-align:center;margin-bottom:32px;">
-            <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">🏭</MudText>
-            <MudText Typo="Typo.h5" Style="font-weight:700;color:#1a2035;margin-top:8px;">Linia Montażowa</MudText>
-            <MudText Typo="Typo.body2" Style="color:#666;margin-top:4px;">System monitorowania produkcji</MudText>
+            <svg width="86" height="86" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="rbGradLogin" x1="0" y1="0" x2="0.18" y2="1">
+                        <stop offset="0%" stop-color="#7E2B3F" />
+                        <stop offset="45%" stop-color="#B8434A" />
+                        <stop offset="100%" stop-color="#F4704A" />
+                    </linearGradient>
+                </defs>
+                <text x="60" y="88" font-family="Arial Black, Arial, Helvetica, sans-serif"
+                      font-size="80" font-weight="900" font-style="italic" letter-spacing="-6"
+                      text-anchor="middle" fill="url(#rbGradLogin)">RB</text>
+            </svg>
+            <MudText Typo="Typo.h5" Style="font-weight:800;color:#F2F2F3;margin-top:12px;">Linia Montażowa</MudText>
+            <MudText Typo="Typo.body2" Style="color:#8B8B93;margin-top:4px;">System monitorowania produkcji</MudText>
         </div>
 
-        <EditForm Model="@this" OnValidSubmit="DoLogin">
-            <MudTextField @bind-Value="_login"
-                          Label="Login"
-                          Variant="Variant.Outlined"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Person"
-                          Class="mb-3" FullWidth="true" />
-
-            <MudTextField @bind-Value="_haslo"
-                          Label="Hasło"
-                          Variant="Variant.Outlined"
-                          InputType="@_pwdType"
-                          Adornment="Adornment.End"
-                          AdornmentIcon="@_pwdIcon"
-                          OnAdornmentClick="TogglePwd"
-                          Class="mb-4" FullWidth="true" />
-
-            @if (_error)
-            {
-                <MudAlert Severity="Severity.Error" Class="mb-3" Dense="true">
-                    Nieprawidłowy login lub hasło.
-                </MudAlert>
-            }
-
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       ButtonType="ButtonType.Submit"
-                       FullWidth="true"
-                       Size="Size.Large"
-                       Disabled="_loading"
-                       Style="border-radius:8px;font-weight:600;">
-                @if (_loading)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                }
-                Zaloguj się
-            </MudButton>
-        </EditForm>
-
-        <MudText Typo="Typo.caption" Align="Align.Center" Style="color:#999;margin-top:20px;display:block;">
-            Supervisor: login=<b>supervisor</b> / haslo=<b>admin123</b>
-        </MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   OnClick="DoLogin"
+                   Style="border-radius:10px;font-weight:700;">
+            Zaloguj się
+        </MudButton>
     </MudPaper>
 </div>
 
 @code {
-    string _login  = "";
-    string _haslo  = "";
-    bool   _error  = false;
-    bool   _loading = false;
-    InputType _pwdType = InputType.Password;
-    string _pwdIcon = Icons.Material.Filled.VisibilityOff;
-
-    void TogglePwd()
+    // Strona logowania jest poza MainLayout, wiec ma wlasny motyw (ciemny + pomaranczowy akcent).
+    readonly MudTheme _loginTheme = new()
     {
-        _pwdType = _pwdType == InputType.Password ? InputType.Text : InputType.Password;
-        _pwdIcon = _pwdType == InputType.Password
-            ? Icons.Material.Filled.VisibilityOff
-            : Icons.Material.Filled.Visibility;
-    }
+        PaletteDark = new PaletteDark
+        {
+            Primary       = "#FF6A3D",
+            Secondary     = "#FF6A3D",
+            Info          = "#FF6A3D",
+            Error         = "#EF4444",
+            Surface       = "#121214",
+            Background    = "#08080A",
+            TextPrimary   = "#F2F2F3",
+            TextSecondary = "#8B8B93",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Inter", "sans-serif"] }
+        }
+    };
 
-    async Task OnKeyDown(KeyboardEventArgs e)
+    void DoLogin()
     {
-        if (e.Key == "Enter") await DoLogin();
-    }
-
-    async Task DoLogin()
-    {
-        _loading = true;
-        _error   = false;
-        bool ok  = await Auth.LoginAsync(_login, _haslo);
-        _loading = false;
-
-        if (ok)
-            Nav.NavigateTo(Auth.CurrentUser!.IsSupervisor ? "/" : "/moje-statystyki");
-        else
-            _error = true;
+        Auth.Login();
+        Nav.NavigateTo("/");
     }
 }

@@ -21,13 +21,15 @@ namespace LiniaProdukcyjnaDashboard.Services
         // ── Stan magazynu ────────────────────────────────────────────────
         public async Task<List<InventoryItem>> GetStanMagazynuAsync(string? lokalizacja = null)
         {
-            var where = lokalizacja != null ? "WHERE Lokalizacja = @Lok" : "";
+            var where = lokalizacja != null ? "WHERE m.Lokalizacja = @Lok" : "";
             var sql = $@"
-                SELECT ID_Materialu, Nazwa_Materialu, ISNULL(Wymiary,''), ISNULL(TypWysokosci,''),
-                       ISNULL(Kolor,''), StanBiezacy, IloscZarezerwowana, Lokalizacja
-                FROM [dbo].[Material]
+                SELECT m.ID_Materialu, m.Nazwa_Materialu, ISNULL(m.Wymiary,''), ISNULL(m.TypWysokosci,''),
+                       ISNULL(m.Kolor,''), m.StanBiezacy, m.IloscZarezerwowana, m.Lokalizacja,
+                       ISNULL(b.IloscBazowa, m.StanBiezacy)
+                FROM [dbo].[Material] m
+                LEFT JOIN [dbo].[InventoryBaseline] b ON b.ID_Materialu = m.ID_Materialu
                 {where}
-                ORDER BY Lokalizacja, TypWysokosci, Wymiary, Kolor";
+                ORDER BY m.Lokalizacja, m.TypWysokosci, m.Wymiary, m.Kolor";
 
             var result = new List<InventoryItem>();
             await using var conn = new SqlConnection(_cs);
@@ -45,7 +47,8 @@ namespace LiniaProdukcyjnaDashboard.Services
                     Kolor             = rdr.GetString(4),
                     StanBiezacy       = rdr.GetInt32(5),
                     IloscZarezerwowana = rdr.GetInt32(6),
-                    Lokalizacja       = rdr.GetString(7)
+                    Lokalizacja       = rdr.GetString(7),
+                    IloscBazowa       = rdr.GetInt32(8)
                 });
             return result;
         }
@@ -336,63 +339,6 @@ namespace LiniaProdukcyjnaDashboard.Services
 
                 await tx.CommitAsync();
                 _logger.LogInformation("[INV] Reset magazynu do stanu bazowego wykonany przez op={Op}", idOperatora);
-            }
-            catch { await tx.RollbackAsync(); throw; }
-        }
-
-        // ── Transfer ze schowka do MAIN ──────────────────────────────────
-        public async Task PrzesunZeSchowkaAsync(int idMaterialu, int ilosc, int? idOperatora = null)
-        {
-            await using var conn = new SqlConnection(_cs);
-            await conn.OpenAsync();
-            await using var tx = conn.BeginTransaction();
-            try
-            {
-                // Sprawdź dostępność w schowku
-                await using var check = new SqlCommand(
-                    "SELECT StanBiezacy FROM Material WHERE ID_Materialu=@ID AND Lokalizacja='ZAPAS_SCHOWEK'",
-                    conn, tx);
-                check.Parameters.AddWithValue("@ID", idMaterialu);
-                var stanSchowek = (int?)await check.ExecuteScalarAsync();
-                if (stanSchowek == null || stanSchowek < ilosc)
-                    throw new InvalidOperationException("Niewystarczający stan w schowku.");
-
-                // Zmniejsz schowek
-                await ExecuteNonQueryAsync(conn, tx,
-                    "UPDATE Material SET StanBiezacy = StanBiezacy - @Q WHERE ID_Materialu=@ID AND Lokalizacja='ZAPAS_SCHOWEK'",
-                    ("@Q", ilosc), ("@ID", idMaterialu));
-
-                // Znajdź odpowiednik w MAIN (ta sama nazwa/wymiary/kolor)
-                await using var findMain = new SqlCommand(@"
-                    SELECT TOP 1 m_main.ID_Materialu
-                    FROM Material m_schowek
-                    JOIN Material m_main ON m_main.Wymiary = m_schowek.Wymiary
-                        AND m_main.TypWysokosci = m_schowek.TypWysokosci
-                        AND m_main.Kolor = m_schowek.Kolor
-                        AND m_main.Lokalizacja = 'MAIN'
-                    WHERE m_schowek.ID_Materialu = @ID", conn, tx);
-                findMain.Parameters.AddWithValue("@ID", idMaterialu);
-                var idMain = (int?)await findMain.ExecuteScalarAsync();
-
-                if (idMain.HasValue)
-                {
-                    await ExecuteNonQueryAsync(conn, tx,
-                        "UPDATE Material SET StanBiezacy = StanBiezacy + @Q WHERE ID_Materialu=@ID",
-                        ("@Q", ilosc), ("@ID", idMain.Value));
-                    await LogTransakcjiAsync(conn, tx, idMain.Value, null, "Transfer", ilosc,
-                        $"Transfer ze schowka (ID={idMaterialu})");
-                }
-                else
-                {
-                    // Brak odpowiednika w MAIN — zmień lokalizację rekordu
-                    await ExecuteNonQueryAsync(conn, tx,
-                        "UPDATE Material SET Lokalizacja='MAIN', StanBiezacy=StanBiezacy+@Q WHERE ID_Materialu=@ID",
-                        ("@Q", ilosc), ("@ID", idMaterialu));
-                    await LogTransakcjiAsync(conn, tx, idMaterialu, null, "Transfer", ilosc,
-                        "Transfer ze schowka do MAIN (nowy rekord)");
-                }
-
-                await tx.CommitAsync();
             }
             catch { await tx.RollbackAsync(); throw; }
         }

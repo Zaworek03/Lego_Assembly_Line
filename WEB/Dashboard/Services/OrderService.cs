@@ -263,6 +263,14 @@ namespace LiniaProdukcyjnaDashboard.Services
                 cmd.Parameters.AddWithValue("@NajpStart", najpozniejszyStart);
                 idNowego = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 
+                // Nazwa sprzezona z ID_Zlecenia (ten sam numer idzie do PLC jako NastepneZlecenie.Zlecenie.ID),
+                // zamiast liczenia widocznych wierszy na stronie (co resetowalo sie po usunieciu zlecen).
+                await using var nameCmd = new SqlCommand(
+                    "UPDATE Zlecenie_Produkcyjne SET Nazwa_Zlecenia = @Nazwa WHERE ID_Zlecenia = @ID", conn, tx);
+                nameCmd.Parameters.AddWithValue("@Nazwa", $"ZL{idNowego:D3}");
+                nameCmd.Parameters.AddWithValue("@ID", idNowego);
+                await nameCmd.ExecuteNonQueryAsync();
+
                 await tx.CommitAsync();
             }
             catch { await tx.RollbackAsync(); throw; }
@@ -464,12 +472,35 @@ namespace LiniaProdukcyjnaDashboard.Services
             SztukNOK          = r.IsDBNull(13) ? 0 : r.GetInt32(13)
         };
 
+        /// <summary>
+        /// Pelny reset: kasuje zlecenia ORAZ powiazana z nimi historie (Realizacja_Produkcji,
+        /// Koszty, Wskazniki, Harmonogram, ZlecenieMaterialy), zeruje rezerwacje materialow
+        /// i resetuje licznik ID_Zlecenia do 0 - kolejne zlecenie dostanie ZL001.
+        /// Nieodwracalne (historia OEE/kosztow dla usuwanych zlecen ginie na stale).
+        /// </summary>
         public async Task NoweZajeciaResetAsync()
         {
             using var conn = new Microsoft.Data.SqlClient.SqlConnection(_cs);
             await conn.OpenAsync();
-            using var cmd = new Microsoft.Data.SqlClient.SqlCommand("DELETE FROM Zlecenie_Produkcyjne; UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 1;", conn);
-            await cmd.ExecuteNonQueryAsync();
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                // Kolejnosc wymuszona przez FK: najpierw "liscie" (Koszty/Wskazniki zaleza
+                // od Realizacja_Produkcji), potem Realizacja_Produkcji, na koncu Zlecenie_Produkcyjne.
+                using var cmd = new Microsoft.Data.SqlClient.SqlCommand(@"
+                    DELETE FROM Koszty;
+                    DELETE FROM Wskazniki;
+                    DELETE FROM Harmonogram;
+                    DELETE FROM Realizacja_Produkcji;
+                    DELETE FROM ZlecenieMaterialy;
+                    DELETE FROM Zlecenie_Produkcyjne;
+                    DBCC CHECKIDENT ('Zlecenie_Produkcyjne', RESEED, 0);
+                    UPDATE Material SET IloscZarezerwowana = 0;
+                    UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 1;", conn, tx);
+                await cmd.ExecuteNonQueryAsync();
+                await tx.CommitAsync();
+            }
+            catch { await tx.RollbackAsync(); throw; }
         }
     }
 }

@@ -68,15 +68,11 @@ namespace PlcToDbMiddleware
                 "Stanowisko QC"
             };
 
-            Console.Write("\n[SIM] Podaj imie i nazwisko operatora (musi istniec w tabeli Operator): ");
-            string simOperator = Console.ReadLine() ?? "Jan Kowalski";
-            if (string.IsNullOrWhiteSpace(simOperator)) simOperator = "Jan Kowalski";
-
             Console.Write("[SIM] Podaj nazwe zlecenia (musi istniec w tabeli Zlecenie_Produkcyjne): ");
             string simZlecenie = Console.ReadLine() ?? "ZL-001";
             if (string.IsNullOrWhiteSpace(simZlecenie)) simZlecenie = "ZL-001";
 
-            Console.WriteLine($"\n[SIM] Start. Operator='{simOperator}', Zlecenie='{simZlecenie}'\n");
+            Console.WriteLine($"\n[SIM] Start. Zlecenie='{simZlecenie}'\n");
 
             DateTime lastTrigger = DateTime.Now;
 
@@ -100,7 +96,7 @@ namespace PlcToDbMiddleware
                 try
                 {
                     var stan = db.GetStanowiskoByName(stanowisko);
-                    var op   = db.GetOperatorByName(simOperator);
+                    var op   = db.GetSystemOperator();
                     var zl   = db.GetZlecenieByName(simZlecenie);
 
                     var data = BuildPlcData(zl, stan, op, czasCykluMs, czasPlanowyMs,
@@ -134,21 +130,22 @@ namespace PlcToDbMiddleware
             try {
                 var activeOrders = db.GetActiveOrders();
                 int highestId = activeOrders.Count > 0 ? activeOrders[0].id : -1;
-                int highestPart = activeOrders.Count > 0 ? (activeOrders[0].rozpoczetoSztuk + 1) : -1;
+                // PartNo = potrzebna ilosc sztuk wprost ze zlecenia (Ilosc_Sztuk).
+                // Zliczanie/inkrementacje kolejnych sztuk przejela logika w TIA.
+                int highestPart = activeOrders.Count > 0 ? activeOrders[0].iloscSztuk : -1;
 
                 if (highestId != _lastSyncedOrderId || highestPart != _lastSyncedPartNo || activeOrders.Count != _lastSyncedCount)
                 {
                     Console.WriteLine($"[INFO] SQL -> PLC: Synchronizacja {activeOrders.Count} aktywnych zlecen (DB3)...");
                     if (activeOrders.Count > 0)
                     {
-                        int currentPartNo = activeOrders[0].rozpoczetoSztuk + 1;
                         plc.WriteOrderToPlc(
                             activeOrders[0].id,
-                            activeOrders[0].idWyrobu + 1, 
-                            currentPartNo,
+                            activeOrders[0].idWyrobu + 1,
+                            activeOrders[0].iloscSztuk,
                             activeOrders[0].priority
                         );
-                        Console.WriteLine($"[INFO] Przeslano nową sztukę do PLC: ZlecenieID={activeOrders[0].id} SztukaNr={currentPartNo}");
+                        Console.WriteLine($"[INFO] Przeslano zlecenie do PLC: ZlecenieID={activeOrders[0].id} PartNo(Ilosc)={activeOrders[0].iloscSztuk}");
                     }
 
                     _lastSyncedOrderId = highestId;
@@ -157,6 +154,45 @@ namespace PlcToDbMiddleware
                 }
             } catch (Exception ex) {
                 Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac: {ex.Message}");
+            }
+        }
+
+        // Abort dotyczy TYLKO jednej sztuki (nie calego zlecenia) - wiec nie anulujemy
+        // zlecenia automatycznie, tylko zglaszamy powiadomienie. Dedupe trwale w bazie
+        // (PowiadomieniaAbortProcessed), zeby przetrwalo restart Middleware.
+        static void CheckAborts(PlcReader plc, DatabaseHelper db) {
+            try {
+                var events = plc.ReadAbortEvents();
+                foreach (var (slot, idZlecenia, stanowiskoNr) in events) {
+                    try { db.ZapiszPowiadomienieAbortu(slot, idZlecenia, stanowiskoNr); }
+                    catch (Exception ex) { Console.WriteLine($"[WARN] Nie udalo sie zapisac powiadomienia (zlecenie {idZlecenia}): {ex.Message}"); }
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie sprawdzic Abort z PLC: {ex.Message}");
+            }
+        }
+
+        // Gdy operator nacisnie Start na Stanowisku 1 (Production.State -> 1),
+        // odpowiadajace zlecenie przechodzi 'Nowe' -> 'W toku'.
+        static void CheckOrderStarted(PlcReader plc, DatabaseHelper db) {
+            try {
+                var (state, orderNo) = plc.ReadStanowiskoProdukcja(1);
+                if (state == 1 && orderNo > 0) {
+                    db.MarkOrderStartedIfNew(orderNo);
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie sprawdzic startu zlecenia: {ex.Message}");
+            }
+        }
+
+        static void CheckResetRequest(PlcReader plc, DatabaseHelper db) {
+            try {
+                if (db.CheckAndClearResetRequested()) {
+                    plc.WriteResetZlecen(true);
+                    Console.WriteLine("[INFO] Przycisk 'Rozpocznij nowe zajecia' -> wyslano ResetZlecen=TRUE do PLC (DB3.DBX27876.0)");
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie wyslac ResetZlecen do PLC: {ex.Message}");
             }
         }
 
@@ -170,6 +206,9 @@ namespace PlcToDbMiddleware
                 
                 // 1. Sync zlecenia przy starcie
                 SyncActiveOrderToPlc(plc, db);
+                CheckResetRequest(plc, db);
+                CheckAborts(plc, db);
+                CheckOrderStarted(plc, db);
 
                 Console.WriteLine("\n[INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...\n");
 
@@ -183,6 +222,9 @@ namespace PlcToDbMiddleware
                         if ((DateTime.Now - lastSync).TotalSeconds >= 3)
                         {
                             SyncActiveOrderToPlc(plc, db);
+                            CheckResetRequest(plc, db);
+                            CheckAborts(plc, db);
+                            CheckOrderStarted(plc, db);
                             lastSync = DateTime.Now;
                         }
                         continue;
@@ -195,9 +237,10 @@ namespace PlcToDbMiddleware
                     var raw      = plc.ReadProductionData();
                     int postoiMs = Math.Max(0, splywMs - raw.CzasCykluMs);
 
-                    // Lookup po nazwie - PLC wysyla stringi
+                    // Lookup po nazwie - PLC wysyla stringi. Operator: stalt rekord systemowy
+                    // (system nie sledzi juz pojedynczych pracownikow/logowan).
                     var stan = db.GetStanowiskoByName(raw.NazwaStanowiska);
-                    var op   = db.GetOperatorByName(raw.NazwaOperatora);
+                    var op   = db.GetSystemOperator();
                     var zl   = db.GetZlecenieByName(raw.NumerZlecenia);
 
                     // Ilosc: jesli PLC nie wyslal (= 0) to przyjmij 1 szt per trigger
@@ -214,6 +257,14 @@ namespace PlcToDbMiddleware
                     PrintCycleSummary(data, stan, op, zl);
                     SaveToDatabase(db, data, stan, op);
                     db.IncrementRozpoczeteSztuki(zl.ID);
+
+                    // Stanowisko QC (ID=4): dolicz sztuke OK/NOK do zlecenia (limit = Ilosc_Sztuk,
+                    // bez powtarzania az kazda bedzie OK).
+                    if (stan.ID == 4)
+                    {
+                        db.IncrementQcWynik(zl.ID, wynikQC);
+                        Console.WriteLine($"[INFO] QC: zlecenie {zl.ID} -> {(wynikQC ? "OK" : "NOK")}");
+                    }
 
                     plc.ResetTrigger();
                     Console.WriteLine("> Trigger PLC zresetowany");

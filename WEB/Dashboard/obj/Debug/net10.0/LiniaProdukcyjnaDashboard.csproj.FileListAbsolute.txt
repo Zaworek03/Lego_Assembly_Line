@@ -80,3 +80,4 @@ C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\LiniaProdukcyjnaDashboard.pdb
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\LiniaProdukcyjnaDashboard.genruntimeconfig.cache
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\ref\LiniaProdukcyjnaDashboard.dll
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\21jo48oreo-{0}-3qc1llg4ju-3qc1llg4ju.gz

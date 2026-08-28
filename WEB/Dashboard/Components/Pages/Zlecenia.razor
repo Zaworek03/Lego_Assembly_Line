@@ -14,13 +14,12 @@
 <!-- NAGŁÓWEK -->
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
     <div>
-        <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">Zlecenia produkcyjne</MudText>
-        <MudText Typo="Typo.body2" Style="color:#888;">
+        <MudText Typo="Typo.h4" Style="font-weight:800;color:var(--text);">Zlecenia produkcyjne</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
             @(_zlecenia.Count) zleceń · odświeżanie co 5s
         </MudText>
     </div>
     <div style="display:flex;gap:10px;">
-        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteSweep" OnClick="PotwierdzenieNoweZajecia">Rozpocznij nowe zajęcia</MudButton>
         <MudButton Variant="Variant.Outlined" Color="Color.Error"
                    StartIcon="@Icons.Material.Filled.DeleteSweep"
                    OnClick="PotwierdzenieWyczysc">
@@ -35,7 +34,8 @@
 </div>
 
 <!-- FILTRY -->
-<MudPaper Elevation="0" Style="padding:12px 20px;border-radius:12px;background:#fff;margin-bottom:20px;">
+<MudPaper Elevation="0" Style="padding:12px 20px;border-radius:16px;background:var(--surface);
+                               border:1px solid var(--border);margin-bottom:20px;">
     <MudButtonGroup Variant="Variant.Outlined">
         <MudButton OnClick="@(() => SetFilter(null))"
                    Variant="@(_filterStatus == null ? Variant.Filled : Variant.Outlined)"
@@ -43,9 +43,6 @@
         <MudButton OnClick="@(() => SetFilter("Nowe"))"
                    Variant="@(_filterStatus == "Nowe" ? Variant.Filled : Variant.Outlined)"
                    Color="Color.Warning">Nowe</MudButton>
-        <MudButton OnClick="@(() => SetFilter("Wstrzymane"))"
-                   Variant="@(_filterStatus == "Wstrzymane" ? Variant.Filled : Variant.Outlined)"
-                   Color="Color.Secondary">Wstrzymane</MudButton>
         <MudButton OnClick="@(() => SetFilter("W toku"))"
                    Variant="@(_filterStatus == "W toku" ? Variant.Filled : Variant.Outlined)"
                    Color="Color.Primary">W toku</MudButton>
@@ -60,15 +57,15 @@
     @foreach (var z in FilteredZlecenia)
     {
         <MudItem xs="12" sm="6" md="4">
-            <MudPaper Elevation="2" Style=@($"padding:20px;border-radius:14px;border-left:5px solid {StatusColor(z.StatusZlecenia)};position:relative;")>
+            <MudPaper Elevation="0" Style=@($"padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--border);border-left:4px solid {StatusColor(z.StatusZlecenia)};position:relative;")>
 
                 <!-- Nagłówek karty -->
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
                     <div>
-                        <MudText Typo="Typo.h6" Style="font-weight:700;color:#1a2035;">@z.NazwaZlecenia</MudText>
+                        <MudText Typo="Typo.h6" Style="font-weight:800;color:var(--text);">@z.NazwaZlecenia</MudText>
                         @if (z.NazwaWyrobu != null)
                         {
-                            <MudText Typo="Typo.caption" Style="color:#888;">@z.NazwaWyrobu</MudText>
+                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);">@z.NazwaWyrobu</MudText>
                         }
                     </div>
                     <div style="display:flex;align-items:center;gap:6px;">
@@ -105,18 +102,19 @@
 
                 <!-- Postęp -->
                 <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                    <MudText Typo="Typo.body2">
+                    <MudText Typo="Typo.body2" Style="color:var(--text);">
                         <b>OK:</b> @z.SztukOK / @z.IloscSztuk szt
                         @if (z.SztukNOK > 0)
                         {
-                            <span style="color:#ef5350;margin-left:8px;">NOK: @z.SztukNOK</span>
+                            <span style="color:var(--danger);margin-left:8px;">NOK: @z.SztukNOK</span>
                         }
                     </MudText>
-                    <MudText Typo="Typo.caption" Style="color:#5c6bc0;font-weight:600;">
+                    <MudText Typo="Typo.caption" Style="color:var(--accent);font-weight:800;">
                         @z.PostepProcent.ToString("F0")%
                     </MudText>
                 </div>
                 <MudProgressLinear Value="@z.PostepProcent" Rounded="true" Class="mb-2"
+                                   Style="background:var(--track);"
                                    Color="@StatusMudColor(z.StatusZlecenia)" />
 
 
@@ -152,15 +150,15 @@
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;"
          @onclick="CloseModal">
         <!-- Panel modalny (zatrzymaj propagację kliknięcia) -->
-        <div style="background:#fff;border-radius:16px;width:min(640px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.25);position:relative;"
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(640px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);position:relative;"
              @onclick:stopPropagation>
             <!-- Nagłówek modalu -->
             <div style="padding:24px 28px 0;display:flex;justify-content:space-between;align-items:center;">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:#1a2035;">
+                <MudText Typo="Typo.h5" Style="font-weight:800;color:var(--text);">
                     @(_editId.HasValue ? "Edytuj zlecenie" : "Nowe zlecenie produkcyjne")
                 </MudText>
                 <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="CloseModal"
-                               Size="Size.Small" Style="color:#999;" />
+                               Size="Size.Small" Style="color:var(--text-muted);" />
             </div>
             <MudDivider Class="mt-3 mb-0" />
 
@@ -176,7 +174,7 @@
                             <b style="color:#d32f2f;">@_walidacjaBraki.MaxMozliwaIlosc szt</b>
                         </p>
                         <table style="font-size:12px;border-collapse:collapse;width:100%;">
-                            <tr style="background:#fde8e8;">
+                            <tr style="background:rgba(239,68,68,0.14);">
                                 <th style="padding:4px 8px;text-align:left;">Komponent</th>
                                 <th style="padding:4px 8px;">Wymaga</th>
                                 <th style="padding:4px 8px;">Dostępne</th>
@@ -274,10 +272,10 @@
 {
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;"
          @onclick="@(() => _detailOpen = false)">
-        <div style="background:#fff;border-radius:16px;width:min(700px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.25);"
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(700px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);"
              @onclick:stopPropagation>
             <div style="padding:24px 28px 0;display:flex;justify-content:space-between;align-items:center;">
-                <MudText Typo="Typo.h5" Style="font-weight:700;color:#1a2035;">
+                <MudText Typo="Typo.h5" Style="font-weight:800;color:var(--text);">
                     Szczegóły zlecenia
                 </MudText>
                 <MudIconButton Icon="@Icons.Material.Filled.Close"
@@ -335,7 +333,7 @@
                         <tbody>
                             @foreach (var m in _detail.Materialy)
                             {
-                                <tr style="@(m.MaBraki ? "background:#fff3e0;" : "")">
+                                <tr style="@(m.MaBraki ? "background:rgba(255,106,61,0.14);" : "")">
                                     <td>@m.NazwaMaterialu</td>
                                     <td style="text-align:center;">@m.IloscWymagana</td>
                                     <td style="text-align:center;">@m.IloscZarezerwowana</td>
@@ -359,12 +357,6 @@
 }
 
 @code {
-    private async Task PotwierdzenieNoweZajecia()
-    {
-        bool? diag = await DialogService.ShowMessageBox("Uwaga", "Czy na pewno chcesz wyczyścić wszystkie zlecenia i PLC?", yesText:"Tak", cancelText:"Anuluj");
-        if(diag == true) { await Orders.NoweZajeciaResetAsync(); await LoadData(); }
-    }
-
     List<ZlecenieVM>     _zlecenia     = new();
     List<SelectItem>     _wyroby       = new();
     string?              _filterStatus;
@@ -402,11 +394,18 @@
         _wyroby = await Orders.GetWyrobyAsync();
         await LoadData();
         _timer  = new System.Timers.Timer(5000);
-        _timer.Elapsed += async (_, _) => await InvokeAsync(async () =>
+        _timer.Elapsed += async (_, _) =>
         {
-            try { await LoadData(); StateHasChanged(); }
-            catch { /* ignoruj chwilowe błędy połączenia */ }
-        });
+            if (_disposed) return;
+            try
+            {
+                await LoadData();
+                if (_disposed) return;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException) { /* strona zamknieta w trakcie odswiezania */ }
+            catch (Exception ex) { Console.WriteLine($"[Zlecenia] blad odswiezania: {ex.Message}"); }
+        };
         _timer.Start();
     }
 
@@ -430,7 +429,7 @@
     void OpenCreateModal()
     {
         _editId      = null;
-        _fNazwa     = $"ZL{_zlecenia.Count:D3}";
+        _fNazwa     = ""; // nadawana automatycznie po zapisie, sprzezona z ID_Zlecenia (ZLxxx)
         _fIlosc     = 1;
         _fIdWyrobu   = _wyroby.FirstOrDefault()?.ID;
         _fPriorytet  = Priorytety.P3;
@@ -482,7 +481,7 @@
             {
                 var (id, err) = await Orders.CreateZlecenieAsync(_fNazwa, _fIlosc, _fIdWyrobu!.Value, _fPriorytet);
                 if (err != null) { _walidacjaBraki = err; return; }
-                Snackbar.Add($"Zlecenie '{_fNazwa}' utworzone!", Severity.Success);
+                Snackbar.Add($"Zlecenie 'ZL{id:D3}' utworzone!", Severity.Success);
             }
 
             _modalOpen = false;
@@ -550,16 +549,22 @@
         Snackbar.Add($"Status zmieniony na: {status}", Severity.Info);
     }
 
-    public void Dispose() => _timer?.Dispose();
+    volatile bool _disposed;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _timer?.Stop();
+        _timer?.Dispose();
+    }
 
     // ── Style helpers ────────────────────────────────────────────────
     string StatusColor(string s) => s switch
     {
-        "W toku"     => "#5c6bc0",
-        "Zakonczone" => "#66bb6a",
-        "Wstrzymane" => "#ab47bc",
-        "Anulowane"  => "#ef5350",
-        _            => "#ffa726"
+        "W toku"     => "#FF6A3D",
+        "Zakonczone" => "#22C55E",
+        "Anulowane"  => "#EF4444",
+        _            => "#F59E0B"
     };
 
     Color StatusMudColor(string s) => s switch

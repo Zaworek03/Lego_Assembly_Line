@@ -1,0 +1,18 @@
+warn: Microsoft.AspNetCore.StaticFiles.StaticFileMiddleware[16]
+      The WebRootPath was not found: C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\bin\Debug\net10.0\wwwroot. Static files may be unavailable.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://localhost:5200
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\bin\Debug\net10.0
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.

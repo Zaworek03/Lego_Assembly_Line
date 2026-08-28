@@ -14,8 +14,8 @@
 <!-- NAGŁÓWEK -->
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
     <div>
-        <MudText Typo="Typo.h4" Style="font-weight:700;color:#1a2035;">Magazyn komponentów</MudText>
-        <MudText Typo="Typo.body2" Style="color:#888;">
+        <MudText Typo="Typo.h4" Style="font-weight:800;color:var(--text);">Magazyn komponentów</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
             Elementy LEGO · @_mainItems.Count pozycji w magazynie głównym
         </MudText>
     </div>
@@ -38,7 +38,7 @@
                               Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                               IconSize="Size.Medium" Class="mt-0" Immediate="true" />
                 <MudSpacer />
-                <MudText Typo="Typo.caption" Style="color:#888;">
+                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">
                     Niski stan: @_mainItems.Count(i => i.NiskiStan) pozycji
                 </MudText>
             </ToolBarContent>
@@ -63,7 +63,7 @@
                     </div>
                 </MudTd>
                 <MudTd>
-                    <MudText Style=@($"font-weight:700;color:{(context.NiskiStan ? "#ef5350" : "#1a2035")}")>
+                    <MudText Style=@($"font-weight:800;color:{(context.NiskiStan ? "#EF4444" : "var(--text)")}")>
                         @context.StanBiezacy
                     </MudText>
                 </MudTd>
@@ -73,56 +73,22 @@
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning"
                                  Style="height:20px;">@context.IloscZarezerwowana</MudChip>
                     }
-                    else { <span style="color:#aaa;">—</span> }
+                    else { <span style="color:var(--text-muted);">—</span> }
                 </MudTd>
                 <MudTd>
-                    <MudText Style=@($"font-weight:600;color:{(context.Dostepny < 5 ? "#ef5350" : context.Dostepny < 20 ? "#ffa726" : "#66bb6a")}")>
+                    <MudText Style=@($"font-weight:800;color:{StanColor(context.ProcentDostepny)}")>
                         @context.Dostepny
                     </MudText>
                 </MudTd>
                 <MudTd>
-                    <MudProgressLinear Value="@Math.Min(100.0, context.StanBiezacy / 2.0)"
-                                       Color="@(context.NiskiStan ? Color.Error : Color.Success)"
-                                       Style="min-width:80px;" Rounded="true" Size="Size.Small" />
+                    <MudProgressLinear Value="@context.ProcentPelny"
+                                       Color="@StanMudColor(context.ProcentPelny)"
+                                       Style="min-width:80px;background:var(--track);" Rounded="true" Size="Size.Small" />
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Style="padding:20px;color:#999;">Brak komponentów w magazynie.</MudText>
+                <MudText Style="padding:20px;color:var(--text-muted);">Brak komponentów w magazynie.</MudText>
             </NoRecordsContent>
-        </MudTable>
-    </MudTabPanel>
-
-    <!-- SCHOWEK -->
-    <MudTabPanel Text=@($"Zapas (SCHOWEK) — {_schowekItems.Count} poz.")>
-        <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
-            Zapas w schowku jest <b>oddzielny</b> od produkcji. Użyj przycisku „Transfer do MAIN"
-            aby przenieść komponenty do magazynu produkcyjnego.
-        </MudAlert>
-        <MudTable Items="_schowekItems" Dense="true" Hover="true" Striped="true">
-            <HeaderContent>
-                <MudTh>Wymiary</MudTh>
-                <MudTh>Typ</MudTh>
-                <MudTh>Kolor</MudTh>
-                <MudTh>Stan</MudTh>
-                <MudTh>Akcja</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd><MudText Style="font-weight:600;font-family:monospace;">@context.Wymiary</MudText></MudTd>
-                <MudTd><MudText Typo="Typo.caption">@context.TypWysokosci</MudText></MudTd>
-                <MudTd>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style=@($"width:14px;height:14px;border-radius:3px;background:{LegoColor(context.Kolor)};border:1px solid rgba(0,0,0,0.2);")></div>
-                        @context.Kolor
-                    </div>
-                </MudTd>
-                <MudTd><MudText Style="font-weight:700;">@context.StanBiezacy</MudText></MudTd>
-                <MudTd>
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                               OnClick="@(() => OpenTransferDialog(context))">
-                        ↑ Transfer do MAIN
-                    </MudButton>
-                </MudTd>
-            </RowTemplate>
         </MudTable>
     </MudTabPanel>
 
@@ -151,55 +117,21 @@
                     </MudText>
                 </MudTd>
                 <MudTd>@(context.Zlecenie ?? "—")</MudTd>
-                <MudTd><MudText Typo="Typo.caption" Style="color:#888;">@(context.Notatka ?? "—")</MudText></MudTd>
+                <MudTd><MudText Typo="Typo.caption" Style="color:var(--text-muted);">@(context.Notatka ?? "—")</MudText></MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Style="padding:20px;color:#999;">Brak transakcji.</MudText>
+                <MudText Style="padding:20px;color:var(--text-muted);">Brak transakcji.</MudText>
             </NoRecordsContent>
         </MudTable>
     </MudTabPanel>
 </MudTabs>
 
-<!-- MODAL TRANSFER ZE SCHOWKA -->
-@if (_transferOpen && _transferItem != null)
-{
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;"
-         @onclick="@(() => _transferOpen = false)">
-        <div style="background:#fff;border-radius:14px;width:min(400px,90vw);padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.2);"
-             @onclick:stopPropagation>
-            <MudText Typo="Typo.h6" Style="font-weight:700;margin-bottom:16px;">
-                Transfer ze schowka do MAIN
-            </MudText>
-            <MudText Typo="Typo.body1" Class="mb-2">
-                @_transferItem.NazwaMaterialu (@_transferItem.Wymiary, @_transferItem.Kolor)
-            </MudText>
-            <MudText Typo="Typo.body2" Class="mb-4" Style="color:#888;">
-                Dostępne w schowku: <b>@_transferItem.StanBiezacy szt</b>
-            </MudText>
-            <MudNumericField T="int" @bind-Value="_transferIlosc" Label="Ilość do przeniesienia"
-                             Variant="Variant.Outlined" Min="1" Max="@_transferItem.StanBiezacy" />
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
-                <MudButton Variant="Variant.Outlined" OnClick="@(() => _transferOpen = false)">Anuluj</MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteTransfer">
-                    Przenieś
-                </MudButton>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
     List<InventoryItem>       _mainItems    = new();
-    List<InventoryItem>       _schowekItems = new();
     List<InventoryTransaction> _transakcje  = new();
     string                    _searchText  = "";
     MudTable<InventoryItem>?  _tableMain;
     System.Timers.Timer?      _timer;
-
-    // Transfer
-    bool           _transferOpen;
-    InventoryItem? _transferItem;
-    int            _transferIlosc = 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,18 +140,24 @@
 
         await LoadAll();
         _timer = new System.Timers.Timer(10000);
-        _timer.Elapsed += async (_, _) => await InvokeAsync(async () =>
+        _timer.Elapsed += async (_, _) =>
         {
-            try { await LoadAll(); StateHasChanged(); }
-            catch { /* ignoruj chwilowe błędy */ }
-        });
+            if (_disposed) return;
+            try
+            {
+                await LoadAll();
+                if (_disposed) return;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException) { /* strona zamknieta w trakcie odswiezania */ }
+            catch (Exception ex) { Console.WriteLine($"[Magazyn] blad odswiezania: {ex.Message}"); }
+        };
         _timer.Start();
     }
 
     async Task LoadAll()
     {
         _mainItems    = await Inv.GetStanMagazynuAsync("MAIN");
-        _schowekItems = await Inv.GetStanMagazynuAsync("ZAPAS_SCHOWEK");
         _transakcje   = await Inv.GetTransakcjeAsync();
     }
 
@@ -243,30 +181,21 @@
         }
     }
 
-    void OpenTransferDialog(InventoryItem item)
+    volatile bool _disposed;
+
+    public void Dispose()
     {
-        _transferItem  = item;
-        _transferIlosc = Math.Min(1, item.StanBiezacy);
-        _transferOpen  = true;
+        _disposed = true;
+        _timer?.Stop();
+        _timer?.Dispose();
     }
 
-    async Task ExecuteTransfer()
-    {
-        if (_transferItem == null) return;
-        try
-        {
-            await Inv.PrzesunZeSchowkaAsync(_transferItem.IDMaterialu, _transferIlosc);
-            Snackbar.Add($"Przeniesiono {_transferIlosc} szt. do magazynu głównego.", Severity.Success);
-            _transferOpen = false;
-            await LoadAll();
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Błąd transferu: {ex.Message}", Severity.Error);
-        }
-    }
+    // Jednolite progi stanu magazynowego: <26% = czerwony, <50% = pomaranczowy, reszta zielony.
+    static string StanColor(double procent) =>
+        procent < 26 ? "#EF4444" : procent < 50 ? "#F59E0B" : "#22C55E";
 
-    public void Dispose() => _timer?.Dispose();
+    static Color StanMudColor(double procent) =>
+        procent < 26 ? Color.Error : procent < 50 ? Color.Warning : Color.Success;
 
     Color TransakcjaColor(string typ) => typ switch
     {
@@ -286,7 +215,7 @@
         "żółty" or "żółte"             => "#f7d117",
         "niebieski" or "niebieskie"    => "#0055a3",
         "zielony" or "zielone"         => "#00853d",
-        "jasnozielony" or "jasnozielone" => "#77c063",
+        "jasnozielony" or "jasnozielone" or "jasny zielony" => "#77c063",
         "pomarańczowy" or "pomarańczowe" => "#f47b20",
         "szary"                        => "#9ba1a6",
         "brązowy"                      => "#7b5c3c",

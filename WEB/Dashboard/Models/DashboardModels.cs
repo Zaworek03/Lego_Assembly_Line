@@ -1,5 +1,35 @@
 ﻿namespace LiniaProdukcyjnaDashboard.Models
 {
+    // ── Powiadomienie ──────────────────────────────────────────────────
+    public class Powiadomienie
+    {
+        public int      ID           { get; set; }
+        public string   Typ          { get; set; } = "";
+        public string   Tresc        { get; set; } = "";
+        public int?     IDZlecenia   { get; set; }
+        public int?     IDStanowiska { get; set; }
+        public DateTime Utworzono    { get; set; }
+        public bool     Przeczytane  { get; set; }
+    }
+
+    // ── Wydajnosc cyklu per wyrob ──────────────────────────────────────
+    public class WyrobCzasCyklu
+    {
+        public string  Nazwa      { get; set; } = "";
+        /// <summary>Suma wszystkich zarejestrowanych czasow cyklu dla tego wyrobu [ms].</summary>
+        public double  SumaCzasMs { get; set; }
+        /// <summary>Suma czasow zadanych / suma rzeczywistych. null = brak danych produkcyjnych.</summary>
+        public double? Wydajnosc  { get; set; }
+    }
+
+    // ── Popularnosc wyrobu (% udzialu w produkcji) ─────────────────────
+    public class WyrobPopularnosc
+    {
+        public string Nazwa   { get; set; } = "";
+        public int    Ilosc   { get; set; }
+        public double Procent { get; set; }
+    }
+
     // ── KPI dzienne ──────────────────────────────────────────────────
     public class DailyKpi
     {
@@ -18,11 +48,16 @@
     {
         public int       IDStanowiska  { get; set; }
         public string    Nazwa         { get; set; } = "";
-        public string?   ImieNazwisko  { get; set; }
         public double?   OEE           { get; set; }
         public int?      OstatniCyklMs { get; set; }
         public DateTime? OstatniaCzas  { get; set; }
         public string?   KodPostoju    { get; set; }
+        /// <summary>Wydajnosc = suma czasow zadanych / suma czasow rzeczywistych z ostatnich N sztuk na tym stanowisku.</summary>
+        public double?   Wydajnosc     { get; set; }
+        public string?   NazwaZlecenia { get; set; }
+        public string?   NazwaWyrobu   { get; set; }
+        /// <summary>Czas zadany (Proces_Montazu) dla ostatniej sztuki - podany 1:1, bez przeliczen.</summary>
+        public int?      OstatniCzasZadanyMs { get; set; }
 
         public bool IsActive =>
             OstatniaCzas.HasValue &&
@@ -148,9 +183,14 @@
         public string   Kolor            { get; set; } = "";
         public int      StanBiezacy      { get; set; }
         public int      IloscZarezerwowana { get; set; }
+        public int      IloscBazowa      { get; set; }
         public string   Lokalizacja      { get; set; } = "MAIN";
         public int      Dostepny         => StanBiezacy - IloscZarezerwowana;
-        public bool     NiskiStan        => Dostepny < 10;
+        public double   ProcentPelny     => IloscBazowa > 0 ? Math.Min(100.0, StanBiezacy * 100.0 / IloscBazowa) : 100.0;
+        /// <summary>Procent stanu liczony po ilosci DOSTEPNEJ (po odjeciu rezerwacji).</summary>
+        public double   ProcentDostepny  => IloscBazowa > 0 ? Math.Clamp(Dostepny * 100.0 / IloscBazowa, 0, 100) : 100.0;
+        /// <summary>Prog alarmowy: ponizej 26% stanu bazowego.</summary>
+        public bool     NiskiStan        => ProcentPelny < 26;
     }
 
     // ── Wynik walidacji dostępności komponentów ───────────────────────
@@ -193,35 +233,11 @@
         public bool   IsSupervisor => Rola == "Supervisor";
     }
 
-    // ── Wpis harmonogramu ─────────────────────────────────────────────
-    public class HarmonogramRow
-    {
-        public int       ID            { get; set; }
-        public string    NazwaZlecenia { get; set; } = "";
-        public string Stanowisko { get; set; } = "";
-        public int IDStanowiska { get; set; }
-        public string    Operator      { get; set; } = "";
-        public DateTime? CzasRozp      { get; set; }
-        public DateTime? CzasZak       { get; set; }
-    }
-
     // ── Wybieralne opcje (dla formularzy) ────────────────────────────
     public class SelectItem
     {
         public int    ID    { get; set; }
         public string Nazwa { get; set; } = "";
-    }
-
-    // ── Statystyki operatora ──────────────────────────────────────────
-    public class OperatorStats
-    {
-        public int    CykleDziś          { get; set; }
-        public double OEEDziś            { get; set; }
-        public double FTYDziś            { get; set; }
-        public int    WyprodukowanoDziś   { get; set; }
-        public int    WadliweDziś         { get; set; }
-        public double AvgCyklMs           { get; set; }
-        public List<OeeTrendPoint> Trend  { get; set; } = new();
     }
 
     // ── Raport zlecenia ───────────────────────────────────────────────

@@ -162,7 +162,7 @@
     <!-- NAGŁÓWEK -->
     <div class="dt-header">
         <div>
-            <MudText Typo="Typo.h4" Style="font-weight:800;color:#1a2035;">Digital Twin</MudText>
+            <MudText Typo="Typo.h4" Style="font-weight:800;color:var(--text);">Digital Twin</MudText>
             <MudText Typo="Typo.body2" Style="color:#888;">
                 Wizualizacja linii montażowej w czasie rzeczywistym
             </MudText>
@@ -188,7 +188,7 @@
     {
         <!-- KPI ROW -->
         <div class="dt-kpi-row">
-            <div class="dt-kpi-card" style="--accent:#5c6bc0">
+            <div class="dt-kpi-card" style="--accent:#FF6A3D">
                 <div class="kpi-label">OEE dziś</div>
                 <div class="kpi-value">@(_sum.OEEDzisiaj.ToString("P1"))</div>
                 <div class="kpi-sub">Overall Equipment Effectiveness</div>
@@ -203,7 +203,7 @@
                 <div class="kpi-value">@_sum.CykleGodzina</div>
                 <div class="kpi-sub">Aktywność produkcji</div>
             </div>
-            <div class="dt-kpi-card" style="--accent:#26a69a">
+            <div class="dt-kpi-card" style="--accent:#FF8A63">
                 <div class="kpi-label">Aktywne zlecenie</div>
                 <div class="kpi-value" style="font-size:1rem;margin-top:8px;">
                     @(_sum.AktywneZlecenie ?? "—")
@@ -393,7 +393,7 @@
             <div class="dt-side-panel">
                 @if (_selectedId == null)
                 {
-                    <MudText Typo="Typo.h6" Style="font-weight:700;color:#1a2035;margin-bottom:8px;">
+                    <MudText Typo="Typo.h6" Style="font-weight:700;color:var(--text);margin-bottom:8px;">
                         Szczegóły stanowiska
                     </MudText>
                     <MudText Typo="Typo.body2" Style="color:#aaa;">
@@ -411,7 +411,7 @@
                     {
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
                             <div>
-                                <MudText Typo="Typo.h6" Style="font-weight:700;color:#1a2035;">@sel.Nazwa</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;color:var(--text);">@sel.Nazwa</MudText>
                                 <span style="font-size:0.75rem;font-weight:700;color:@sel.StatusColor;background:@(sel.StatusColor)18;padding:2px 10px;border-radius:10px;border:1px solid @(sel.StatusColor)40;">
                                     ● @sel.StatusLabel
                                 </span>
@@ -430,13 +430,13 @@
                             </div>
                             <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
                                 <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">FTY</div>
-                                <div style="font-size:1.4rem;font-weight:800;color:#26a69a;">
+                                <div style="font-size:1.4rem;font-weight:800;color:#FF8A63;">
                                     @(sel.FTY.HasValue ? sel.FTY.Value.ToString("P1") : "—")
                                 </div>
                             </div>
                             <div style="background:#f8f9fc;border-radius:10px;padding:12px;text-align:center;">
                                 <div style="font-size:0.65rem;color:#aaa;font-weight:600;letter-spacing:1px;">CYKL</div>
-                                <div style="font-size:1.1rem;font-weight:700;color:#5c6bc0;">
+                                <div style="font-size:1.1rem;font-weight:700;color:#FF6A3D;">
                                     @(sel.CzasCykluMs.HasValue ? $"{sel.CzasCykluMs/1000.0:F1}s" : "—")
                                 </div>
                             </div>
@@ -462,7 +462,7 @@
 
                         <!-- Historia cykli -->
                         <MudDivider Class="my-3"/>
-                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:#1a2035;margin-bottom:8px;">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:var(--text);margin-bottom:8px;">
                             Ostatnie cykle
                         </MudText>
 

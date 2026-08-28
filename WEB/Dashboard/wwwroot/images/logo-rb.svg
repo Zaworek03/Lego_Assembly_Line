@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="rbGrad" x1="0" y1="0" x2="0.15" y2="1">
+      <stop offset="0%"   stop-color="#7E2B3F"/>
+      <stop offset="45%"  stop-color="#B8434A"/>
+      <stop offset="100%" stop-color="#F4704A"/>
+    </linearGradient>
+  </defs>
+  <text x="60" y="86"
+        font-family="'Arial Black','Segoe UI Black',Inter,sans-serif"
+        font-size="74" font-weight="900" font-style="italic"
+        letter-spacing="-4"
+        text-anchor="middle" fill="url(#rbGrad)">RB</text>
+</svg>

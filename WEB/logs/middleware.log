@@ -1,0 +1,8 @@
+╔══════════════════════════════════════════════════╗
+║      PlcToDb Middleware  v2.0                    ║
+║      Linia Montazowa — OEE / FTY Logger          ║
+╚══════════════════════════════════════════════════╝
+Polaczono z PLC!
+
+[INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...
+

@@ -25,11 +25,14 @@ namespace PlcToDbMiddleware
         /// </summary>
         public StanowiskoData GetStanowiskoByName(string nazwa)
         {
+            // COLLATE ..._CI_AI = ignoruje wielkosc liter I znaki diakrytyczne, wiec PLC moze
+            // wysylac "Stanowisko Montaz 1" i dopasuje sie do "Stanowisko Montaż 1" w bazie.
             const string sql = @"
                 SELECT ID_Stanowiska, Nazwa_Stanowiska,
                        ISNULL(Stawka_Amortyzacyjna, 0)
                 FROM   [dbo].[Stanowisko]
-                WHERE  LOWER(LTRIM(RTRIM(Nazwa_Stanowiska))) = LOWER(LTRIM(RTRIM(@Nazwa)))";
+                WHERE  LTRIM(RTRIM(Nazwa_Stanowiska)) COLLATE Latin1_General_CI_AI
+                     = LTRIM(RTRIM(@Nazwa))           COLLATE Latin1_General_CI_AI";
 
             using var conn = OpenConnection();
             using var cmd  = new SqlCommand(sql, conn);
@@ -49,24 +52,24 @@ namespace PlcToDbMiddleware
             };
         }
 
-        /// <summary>Szuka operatora po imieniu i nazwisku (case-insensitive).</summary>
-        public OperatorData GetOperatorByName(string imieNazwisko)
+        /// <summary>
+        /// Zwraca staly "systemowy" rekord operatora (ID=1) - system nie sledzi juz
+        /// pojedynczych pracownikow/logowan, ale Realizacja_Produkcji/Harmonogram
+        /// wymagaja (NOT NULL) jakiegos ID_Operatora do zapisu.
+        /// </summary>
+        public OperatorData GetSystemOperator()
         {
             const string sql = @"
-                SELECT ID_Operatora, Imie_Nazwisko,
-                       ISNULL(Stawka_Godzinowa, 0)
+                SELECT ID_Operatora, Imie_Nazwisko, ISNULL(Stawka_Godzinowa, 0)
                 FROM   [dbo].[Operator]
-                WHERE  LOWER(LTRIM(RTRIM(Imie_Nazwisko))) = LOWER(LTRIM(RTRIM(@Nazwa)))";
+                WHERE  ID_Operatora = 1";
 
             using var conn = OpenConnection();
             using var cmd  = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Nazwa", imieNazwisko);
             using var rdr = cmd.ExecuteReader();
 
             if (!rdr.Read())
-                throw new Exception(
-                    $"[DB] Operator '{imieNazwisko}' nie istnieje w tabeli Operator! " +
-                    $"Dodaj operatora lub popraw wartosc pola Operator w TIA Portal.");
+                throw new Exception("[DB] Brak systemowego rekordu Operator (ID=1) w tabeli Operator!");
 
             return new OperatorData
             {
@@ -266,6 +269,133 @@ namespace PlcToDbMiddleware
             cmd.Parameters.AddWithValue("@CzasCyklu",   d.CzasCykluMs);
             cmd.Parameters.AddWithValue("@FTY",         (decimal)fty);
             cmd.ExecuteNonQuery();
+        }
+
+        // ============================================================
+        // POWIADOMIENIA — Abort dotyczy TYLKO jednej sztuki, nie calego zlecenia,
+        // wiec zlecenie NIE jest automatycznie anulowane - tylko zgloszenie w UI.
+        // ============================================================
+
+        /// <summary>
+        /// Zapisuje powiadomienie o porzuceniu (Abort) pojedynczej sztuki na danym stanowisku.
+        /// Deduplikacja trwala w bazie (PowiadomieniaAbortProcessed) po (slotIndex, stanowisko) -
+        /// przezywa restart Middleware, w przeciwienstwie do sledzenia tylko w pamieci.
+        /// </summary>
+        public void ZapiszPowiadomienieAbortu(int slotIndex, int idZlecenia, int idStanowiska)
+        {
+            using var conn = OpenConnection();
+
+            // Sprawdz czy to zdarzenie juz zostalo przetworzone (dowolna wczesniejsza sesja Middleware)
+            using (var check = new SqlCommand(
+                "SELECT 1 FROM PowiadomieniaAbortProcessed WHERE SlotIndex=@Slot AND ID_Stanowiska=@IDSt", conn))
+            {
+                check.Parameters.AddWithValue("@Slot", slotIndex);
+                check.Parameters.AddWithValue("@IDSt", idStanowiska);
+                if (check.ExecuteScalar() != null) return; // juz zgloszone
+            }
+            using (var mark = new SqlCommand(
+                "INSERT INTO PowiadomieniaAbortProcessed (SlotIndex, ID_Stanowiska) VALUES (@Slot, @IDSt)", conn))
+            {
+                mark.Parameters.AddWithValue("@Slot", slotIndex);
+                mark.Parameters.AddWithValue("@IDSt", idStanowiska);
+                mark.ExecuteNonQuery();
+            }
+
+            string nazwaZlecenia = "?", nazwaStanowiska = $"Stanowisko {idStanowiska}";
+            using (var lookup = new SqlCommand(
+                "SELECT Nazwa_Zlecenia FROM Zlecenie_Produkcyjne WHERE ID_Zlecenia=@ID", conn))
+            {
+                lookup.Parameters.AddWithValue("@ID", idZlecenia);
+                var r = lookup.ExecuteScalar() as string;
+                if (r != null) nazwaZlecenia = r;
+            }
+            using (var lookup = new SqlCommand(
+                "SELECT Nazwa_Stanowiska FROM Stanowisko WHERE ID_Stanowiska=@ID", conn))
+            {
+                lookup.Parameters.AddWithValue("@ID", idStanowiska);
+                var r = lookup.ExecuteScalar() as string;
+                if (r != null) nazwaStanowiska = r;
+            }
+
+            var tresc = $"Porzucono sztukę na {nazwaStanowiska} (zlecenie {nazwaZlecenia}).";
+            using var cmd = new SqlCommand(@"
+                INSERT INTO Powiadomienia (Typ, Tresc, ID_Zlecenia, ID_Stanowiska)
+                VALUES ('AbortStanowiska', @Tresc, @IDZ, @IDSt)", conn);
+            cmd.Parameters.AddWithValue("@Tresc", tresc);
+            cmd.Parameters.AddWithValue("@IDZ", idZlecenia);
+            cmd.Parameters.AddWithValue("@IDSt", idStanowiska);
+            cmd.ExecuteNonQuery();
+
+            Console.WriteLine($"[INFO] Powiadomienie: {tresc}");
+        }
+
+        // ============================================================
+        // START ZLECENIA (Stanowisko1.Production.State -> 'W toku')
+        // ============================================================
+
+        /// <summary>Jesli zlecenie jest jeszcze 'Nowe', przelacza je na 'W toku' (Start nacisniety na Stanowisku 1).</summary>
+        public void MarkOrderStartedIfNew(int idZlecenia)
+        {
+            using var conn = OpenConnection();
+            using var cmd = new SqlCommand(@"
+                UPDATE Zlecenie_Produkcyjne
+                SET Status_Zlecenia = 'W toku', StartedAt = GETDATE()
+                WHERE ID_Zlecenia = @ID AND Status_Zlecenia = 'Nowe'", conn);
+            cmd.Parameters.AddWithValue("@ID", idZlecenia);
+            cmd.ExecuteNonQuery();
+        }
+
+        // ============================================================
+        // WYNIK QC (per sztuka) — zlicza OK/NOK do limitu Ilosc_Sztuk,
+        // BEZ mechaniki "powtarzaj az wszystkie OK".
+        // ============================================================
+
+        /// <summary>
+        /// Dolicza 1 sztuke OK lub NOK do zlecenia. Gdy SztukOK+SztukNOK osiagnie
+        /// Ilosc_Sztuk, zlecenie konczy sie automatycznie (niezaleznie od wyniku QC).
+        /// </summary>
+        public void IncrementQcWynik(int idZlecenia, bool ok)
+        {
+            using var conn = OpenConnection();
+            using var cmd = new SqlCommand(@"
+                UPDATE Zlecenie_Produkcyjne
+                SET SztukOK  = SztukOK  + CASE WHEN @OK = 1 THEN 1 ELSE 0 END,
+                    SztukNOK = SztukNOK + CASE WHEN @OK = 1 THEN 0 ELSE 1 END
+                WHERE ID_Zlecenia = @ID", conn);
+            cmd.Parameters.AddWithValue("@OK", ok ? 1 : 0);
+            cmd.Parameters.AddWithValue("@ID", idZlecenia);
+            cmd.ExecuteNonQuery();
+
+            using var cmdDone = new SqlCommand(@"
+                UPDATE Zlecenie_Produkcyjne
+                SET Status_Zlecenia = 'Zakonczone', CompletedAt = GETDATE()
+                WHERE ID_Zlecenia = @ID
+                  AND Status_Zlecenia <> 'Zakonczone'
+                  AND (SztukOK + SztukNOK) >= Ilosc_Sztuk", conn);
+            cmdDone.Parameters.AddWithValue("@ID", idZlecenia);
+            cmdDone.ExecuteNonQuery();
+        }
+
+        // ============================================================
+        // RESET ZLECEN — flaga ustawiana przez przycisk "Rozpocznij nowe zajecia"
+        // ============================================================
+
+        /// <summary>
+        ///  Sprawdza i atomowo zeruje flage Wymagany_Reset (odczyt+konsumpcja w 1 zapytaniu,
+        ///  zeby dwa cykle pollingu nie wyslaly triggera dwa razy).
+        /// </summary>
+        public bool CheckAndClearResetRequested()
+        {
+            const string sql = @"
+                UPDATE Ustawienia_Maszyny
+                SET Wymagany_Reset = 0
+                OUTPUT DELETED.Wymagany_Reset
+                WHERE Wymagany_Reset = 1";
+
+            using var conn = OpenConnection();
+            using var cmd  = new SqlCommand(sql, conn);
+            var result = cmd.ExecuteScalar();
+            return result != null && Convert.ToInt32(result) == 1;
         }
 
         private SqlConnection OpenConnection()

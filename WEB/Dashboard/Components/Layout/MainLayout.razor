@@ -1,12 +1,19 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Routing
 @inject AuthService Auth
 @inject NavigationManager Nav
+@inject OrderService Orders
+@inject NotificationService Notifications
+@inject ThemeService ThemeSvc
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@implements IDisposable
 
-<MudThemeProvider Theme="_theme" />
+<MudThemeProvider Theme="_theme" IsDarkMode="ThemeSvc.IsDarkMode"
+                  IsDarkModeChanged="@((bool v) => ThemeSvc.SetDarkMode(v))" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
-
 
 @if (!Auth.IsLoggedIn)
 {
@@ -14,90 +21,290 @@
 }
 else
 {
-    <MudLayout>
-        <MudAppBar Elevation="1" Color="Color.Primary" Style="border-bottom:1px solid rgba(255,255,255,0.08);">
-            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                           OnClick="@(() => _drawerOpen = !_drawerOpen)" />
-            <MudText Typo="Typo.h6" Style="color:#fff;font-weight:700;letter-spacing:0.5px;">
-                🏭 Linia Montażowa LEGO
-            </MudText>
-            <MudSpacer />
-            <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Primary" Size="Size.Small">
-                @Auth.CurrentUser!.ImieNazwisko
-            </MudChip>
-            <MudChip T="string" Color="@(Auth.CurrentUser.IsSupervisor ? Color.Warning : Color.Info)" Size="Size.Small" Class="ml-1">
-                @Auth.CurrentUser.Rola
-            </MudChip>
-            <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit"
-                           OnClick="Logout" Title="Wyloguj" Class="ml-2" />
-        </MudAppBar>
+    <div style="@RootVars min-height:100vh;background:var(--bg);">
+        <div style="display:flex;min-height:100vh;gap:16px;">
 
-        <MudDrawer @bind-Open="_drawerOpen" Elevation="2"
-                   Style="background:#1a2035;" ClipMode="DrawerClipMode.Always">
-            <MudDrawerHeader>
-                <MudText Typo="Typo.subtitle2" Style="color:rgba(255,255,255,0.5);padding:8px 0;">
-                    NAWIGACJA
-                </MudText>
-            </MudDrawerHeader>
-            <MudNavMenu Color="Color.Primary">
-                <MudNavLink Href="/" Match="NavLinkMatch.All"
-                            Icon="@Icons.Material.Filled.Dashboard" Style="color:#e0e0e0;">
-                    Dashboard
-                </MudNavLink>
-                @if (Auth.CurrentUser.IsSupervisor)
-                {
-                    <MudNavLink Href="/zlecenia"
-                                Icon="@Icons.Material.Filled.Assignment" Style="color:#e0e0e0;">
-                        Zlecenia
-                    </MudNavLink>
-                    <MudNavLink Href="/harmonogram"
-                                Icon="@Icons.Material.Filled.CalendarMonth" Style="color:#e0e0e0;">
-                        Harmonogram
-                    </MudNavLink>
-                    <MudNavLink Href="/magazyn"
-                                Icon="@Icons.Material.Filled.Inventory2" Style="color:#e0e0e0;">
-                        Magazyn
-                    </MudNavLink>
-                    <MudNavLink Href="/raporty"
-                                Icon="@Icons.Material.Filled.BarChart" Style="color:#e0e0e0;">
-                        Raporty
-                    </MudNavLink>
-                }
-                else
-                {
-                    <MudNavLink Href="/moje-statystyki"
-                                Icon="@Icons.Material.Filled.Person" Style="color:#e0e0e0;">
-                        Moje statystyki
-                    </MudNavLink>
-                }
-            </MudNavMenu>
-        </MudDrawer>
+            <!-- ==================== SIDEBAR (lewitujacy, zawsze ciemny) ==================== -->
+            <div style="width:76px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);
+                        display:flex;flex-direction:column;align-items:center;
+                        padding:20px 0;position:sticky;top:14px;height:calc(100vh - 28px);margin:14px 0 14px 14px;
+                        border-radius:28px;box-shadow:0 12px 28px rgba(0,0,0,0.25);">
+                <div style="margin-bottom:30px;">@LogoSvg</div>
 
-        <MudMainContent Style="background:#f0f2f8;min-height:100vh;">
-            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-4">
-                @Body
-            </MudContainer>
-        </MudMainContent>
-    </MudLayout>
+                <div style="display:flex;flex-direction:column;gap:6px;flex:1;">
+                    @foreach (var item in _navItems)
+                    {
+                        var active = IsActive(item.Href);
+                        <MudTooltip Text="@item.Label" Placement="Placement.Right">
+                            <div style="@($"width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;{(active ? "background:var(--accent);" : "")}")"
+                                 @onclick="@(() => Nav.NavigateTo(item.Href))">
+                                <MudIcon Icon="@item.Icon" Style="@($"color:{(active ? "#fff" : "#8A8A93")};")" />
+                            </div>
+                        </MudTooltip>
+                    }
+                </div>
+
+                <MudTooltip Text="Rozpocznij nowe zajęcia" Placement="Placement.Right">
+                    <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(239,68,68,0.12);"
+                         @onclick="PotwierdzenieNoweZajecia">
+                        <MudIcon Icon="@Icons.Material.Filled.DeleteSweep" Style="color:#EF4444;" />
+                    </div>
+                </MudTooltip>
+            </div>
+
+            <!-- ==================== GLOWNA KOLUMNA ==================== -->
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+                <!-- ==================== TOPBAR ==================== -->
+                <div style="display:flex;align-items:center;gap:20px;padding:20px 28px;">
+                    <div>
+                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Witaj!</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--text);">@Auth.CurrentUser!.ImieNazwisko</MudText>
+                    </div>
+
+                    <MudSpacer />
+
+                    <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        <ActivatorContent>
+                            <div style="width:44px;height:44px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;">
+                                <MudIcon Icon="@Icons.Material.Filled.Settings" Style="color:var(--text-muted);" />
+                            </div>
+                        </ActivatorContent>
+                        <ChildContent>
+                            <div style="width:220px;padding:8px;">
+                                <MudText Typo="Typo.caption" Style="color:#999;padding:4px 8px;">MOTYW</MudText>
+                                <MudMenuItem OnClick="@(() => ThemeSvc.SetDarkMode(true))">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.DarkMode" Size="Size.Small" />
+                                        <span>Ciemny</span>
+                                        @if (ThemeSvc.IsDarkMode) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Style="margin-left:auto;color:var(--accent);" /> }
+                                    </div>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="@(() => ThemeSvc.SetDarkMode(false))">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <MudIcon Icon="@Icons.Material.Filled.LightMode" Size="Size.Small" />
+                                        <span>Jasny</span>
+                                        @if (!ThemeSvc.IsDarkMode) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Style="margin-left:auto;color:var(--accent);" /> }
+                                    </div>
+                                </MudMenuItem>
+                                <MudDivider Class="my-1" />
+                                <MudMenuItem OnClick="Logout">
+                                    <div style="display:flex;align-items:center;gap:8px;color:#EF4444;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" Style="color:#EF4444;" />
+                                        <span>Wyloguj</span>
+                                    </div>
+                                </MudMenuItem>
+                            </div>
+                        </ChildContent>
+                    </MudMenu>
+
+                    <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                        <ActivatorContent>
+                            <MudBadge Content="@_unreadCount" Color="Color.Error" Overlap="true" Visible="@(_unreadCount > 0)">
+                                <div style="width:44px;height:44px;border-radius:12px;background:var(--surface);display:flex;align-items:center;justify-content:center;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Notifications" Style="color:var(--text-muted);" />
+                                </div>
+                            </MudBadge>
+                        </ActivatorContent>
+                        <ChildContent>
+                            <div style="width:360px;max-height:420px;overflow-y:auto;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;">
+                                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Powiadomienia</MudText>
+                                    @if (_unreadCount > 0)
+                                    {
+                                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="MarkAllRead">
+                                            Oznacz jako przeczytane
+                                        </MudButton>
+                                    }
+                                </div>
+                                <MudDivider />
+                                @if (_notifications.Count == 0)
+                                {
+                                    <MudText Typo="Typo.body2" Style="padding:16px;color:#999;">Brak powiadomień.</MudText>
+                                }
+                                else
+                                {
+                                    @foreach (var n in _notifications)
+                                    {
+                                        <div style="@($"padding:10px 16px;border-bottom:1px solid var(--border);{(n.Przeczytane ? "" : "background:rgba(255,106,61,0.14);")}")">
+                                            <MudText Typo="Typo.body2">@n.Tresc</MudText>
+                                            <MudText Typo="Typo.caption" Style="color:#999;">@n.Utworzono.ToString("dd.MM HH:mm:ss")</MudText>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </ChildContent>
+                    </MudMenu>
+
+                    <div style="width:44px;height:44px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">
+                        @(Auth.CurrentUser!.ImieNazwisko.Length > 0 ? Auth.CurrentUser.ImieNazwisko[0].ToString().ToUpper() : "?")
+                    </div>
+                </div>
+
+                <!-- ==================== TRESC STRONY ==================== -->
+                <div style="flex:1;padding:0 28px 28px;">
+                    @Body
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {
-    bool _drawerOpen = true;
+    // Logo RB inline (nie przez <img>) - dziala niezaleznie od serwowania plikow i cache przegladarki.
+    public static readonly RenderFragment LogoSvg = @<svg width="46" height="46" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="rbGrad" x1="0" y1="0" x2="0.18" y2="1">
+                <stop offset="0%" stop-color="#7E2B3F" />
+                <stop offset="45%" stop-color="#B8434A" />
+                <stop offset="100%" stop-color="#F4704A" />
+            </linearGradient>
+        </defs>
+        <text x="60" y="88" font-family="Arial Black, Arial, Helvetica, sans-serif"
+              font-size="80" font-weight="900" font-style="italic" letter-spacing="-6"
+              text-anchor="middle" fill="url(#rbGrad)">RB</text>
+    </svg>;
+
+    record NavItem(string Href, string Label, string Icon);
+
+    readonly List<NavItem> _navItems = new()
+    {
+        new("/",            "Dashboard",    Icons.Material.Filled.Dashboard),
+        new("/zlecenia",     "Zlecenia",     Icons.Material.Filled.Assignment),
+        new("/magazyn",      "Magazyn",      Icons.Material.Filled.Inventory2),
+        new("/raporty",      "Raporty",      Icons.Material.Filled.BarChart),
+    };
+
+    bool IsActive(string href)
+    {
+        var path = new Uri(Nav.Uri).AbsolutePath;
+        return href == "/" ? path == "/" : path.StartsWith(href, StringComparison.OrdinalIgnoreCase);
+    }
+
+    string RootVars => ThemeSvc.IsDarkMode
+        ? "--bg:#08080A;--surface:#121214;--surface-alt:#1A1A1D;--track:#2B2B31;--text:#F2F2F3;--text-muted:#8B8B93;--border:#1F1F23;--accent:#FF6A3D;--accent-soft:rgba(255,106,61,0.15);--success:#22C55E;--warning:#F59E0B;--danger:#EF4444;"
+        : "--bg:#F4F4F6;--surface:#FFFFFF;--surface-alt:#F0F0F2;--track:#D8D8DC;--text:#1A1A1D;--text-muted:#6B6B75;--border:#E4E4E7;--accent:#FF6A3D;--accent-soft:rgba(255,106,61,0.10);--success:#16A34A;--warning:#D97706;--danger:#DC2626;";
+
+    int _unreadCount;
+    List<Powiadomienie> _notifications = new();
+    System.Timers.Timer? _notifTimer;
+    volatile bool _disposed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.OnChange += HandleAuthChange;
+        Nav.LocationChanged += HandleLocationChanged;
+        if (Auth.IsLoggedIn) await LoadNotificationsAsync();
+
+        _notifTimer = new System.Timers.Timer(8000);
+        // Callback leci na watku w tle - kazdy nieobsluzony wyjatek (np. render juz
+        // zamknietego obwodu) zabilby cala sesje Blazora i strona by zamarla.
+        _notifTimer.Elapsed += async (_, _) =>
+        {
+            if (_disposed || !Auth.IsLoggedIn) return;
+            try
+            {
+                await LoadNotificationsAsync();
+                if (_disposed) return;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException) { /* sesja zamknieta w trakcie odswiezania */ }
+            catch (Exception ex) { Console.WriteLine($"[Layout] blad powiadomien: {ex.Message}"); }
+        };
+        _notifTimer.Start();
+    }
+
+    void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    void HandleAuthChange()
+    {
+        if (_disposed) return;
+        _ = InvokeAsync(async () =>
+        {
+            try
+            {
+                if (Auth.IsLoggedIn) await LoadNotificationsAsync();
+                StateHasChanged();
+            }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex) { Console.WriteLine($"[Layout] blad zmiany sesji: {ex.Message}"); }
+        });
+    }
+
+    async Task LoadNotificationsAsync()
+    {
+        _unreadCount   = await Notifications.GetUnreadCountAsync();
+        _notifications = await Notifications.GetRecentAsync(20);
+    }
+
+    async Task MarkAllRead()
+    {
+        await Notifications.MarkAllReadAsync();
+        await LoadNotificationsAsync();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Auth.OnChange -= HandleAuthChange;
+        Nav.LocationChanged -= HandleLocationChanged;
+        _notifTimer?.Stop();
+        _notifTimer?.Dispose();
+    }
+
+    async Task PotwierdzenieNoweZajecia()
+    {
+        bool? diag = await DialogService.ShowMessageBox("Uwaga",
+            "Czy na pewno chcesz wyczyścić wszystkie zlecenia i wysłać reset do PLC?",
+            yesText: "Tak", cancelText: "Anuluj");
+        if (diag == true)
+        {
+            await Orders.NoweZajeciaResetAsync();
+            Snackbar.Add("Zlecenia wyczyszczone, reset wysłany do PLC.", Severity.Warning);
+        }
+    }
 
     MudTheme _theme = new MudTheme
     {
         PaletteLight = new PaletteLight
         {
-            Primary         = "#5c6bc0",
-            Secondary       = "#26a69a",
-            Success         = "#66bb6a",
-            Warning         = "#ffa726",
-            Error           = "#ef5350",
-            Background      = "#f0f2f8",
-            Surface         = "#ffffff",
-            AppbarBackground = "#1a2035",
-            DrawerBackground = "#1a2035",
-            DrawerText      = "#e0e0e0",
+            Primary          = "#FF6A3D",
+            Secondary        = "#FF6A3D",
+            Tertiary         = "#FF8A63",
+            Info             = "#FF6A3D",   // domyslnie niebieski - ujednolicone z akcentem
+            Success          = "#16A34A",
+            Warning          = "#D97706",
+            Error            = "#DC2626",
+            Background       = "#F4F4F6",
+            Surface          = "#FFFFFF",
+            AppbarBackground = "#FFFFFF",
+            DrawerBackground = "#0B0B0D",
+            DrawerText       = "#E5E5E7",
+            TextPrimary      = "#1A1A1D",
+            TextSecondary    = "#6B6B75",
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary          = "#FF6A3D",
+            Secondary        = "#FF6A3D",
+            Tertiary         = "#FF8A63",
+            Info             = "#FF6A3D",   // domyslnie niebieski - ujednolicone z akcentem
+            Success          = "#22C55E",
+            Warning          = "#F59E0B",
+            Error            = "#EF4444",
+            Background       = "#08080A",
+            Surface          = "#121214",
+            AppbarBackground = "#08080A",
+            DrawerBackground = "#08080A",
+            DrawerText       = "#E5E5E7",
+            TextPrimary      = "#F2F2F3",
+            TextSecondary    = "#8B8B93",
+            Divider          = "#1F1F23",
+            LinesDefault     = "#1F1F23",
         },
         Typography = new Typography
         {

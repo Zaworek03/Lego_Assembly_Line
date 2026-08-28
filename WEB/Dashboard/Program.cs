@@ -18,7 +18,11 @@ builder.Services.AddScoped<ProductionDataService>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<OrderService>();
-builder.Services.AddHostedService<ProductionSimulatorService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddSingleton<ThemeService>();
+// WYLACZONE: symulator dopisywal sztuczne cykle do Realizacja_Produkcji i zmienial statusy
+// zlecen rownolegle z prawdziwymi danymi z PLC (falszowal wskazniki i kolidowal z Middleware).
+// builder.Services.AddHostedService<ProductionSimulatorService>();
 
 var app = builder.Build();
 

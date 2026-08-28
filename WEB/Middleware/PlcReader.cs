@@ -76,26 +76,41 @@ namespace PlcToDbMiddleware
             };
         }
 
-                        public void WriteOrderToPlc(int id, int modelId, int partNo, int priority)
+                        // DB_Zlecenia.NastepneZlecenie.Zlecenie — DB3, offsety wg struktury w TIA:
+        // ID=27600, Model=27602, PartNo=27604, Priority=27736
+        private const int OFF_NASTEPNE_ID       = 27600;
+        private const int OFF_NASTEPNE_MODEL    = 27602;
+        private const int OFF_NASTEPNE_PARTNO   = 27604;
+        private const int OFF_NASTEPNE_PRIORITY = 27736;
+
+        public void WriteOrderToPlc(int id, int modelId, int partNo, int priority)
         {
             if (_plc == null || !_plc.IsConnected) return;
 
-            int offset = 65000;
-            
-            _plc.Write("DB3.DBW" + offset, (short)id);
-            _plc.Write("DB3.DBW" + (offset + 2), (short)modelId);
-            _plc.Write("DB3.DBW" + (offset + 4), (short)partNo);
-            _plc.Write("DB3.DBW" + (offset + 128), (short)priority);
+            _plc.Write($"DB3.DBW{OFF_NASTEPNE_ID}",       (short)id);
+            _plc.Write($"DB3.DBW{OFF_NASTEPNE_MODEL}",    (short)modelId);
+            _plc.Write($"DB3.DBW{OFF_NASTEPNE_PARTNO}",   (short)partNo);
+            _plc.Write($"DB3.DBW{OFF_NASTEPNE_PRIORITY}", (short)priority);
         }
 
         public void WriteWebOrderToPlc(int id, int idWyrobu, int iloscSztuk, int priority)
         {
             if (_plc == null || !_plc.IsConnected) return;
-            
+
             _plc.Write("DB10.DBW0", (short)id);
             _plc.Write("DB10.DBW2", (short)idWyrobu);
             _plc.Write("DB10.DBW4", (short)iloscSztuk);
             _plc.Write("DB10.DBW6", (short)priority);
+        }
+
+        // DB_Zlecenia.ResetZlecen — DB3.DBX27876.0. Zapisujemy tylko TRUE (trigger);
+        // PLC ma wlasna logike zerujaca ten bit po wykonaniu resetu.
+        private const int OFF_RESET_ZLECEN = 27876;
+
+        public void WriteResetZlecen(bool value)
+        {
+            if (_plc == null || !_plc.IsConnected) return;
+            _plc.Write($"DB3.DBX{OFF_RESET_ZLECEN}.0", value);
         }
 
         
@@ -165,9 +180,84 @@ namespace PlcToDbMiddleware
             }
         }
 
+        // DB_Data [DB1] - stan poszczegolnych stanowisk (Production.State/OrderNo per stanowisko).
+        // Kazdy blok stanowiska ma 102 bajty, ulozone sekwencyjnie: St1=0, St2=102, St3=204, QC=306.
+        // Zweryfikowane empirycznie na zywym PLC (Production.OrderNo zgadzalo sie z aktywnym zleceniem).
+        private const int DB_DATA_STANOWISKO_SIZE = 102;
+        private const int OFF_DD_PRODUCTION_STATE   = 28; // Int, wzgledem bazy stanowiska
+        private const int OFF_DD_PRODUCTION_ORDERNO = 30; // Int, wzgledem bazy stanowiska
+
+        /// <summary>
+        /// Odczytuje Production.State i Production.OrderNo dla stanowiska (1,2,3, 4=QC) z DB_Data.
+        /// State: 0=idle, 1=w trakcie montazu, 2=zakonczenie, 3=awaria/abort.
+        /// </summary>
+        public (int state, int orderNo) ReadStanowiskoProdukcja(int stanowiskoNr)
+        {
+            if (_plc == null || !_plc.IsConnected) return (0, 0);
+            int baseOff = (stanowiskoNr - 1) * DB_DATA_STANOWISKO_SIZE;
+            try
+            {
+                int state   = (short)((ushort)_plc.Read($"DB1.DBW{baseOff + OFF_DD_PRODUCTION_STATE}"));
+                int orderNo = (short)((ushort)_plc.Read($"DB1.DBW{baseOff + OFF_DD_PRODUCTION_ORDERNO}"));
+                return (state, orderNo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARN] Nie udalo sie odczytac Production stanowiska {stanowiskoNr}: {ex.Message}");
+                return (0, 0);
+            }
+        }
+
         public void ResetTrigger()
         {
             _plc.Write($"DB{DB}.DBX{OFF_TRIGGER}.0", false);
+        }
+
+        // DB_Zlecenia.Zlecenie[0..199] - archiwum zlecen ktore przeszly przez stanowiska.
+        // Rozmiar 1 elementu = 138 bajtow (potwierdzone: Zlecenie[1] zaczyna sie na offset 138.0).
+        // Abort jest osobnym bitem (bajt) w bloku Time kazdego stanowiska.
+        private const int ZLECENIE_ELEMENT_SIZE = 138;
+        private const int ZLECENIE_COUNT        = 200;
+        private const int OFF_ID                = 0;
+        private const int OFF_ABORT_ST1         = 34;
+        private const int OFF_ABORT_ST2         = 64;
+        private const int OFF_ABORT_ST3         = 94;
+        private const int OFF_ABORT_QC          = 124;
+
+        /// <summary>
+        /// Skanuje cala tablice Zlecenie[] i zwraca zdarzenia Abort=TRUE per stanowisko
+        /// (operator porzucil POJEDYNCZA SZTUKE na HMI - dotyczy tylko tej sztuki,
+        /// nie calego zlecenia). SlotIndex identyfikuje konkretny wpis w tablicy,
+        /// do deduplikacji powiadomien po stronie wywolujacego.
+        /// </summary>
+        public List<(int slotIndex, int idZlecenia, int stanowiskoNr)> ReadAbortEvents()
+        {
+            var result = new List<(int, int, int)>();
+            if (_plc == null || !_plc.IsConnected) return result;
+
+            byte[] buffer;
+            try
+            {
+                buffer = _plc.ReadBytes(DataType.DataBlock, 3, 0, ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WARN] Nie udalo sie odczytac tablicy Zlecenie[] (Abort scan): {ex.Message}");
+                return result;
+            }
+
+            for (int i = 0; i < ZLECENIE_COUNT; i++)
+            {
+                int baseOff = i * ZLECENIE_ELEMENT_SIZE;
+                short id = (short)((buffer[baseOff + OFF_ID] << 8) | buffer[baseOff + OFF_ID + 1]);
+                if (id == 0) continue;
+
+                if ((buffer[baseOff + OFF_ABORT_ST1] & 0x01) != 0) result.Add((i, id, 1));
+                if ((buffer[baseOff + OFF_ABORT_ST2] & 0x01) != 0) result.Add((i, id, 2));
+                if ((buffer[baseOff + OFF_ABORT_ST3] & 0x01) != 0) result.Add((i, id, 3));
+                if ((buffer[baseOff + OFF_ABORT_QC]  & 0x01) != 0) result.Add((i, id, 4));
+            }
+            return result;
         }
 
         public void Dispose()
