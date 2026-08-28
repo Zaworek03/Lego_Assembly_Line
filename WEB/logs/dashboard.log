@@ -16,3 +16,7 @@ warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
       The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
 warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
       The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
+warn: Microsoft.AspNetCore.StaticAssets.StaticAssetsInvoker[17]
+      The application is not running against the published output and Static Web Assets are not enabled. To configure static web assets in other environments, call 'StaticWebAssetsLoader.UseStaticWebAssets(IWebHostEnvironment, IConfiguration)' to enable them.
