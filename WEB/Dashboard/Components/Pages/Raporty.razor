@@ -1,15 +1,213 @@
 @page "/raporty"
 @inject AuthService Auth
+@inject OrderService Orders
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Raporty — Linia Montażowa</PageTitle>
 
 @if (!Auth.IsLoggedIn) { return; }
 
-<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:60px;
-            display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;margin-top:40px;">
-    <MudIcon Icon="@Icons.Material.Filled.BarChart" Style="color:var(--accent);font-size:48px;" />
-    <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--text);">Raporty — w budowie</MudText>
-    <MudText Typo="Typo.body2" Style="color:var(--text-muted);max-width:420px;">
-        Ta zakładka zostanie zaprojektowana osobno.
+<div style="margin-bottom:18px;">
+    <MudText Typo="Typo.h4" Style="font-weight:800;color:var(--text);">Raporty z zajęć</MudText>
+    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
+        Zapisywane automatycznie po naciśnięciu „Rozpocznij nowe zajęcia" · @_raporty.Count @(_raporty.Count == 1 ? "raport" : "raportów")
     </MudText>
 </div>
+
+@if (_raporty.Count == 0)
+{
+    <div style="@Karta padding:60px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;">
+        <MudIcon Icon="@Icons.Material.Filled.Assessment" Style="color:var(--accent);font-size:44px;" />
+        <MudText Typo="Typo.h6" Style="font-weight:700;color:var(--text);">Brak raportów</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--text-muted);max-width:420px;">
+            Pierwszy raport powstanie po zakończeniu bieżącego bloku zajęć przyciskiem
+            „Rozpocznij nowe zajęcia".
+        </MudText>
+    </div>
+}
+else
+{
+    <div style="display:flex;flex-direction:column;gap:16px;">
+        @foreach (var r in _raporty)
+        {
+            <div style="@Karta">
+                <!-- Nagłówek raportu -->
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+                    <div>
+                        <MudText Typo="Typo.h6" Style="font-weight:800;color:var(--text);">@r.Nazwa</MudText>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">
+                            @r.Utworzono.ToString("dd.MM.yyyy HH:mm")
+                        </MudText>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                                   OnClick="@(() => Przelacz(r.ID))">
+                            @(_rozwiniete.Contains(r.ID) ? "Zwiń" : "Szczegóły")
+                        </MudButton>
+                        <MudTooltip Text="Usuń raport">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                                           Style="color:var(--danger);"
+                                           OnClick="@(() => PytajOUsuniecie(r))" />
+                        </MudTooltip>
+                    </div>
+                </div>
+
+                <!-- 1. Główne wskaźniki (KPI) -->
+                <MudText Typo="Typo.subtitle2" Style="@Sekcja">1. Główne wskaźniki (KPI)</MudText>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;">
+                    @Wskaznik("Całkowite OEE", r.OEE)
+                    @Wskaznik("Dostępność", r.Dostepnosc)
+                    @Wskaznik("Wydajność", r.Wydajnosc)
+                    @Wskaznik("Jakość", r.Jakosc)
+                    @Wskaznik("FPY", r.FPY)
+                </div>
+
+                <!-- 2. Poziom defektów -->
+                <MudText Typo="Typo.subtitle2" Style="@Sekcja">2. Poziom defektów</MudText>
+                <div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:16px;">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Wadliwe / dobre</MudText>
+                        <MudText Style="font-size:1.3rem;font-weight:800;color:var(--text);">
+                            <span style="color:var(--danger);">@r.SztukNOK</span>
+                            <span style="color:var(--text-muted);"> / </span>
+                            <span style="color:var(--success);">@r.SztukOK</span>
+                        </MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Wskaźnik odrzutów</MudText>
+                        <MudText Style="font-size:1.3rem;font-weight:800;color:var(--danger);">
+                            @r.ProcentOdrzutow.ToString("F1")%
+                        </MudText>
+                    </div>
+                </div>
+
+                @if (_rozwiniete.Contains(r.ID))
+                {
+                    <!-- 3. Historia zleceń -->
+                    <MudText Typo="Typo.subtitle2" Style="@Sekcja">3. Historia zleceń</MudText>
+                    @if (r.Zlecenia.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);margin-bottom:16px;">Brak zleceń.</MudText>
+                    }
+                    else
+                    {
+                        <div style="overflow-x:auto;margin-bottom:16px;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                <thead>
+                                    <tr style="color:var(--text-muted);text-align:left;">
+                                        <th style="padding:6px 8px;">Zlecenie</th>
+                                        <th style="padding:6px 8px;">Wyrób</th>
+                                        <th style="padding:6px 8px;">Status</th>
+                                        <th style="padding:6px 8px;text-align:center;">Sztuk</th>
+                                        <th style="padding:6px 8px;text-align:center;">OK</th>
+                                        <th style="padding:6px 8px;text-align:center;">NOK</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var z in r.Zlecenia)
+                                    {
+                                        <tr style="border-top:1px solid var(--border);">
+                                            <td style="padding:6px 8px;color:var(--text);font-weight:700;">@z.Nazwa</td>
+                                            <td style="padding:6px 8px;color:var(--text-muted);">@(z.Wyrob ?? "—")</td>
+                                            <td style="padding:6px 8px;">
+                                                <MudChip T="string" Size="Size.Small" Color="@StatusColor(z.Status)">@z.Status</MudChip>
+                                            </td>
+                                            <td style="padding:6px 8px;text-align:center;color:var(--text);">@z.IloscSztuk</td>
+                                            <td style="padding:6px 8px;text-align:center;color:var(--success);font-weight:700;">@z.SztukOK</td>
+                                            <td style="padding:6px 8px;text-align:center;color:var(--danger);font-weight:700;">@z.SztukNOK</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <!-- 4. Wykorzystane materiały -->
+                    <MudText Typo="Typo.subtitle2" Style="@Sekcja">4. Wykorzystane materiały</MudText>
+                    @if (r.Materialy.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Nie zużyto żadnych komponentów.</MudText>
+                    }
+                    else
+                    {
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;">
+                            @foreach (var m in r.Materialy)
+                            {
+                                <div style="display:flex;justify-content:space-between;gap:8px;padding:7px 10px;
+                                            background:var(--surface-alt);border-radius:9px;">
+                                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        @m.Nazwa
+                                    </MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--accent);white-space:nowrap;">
+                                        @m.Zuzyto szt
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    const string Karta  = "background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;";
+    const string Sekcja = "font-weight:800;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.4px;";
+
+    List<Raport>  _raporty    = new();
+    HashSet<int>  _rozwiniete = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _raporty = await Orders.GetRaportyAsync(); }
+        catch (Exception ex) { Console.WriteLine($"[Raporty] blad ladowania: {ex.Message}"); }
+    }
+
+    void Przelacz(int id)
+    {
+        if (!_rozwiniete.Add(id)) _rozwiniete.Remove(id);
+    }
+
+    /// <summary>Usuniecie jest nieodwracalne - raport to jedyny slad po zakonczonych zajeciach.</summary>
+    async Task PytajOUsuniecie(Raport r)
+    {
+        bool? potwierdzone = await DialogService.ShowMessageBox("Usunąć raport?",
+            $"„{r.Nazwa}\" zostanie trwale usunięty razem z historią zleceń i zużyciem materiałów. " +
+            "Tej operacji nie da się cofnąć.",
+            yesText: "Usuń", cancelText: "Anuluj");
+
+        if (potwierdzone != true) return;
+
+        try
+        {
+            await Orders.UsunRaportAsync(r.ID);
+            _raporty.Remove(r);
+            _rozwiniete.Remove(r.ID);
+            Snackbar.Add("Raport usunięty.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Nie udało się usunąć raportu: {ex.Message}", Severity.Error);
+        }
+    }
+
+    RenderFragment Wskaznik(string nazwa, double wartosc) => __builder =>
+    {
+        <div style="background:var(--surface-alt);border-radius:10px;padding:10px 12px;">
+            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">@nazwa</MudText>
+            <MudText Style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1.2;">
+                @wartosc.ToString("P1")
+            </MudText>
+        </div>;
+    };
+
+    static Color StatusColor(string status) => status switch
+    {
+        "Zakonczone" => Color.Success,
+        "W toku"     => Color.Primary,
+        "Anulowane"  => Color.Error,
+        _            => Color.Warning
+    };
+}

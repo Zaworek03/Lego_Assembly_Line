@@ -18,6 +18,13 @@
         <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
             Elementy LEGO · @_mainItems.Count pozycji w magazynie głównym
         </MudText>
+        @if (_mainItems.Any(i => i.Dostepny < 0))
+        {
+            <MudText Typo="Typo.body2" Style="color:var(--danger);font-weight:700;margin-top:4px;">
+                ⚠ Zadłużenie magazynu: @_mainItems.Count(i => i.Dostepny < 0) pozycji poniżej zera
+                (zlecenia zatwierdzone mimo braków)
+            </MudText>
+        }
     </div>
     <MudButton Variant="Variant.Outlined" Color="Color.Error"
                StartIcon="@Icons.Material.Filled.RestartAlt"
@@ -47,9 +54,11 @@
                 <MudTh>Typ</MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<InventoryItem,object>(i=>i.Kolor)">Kolor</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel SortBy="new Func<InventoryItem,object>(i=>i.StanBiezacy)">Stan</MudTableSortLabel></MudTh>
+                <MudTh>Na pojemnik</MudTh>
                 <MudTh>Zarezerwowane</MudTh>
                 <MudTh>Dostępne</MudTh>
                 <MudTh>Stan wizualny</MudTh>
+                <MudTh>Korekta</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>
@@ -65,6 +74,11 @@
                 <MudTd>
                     <MudText Style=@($"font-weight:800;color:{(context.NiskiStan ? "#EF4444" : "var(--text)")}")>
                         @context.StanBiezacy
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
+                        @(context.PojemnoscPojemnika > 0 ? context.PojemnoscPojemnika.ToString() : "—")
                     </MudText>
                 </MudTd>
                 <MudTd>
@@ -84,6 +98,13 @@
                     <MudProgressLinear Value="@context.ProcentPelny"
                                        Color="@StanMudColor(context.ProcentPelny)"
                                        Style="min-width:80px;background:var(--track);" Rounded="true" Size="Size.Small" />
+                </MudTd>
+                <MudTd>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Tune"
+                               OnClick="@(() => OpenKorekta(context))">
+                        Uzupełnij
+                    </MudButton>
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
@@ -126,6 +147,56 @@
     </MudTabPanel>
 </MudTabs>
 
+<!-- MODAL KOREKTY STANU -->
+@if (_korektaOpen && _korektaItem != null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;"
+         @onclick="@(() => _korektaOpen = false)">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(420px,92vw);padding:26px;box-shadow:0 24px 64px rgba(0,0,0,0.45);"
+             @onclick:stopPropagation>
+            <MudText Typo="Typo.h6" Style="font-weight:800;color:var(--text);margin-bottom:6px;">
+                Korekta stanu magazynu
+            </MudText>
+            <MudText Typo="Typo.body2" Style="color:var(--text-muted);margin-bottom:16px;">
+                @_korektaItem.NazwaMaterialu
+            </MudText>
+
+            <div style="display:flex;gap:18px;margin-bottom:16px;">
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Obecnie</MudText>
+                    <MudText Style="font-weight:800;color:var(--text);">@_korektaItem.StanBiezacy szt</MudText>
+                </div>
+                <div>
+                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Maksimum</MudText>
+                    <MudText Style="font-weight:800;color:var(--text);">@_korektaItem.IloscBazowa szt</MudText>
+                </div>
+                @if (_korektaItem.PojemnoscPojemnika > 0)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Na pojemnik</MudText>
+                        <MudText Style="font-weight:800;color:var(--text);">@_korektaItem.PojemnoscPojemnika szt</MudText>
+                    </div>
+                }
+            </div>
+
+            <MudNumericField T="int" @bind-Value="_korektaIlosc" Label="Nowy stan (szt)"
+                             Variant="Variant.Outlined" Min="0" Max="@_korektaItem.IloscBazowa"
+                             HelperText="@($"Zakres 0 – {_korektaItem.IloscBazowa} szt (nie można przekroczyć maksimum)")" />
+
+            <div style="display:flex;gap:8px;justify-content:space-between;margin-top:20px;">
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           OnClick="@(() => _korektaIlosc = _korektaItem.IloscBazowa)">
+                    Do stanu maksymalnego
+                </MudButton>
+                <div style="display:flex;gap:8px;">
+                    <MudButton Variant="Variant.Outlined" OnClick="@(() => _korektaOpen = false)">Anuluj</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ZapiszKorekte">Zapisz</MudButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     List<InventoryItem>       _mainItems    = new();
     List<InventoryTransaction> _transakcje  = new();
@@ -167,6 +238,38 @@
         item.Wymiary.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
         item.Kolor.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
 
+    // ── Reczna korekta pojedynczego komponentu ───────────────────────
+    bool           _korektaOpen;
+    InventoryItem? _korektaItem;
+    int            _korektaIlosc;
+
+    void OpenKorekta(InventoryItem item)
+    {
+        _korektaItem  = item;
+        _korektaIlosc = item.StanBiezacy;
+        _korektaOpen  = true;
+    }
+
+    async Task ZapiszKorekte()
+    {
+        if (_korektaItem == null) return;
+        try
+        {
+            int zapisano = await Inv.UstawStanAsync(_korektaItem.IDMaterialu, _korektaIlosc);
+            if (zapisano != _korektaIlosc)
+                Snackbar.Add($"Ilość przycięta do maksimum: {zapisano} szt.", Severity.Warning);
+            else
+                Snackbar.Add($"Stan zaktualizowany: {zapisano} szt.", Severity.Success);
+
+            _korektaOpen = false;
+            await LoadAll();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Błąd korekty: {ex.Message}", Severity.Error);
+        }
+    }
+
     async Task PotwierdzenieReset()
     {
         var ok = await DialogService.ShowMessageBox(
@@ -204,6 +307,7 @@
         "ZwrotPoNOK"   => Color.Success,
         "ZwrotRezerwy" => Color.Info,
         "ResetMagazynu"=> Color.Secondary,
+        "KorektaReczna"=> Color.Primary,
         "Transfer"     => Color.Primary,
         _              => Color.Default
     };

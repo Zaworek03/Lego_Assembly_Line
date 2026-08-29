@@ -36,6 +36,17 @@ namespace PlcToDbMiddleware
         {
             Console.OutputEncoding = Encoding.UTF8;
             Console.Title = "PlcToDb Middleware v2.0";
+
+            // Dwie kopie naraz pisalyby do tego samego PLC i bilyby sie o LocalDB.
+            using var jedynaInstancja = new Mutex(true, @"Global\LiniaMontazowa_Middleware", out bool pierwszy);
+            if (!pierwszy)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Middleware juz dziala (inna instancja). Uruchamiam tylko jedna kopie.");
+                Console.ResetColor();
+                return;
+            }
+
             PrintHeader();
 
             var db = new DatabaseHelper(ConnectionString);
@@ -122,35 +133,57 @@ namespace PlcToDbMiddleware
         // ================================================================
         //  TRYB PRODUKCYJNY — prawdziwy PLC
         // ================================================================
-                        static int _lastSyncedOrderId = -1;
-        static int _lastSyncedPartNo = -1;
-        static int _lastSyncedCount = 0;
+        static bool _zglosilBrakZlecen;
+        static DateTime _ostatnieSzukanieKolejki = DateTime.MinValue;
 
+        /// <summary>
+        /// Podaje PLC kolejne zlecenie z kolejki.
+        ///
+        /// Zasada: PLC samo zarzadza slotem NastepneZlecenie - zmniejsza PartNo po kazdej
+        /// sztuce, a po ostatniej zeruje caly slot (NastepneZlecenie := PusteZlecenie).
+        /// Pusty slot to wiec sygnal "linia gotowa na nastepne zlecenie".
+        ///
+        /// Zlecenie zostaje w SQL jako aktywne dopoki sztuki nie przejda przez QC, dlatego
+        /// nie wystarczy wziac pierwsze z brzegu - trzeba pominac te, ktore w calosci
+        /// poszly juz na linie, inaczej to samo zlecenie produkowaloby sie w kolko.
+        /// </summary>
         static void SyncActiveOrderToPlc(PlcReader plc, DatabaseHelper db) {
             try {
+                // Slot zajety - PLC pracuje, nie ma czego podawac.
+                if (plc.ReadNastepneZlecenieId() != 0) { _zglosilBrakZlecen = false; return; }
+
                 var activeOrders = db.GetActiveOrders();
-                int highestId = activeOrders.Count > 0 ? activeOrders[0].id : -1;
-                // PartNo = potrzebna ilosc sztuk wprost ze zlecenia (Ilosc_Sztuk).
-                // Zliczanie/inkrementacje kolejnych sztuk przejela logika w TIA.
-                int highestPart = activeOrders.Count > 0 ? activeOrders[0].iloscSztuk : -1;
-
-                if (highestId != _lastSyncedOrderId || highestPart != _lastSyncedPartNo || activeOrders.Count != _lastSyncedCount)
-                {
-                    Console.WriteLine($"[INFO] SQL -> PLC: Synchronizacja {activeOrders.Count} aktywnych zlecen (DB3)...");
-                    if (activeOrders.Count > 0)
-                    {
-                        plc.WriteOrderToPlc(
-                            activeOrders[0].id,
-                            activeOrders[0].idWyrobu + 1,
-                            activeOrders[0].iloscSztuk,
-                            activeOrders[0].priority
-                        );
-                        Console.WriteLine($"[INFO] Przeslano zlecenie do PLC: ZlecenieID={activeOrders[0].id} PartNo(Ilosc)={activeOrders[0].iloscSztuk}");
+                if (activeOrders.Count == 0) {
+                    if (!_zglosilBrakZlecen) {
+                        Console.WriteLine("[INFO] Kolejka pusta - brak zlecen do wyslania.");
+                        _zglosilBrakZlecen = true;
                     }
+                    return;
+                }
 
-                    _lastSyncedOrderId = highestId;
-                    _lastSyncedPartNo = highestPart;
-                    _lastSyncedCount = activeOrders.Count;
+                // Skan tablicy (28 kB) tylko co 2 s - slot potrafi byc pusty przez dluzszy czas.
+                if ((DateTime.Now - _ostatnieSzukanieKolejki).TotalMilliseconds < 2000) return;
+                _ostatnieSzukanieKolejki = DateTime.Now;
+
+                var naLinii = plc.LiczSztukiWszystkichZlecen();
+                if (naLinii == null) return;   // blad odczytu - sprobujemy za chwile
+
+                // activeOrders jest juz posortowane wg priorytetu i terminu.
+                foreach (var z in activeOrders) {
+                    int juz = naLinii.TryGetValue(z.id, out var n) ? n : 0;
+                    int pozostalo = z.iloscSztuk - juz;
+                    if (pozostalo <= 0) continue;   // to zlecenie w calosci poszlo juz na linie
+
+                    plc.WriteOrderToPlc(z.id, z.idWyrobu + 1, pozostalo, z.priority);
+                    Console.WriteLine($"[INFO] Zlecenie -> PLC: ID={z.id} PartNo={pozostalo}" +
+                                      (juz > 0 ? $" (wznowienie, {juz} juz na linii)" : ""));
+                    _zglosilBrakZlecen = false;
+                    return;
+                }
+
+                if (!_zglosilBrakZlecen) {
+                    Console.WriteLine("[INFO] Wszystkie aktywne zlecenia sa juz na linii - czekam na QC.");
+                    _zglosilBrakZlecen = true;
                 }
             } catch (Exception ex) {
                 Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac: {ex.Message}");
@@ -174,14 +207,191 @@ namespace PlcToDbMiddleware
 
         // Gdy operator nacisnie Start na Stanowisku 1 (Production.State -> 1),
         // odpowiadajace zlecenie przechodzi 'Nowe' -> 'W toku'.
-        static void CheckOrderStarted(PlcReader plc, DatabaseHelper db) {
+        // Dane pochodza z gotowej migawki - osobny odczyt z PLC kosztowal ok. 70 ms na cykl.
+        static int _ostatnieZgloszoneStartem = -1;
+
+        static void CheckOrderStarted(DatabaseHelper db, int stan, int orderNo) {
             try {
-                var (state, orderNo) = plc.ReadStanowiskoProdukcja(1);
-                if (state == 1 && orderNo > 0) {
-                    db.MarkOrderStartedIfNew(orderNo);
-                }
+                if (stan != 1 || orderNo <= 0) return;
+                if (orderNo == _ostatnieZgloszoneStartem) return;   // juz oznaczone
+                db.MarkOrderStartedIfNew(orderNo);
+                _ostatnieZgloszoneStartem = orderNo;
             } catch (Exception ex) {
                 Console.WriteLine($"[WARN] Nie udalo sie sprawdzic startu zlecenia: {ex.Message}");
+            }
+        }
+
+        static readonly int[] _ostatniStanStanowiska = { -1, -1, -1, -1 };
+
+        // Pomiar czasu pracy stanowiska: moment wejscia w stan 1 i numer zlecenia,
+        // ktore wtedy na nim bylo. Realizacja_Produkcji nie dostaje rekordow
+        // (martwy wyzwalacz z DB5), wiec to jedyne zrodlo rzeczywistych czasow cyklu.
+        static readonly DateTime[] _startPracy   = new DateTime[4];
+        static readonly int[]      _zlecenieStartu = { 0, 0, 0, 0 };
+
+        // Cykl krotszy niz to uznajemy za drgniecie sygnalu, dluzszy za przerwe
+        // (ktos zostawil stanowisko w stanie pracy) - w obu wypadkach nie zapisujemy.
+        const int MIN_CYKL_MS = 700;
+        const int MAX_CYKL_MS = 15 * 60 * 1000;
+
+        /// <summary>
+        /// Reaguje na zmiane Production.State: wejscie w 1 startuje stoper, wyjscie z 1
+        /// zamyka cykl, zapisuje go i odsyla swieza wydajnosc na panel HMI stanowiska.
+        /// </summary>
+        static void ObsluzPomiarCyklu(PlcReader plc, DatabaseHelper db,
+                                      int nr, int poprzedni, int stan, int nrZlecenia)
+        {
+            if (stan == 1) {                       // stanowisko wlasnie ruszylo
+                _startPracy[nr - 1]     = DateTime.Now;
+                _zlecenieStartu[nr - 1] = nrZlecenia;
+                return;
+            }
+
+            if (poprzedni != 1) return;            // nie wychodzimy z pracy - nie ma co mierzyc
+            if (_startPracy[nr - 1] == default) return;
+
+            int czasMs = (int)(DateTime.Now - _startPracy[nr - 1]).TotalMilliseconds;
+            _startPracy[nr - 1] = default;
+
+            if (czasMs < MIN_CYKL_MS || czasMs > MAX_CYKL_MS) {
+                Console.WriteLine($"[INFO] Stanowisko {nr}: cykl {czasMs} ms poza zakresem - pomijam.");
+                return;
+            }
+
+            // Numer zlecenia bierzemy z chwili STARTU - przy wyjsciu ze stanu pracy
+            // PLC potrafi juz wyzerowac OrderNo.
+            int zlecenie = _zlecenieStartu[nr - 1] != 0 ? _zlecenieStartu[nr - 1] : nrZlecenia;
+            if (zlecenie == 0) return;
+
+            // PLC mierzy czas u siebie (udtZlecenia.Time.StanowiskoX.ActualTime, sekundy)
+            // - to wartosc, ktora operator widzi na HMI, wiec ma pierwszenstwo przed
+            // stoperem Middleware. Stoper zostaje jako kontrola zdrowego rozsadku:
+            // gdy oba wyniki mocno sie rozjezdzaja, ufamy wlasnemu i zglaszamy to w logu.
+            string zrodlo = "stoper";
+            var czasyPlc = plc.ReadCzasyStanowiska(zlecenie, nr);
+            if (czasyPlc is { ActualSek: > 0 }) {
+                int zPlcMs = czasyPlc.ActualSek * 1000;
+                double stosunek = (double)zPlcMs / czasMs;
+                if (stosunek is > 0.3 and < 3.0) {
+                    czasMs = zPlcMs;
+                    zrodlo = "PLC";
+                } else {
+                    Console.WriteLine($"[WARN] Stanowisko {nr}: ActualTime z PLC = {czasyPlc.ActualSek} s "
+                                    + $"vs stoper {czasMs / 1000.0:0.0} s - rozbieznosc x{stosunek:0.00}, "
+                                    + "biore stoper (sprawdz jednostke ActualTime w TIA).");
+                }
+            }
+
+            try {
+                int? wydajnosc = db.ZapiszCyklStanowiska(nr, zlecenie, czasMs);
+                Console.WriteLine($"[INFO] Stanowisko {nr}: cykl {czasMs / 1000.0:0.0} s ({zrodlo}, zlecenie {zlecenie})"
+                                + (wydajnosc.HasValue ? $", wydajnosc {wydajnosc}%" : ", brak normy - wydajnosc pominieta"));
+
+                if (wydajnosc.HasValue) {
+                    plc.WriteEfficiency(nr, wydajnosc.Value);
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Stanowisko {nr}: nie udalo sie zapisac cyklu: {ex.Message}");
+            }
+        }
+        static readonly int[,] _ostatnieKontenery2 = { { -2, -2, -2 }, { -2, -2, -2 }, { -2, -2, -2 } };
+
+        /// <summary>
+        /// Jedna migawka DB_Data -> stany stanowisk + kontenery. Wszystko w jednym
+        /// odczycie z PLC, zamiast kilkunastu osobnych zapytan.
+        /// </summary>
+        static void SyncStanowiskaIKontenery(PlcReader plc, DatabaseHelper db) {
+            try {
+                var m = plc.ReadMigawkaStanowisk();
+                if (m == null) return;
+
+                // Start zlecenia wykrywamy z tej samej migawki - bez dodatkowego odczytu.
+                CheckOrderStarted(db, m.Stany[0], m.NumeryZlecen[0]);
+
+                for (int nr = 1; nr <= 4; nr++) {
+                    int stan = m.Stany[nr - 1];
+                    if (stan == _ostatniStanStanowiska[nr - 1]) continue;
+
+                    int poprzedni = _ostatniStanStanowiska[nr - 1];
+                    db.ZapiszStanStanowiska(nr, stan);
+                    Console.WriteLine($"[INFO] Stanowisko {nr}: stan {poprzedni} -> {stan} (zlecenie {m.NumeryZlecen[nr - 1]})");
+                    _ostatniStanStanowiska[nr - 1] = stan;
+
+                    ObsluzPomiarCyklu(plc, db, nr, poprzedni, stan, m.NumeryZlecen[nr - 1]);
+                }
+
+                for (int st = 1; st <= 3; st++) {
+                    for (int tor = 1; tor <= 3; tor++) {
+                        int nowa = m.Kontenery[st - 1, tor - 1];
+                        int stara = _ostatnieKontenery2[st - 1, tor - 1];
+                        if (nowa == stara) continue;
+
+                        // PLC potrafi zejsc ponizej zera (blokada Subtract.Enable nie chroni
+                        // samego odejmowania), a ujemna liczba pojemnikow nie ma sensu.
+                        if (nowa < 0) {
+                            Console.WriteLine($"[WARN] Stanowisko {st}, tor {tor}: PLC zglasza {nowa} pojemnikow - traktuje jako 0.");
+                            nowa = 0;
+                        }
+
+                        db.ZapiszKontener(st, tor, nowa, stara < 0 ? -1 : stara);
+                        _ostatnieKontenery2[st - 1, tor - 1] = m.Kontenery[st - 1, tor - 1];
+                    }
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie odczytac stanowisk/kontenerow: {ex.Message}");
+            }
+        }
+
+        // Sztuki po QC z tablicy Zlecenie[] -> SztukOK/SztukNOK zlecenia.
+        // Zastepuje martwy mechanizm oparty na wyzwalaczu z DB5 (nigdy nie wypelnial danych).
+        static void SyncWynikiQC(PlcReader plc, DatabaseHelper db) {
+            try {
+                foreach (var s in plc.ReadSztukiPoQC()) {
+                    try { db.ZarejestrujSztukePoQC(s.IdZlecenia, s.PartNo, s.WynikOK); }
+                    catch (Exception ex) { Console.WriteLine($"[WARN] QC zlecenie {s.IdZlecenia}/{s.PartNo}: {ex.Message}"); }
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie zsynchronizowac wynikow QC: {ex.Message}");
+            }
+        }
+
+
+        static int _ostatniaSumaDone = -1;
+
+        // Licznik DoneAllTime z PLC -> SQL, zeby Dashboard mogl pokazac produkcje
+        // ogolem i "dzisiaj" (roznica wzgledem baseline z ostatniego resetu zajec).
+        static void SyncLicznikProdukcji(PlcReader plc, DatabaseHelper db) {
+            try {
+                int suma = plc.ReadWyprodukowaneWyroby();
+                if (suma < 0 || suma == _ostatniaSumaDone) return;
+                db.ZapiszWyprodukowanoOgolem(suma);
+                _ostatniaSumaDone = suma;
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie zapisac licznika produkcji: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Zdejmuje z DB3 rekordy zlecen zamknietych na stronie. PLC nie robi tego sam -
+        /// slot zostawal z ID != 0 i ustawionym bitem QC, wiec linia dalej widziala
+        /// nieaktualne zlecenie. Znacznik PlcWyczyszczone pilnuje, zeby zrobic to raz.
+        /// </summary>
+        static void SprzatnijZakonczoneZlecenia(PlcReader plc, DatabaseHelper db) {
+            try {
+                foreach (int id in db.GetZleceniaDoWyczyszczeniaWPlc()) {
+                    try {
+                        int slot = plc.ClearOrderSlot(id);
+                        plc.ClearNastepneZlecenieIf(id);
+                        db.OznaczPlcWyczyszczone(id);
+                        Console.WriteLine(slot >= 0
+                            ? $"[INFO] Zlecenie {id} zamkniete na stronie -> wyzerowano Zlecenie[{slot}] w DB3."
+                            : $"[INFO] Zlecenie {id} zamkniete na stronie -> brak wpisu w DB3, oznaczam jako posprzatane.");
+                    } catch (Exception ex) {
+                        Console.WriteLine($"[WARN] Nie udalo sie wyczyscic zlecenia {id} w PLC: {ex.Message}");
+                    }
+                }
+            } catch (Exception ex) {
+                Console.WriteLine($"[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: {ex.Message}");
             }
         }
 
@@ -189,7 +399,7 @@ namespace PlcToDbMiddleware
             try {
                 if (db.CheckAndClearResetRequested()) {
                     plc.WriteResetZlecen(true);
-                    Console.WriteLine("[INFO] Przycisk 'Rozpocznij nowe zajecia' -> wyslano ResetZlecen=TRUE do PLC (DB3.DBX27876.0)");
+                    Console.WriteLine($"[INFO] Przycisk 'Rozpocznij nowe zajecia' -> wyslano ResetZlecen=TRUE do PLC ({PlcReader.AdresResetZlecen})");
                 }
             } catch (Exception ex) {
                 Console.WriteLine($"[WARN] Nie udalo sie wyslac ResetZlecen do PLC: {ex.Message}");
@@ -204,27 +414,49 @@ namespace PlcToDbMiddleware
                                 plc.Connect();
                 DateTime lastTrigger = DateTime.Now;
                 
+                plc.WeryfikujUkladPamieci();
+
                 // 1. Sync zlecenia przy starcie
                 SyncActiveOrderToPlc(plc, db);
                 CheckResetRequest(plc, db);
                 CheckAborts(plc, db);
-                CheckOrderStarted(plc, db);
+                SyncWynikiQC(plc, db);
+                SyncLicznikProdukcji(plc, db);
+                SprzatnijZakonczoneZlecenia(plc, db);
+                SyncStanowiskaIKontenery(plc, db);
 
                 Console.WriteLine("\n[INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...\n");
 
                                 DateTime lastSync = DateTime.Now;
+                                DateTime lastStany = DateTime.Now;
 
                 while (true)
                 {
                     if (!plc.ReadTrigger())
                     {
                         Thread.Sleep(POLL_INTERVAL_MS);
-                        if ((DateTime.Now - lastSync).TotalSeconds >= 3)
+
+                        // Szybki cykl (300 ms): jedna migawka DB_Data (stany + kontenery)
+                        // oraz wysylka zlecenia. To na te rzeczy czeka operator, a kosztuja
+                        // tylko dwa odczyty z PLC.
+                        if ((DateTime.Now - lastStany).TotalMilliseconds >= 200)
                         {
+                            SyncStanowiskaIKontenery(plc, db);
                             SyncActiveOrderToPlc(plc, db);
                             CheckResetRequest(plc, db);
+                            lastStany = DateTime.Now;
+                        }
+
+                        // Wolny cykl (3 s): skan calej tablicy zlecen (28 kB) - kosztowny,
+                        // wiec nie ma sensu robic go czesciej.
+                        if ((DateTime.Now - lastSync).TotalSeconds >= 3)
+                        {
                             CheckAborts(plc, db);
-                            CheckOrderStarted(plc, db);
+                            SyncWynikiQC(plc, db);
+                            SyncLicznikProdukcji(plc, db);
+                            // Zaraz po SyncWynikiQC - to ono zamyka zlecenia, wiec
+                            // sprzatanie ma tu swiezy komplet zamknietych rekordow.
+                            SprzatnijZakonczoneZlecenia(plc, db);
                             lastSync = DateTime.Now;
                         }
                         continue;

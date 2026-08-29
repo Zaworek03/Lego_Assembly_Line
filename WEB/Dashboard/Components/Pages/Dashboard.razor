@@ -1,6 +1,8 @@
 @page "/"
 @inject AuthService Auth
 @inject ProductionDataService Svc
+@inject InventoryService Inv
+@inject OrderService Orders
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -16,43 +18,55 @@
 }
 else
 {
-    <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:14px;">
-        <div style="width:8px;height:8px;border-radius:50%;background:var(--success);"></div>
-        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Live · odświeża co 5s</MudText>
-    </div>
-
     <!-- ==================== UKLAD GLOWNY ==================== -->
-    <div style="display:grid;grid-template-columns:1.72fr 1.28fr;gap:14px;align-items:start;">
+    <div style="display:grid;grid-template-columns:1.72fr 1.28fr;gap:11px;align-items:stretch;height:100%;min-height:0;">
 
         <!-- ========== LEWA STRONA ========== -->
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+        <div style="display:flex;flex-direction:column;gap:11px;min-width:0;min-height:0;">
 
             <!-- Rzad 1-2: kafelki + donut (donut na wysokosc dwoch rzedow) -->
-            <div style="display:grid;grid-template-columns:0.85fr 1.35fr 1.15fr;gap:14px;align-items:stretch;">
+            <div style="display:grid;grid-template-columns:minmax(0,0.88fr) minmax(0,1.42fr) minmax(0,1.05fr);
+                        grid-template-rows:auto minmax(0,1fr);gap:11px;align-items:stretch;flex:1.35 1 0;min-height:290px;">
 
-                <!-- Wyprodukowano ogolnie -->
+                <!-- Wyprodukowano ogolnie + dzisiaj -->
                 <div style="@CardStyle display:flex;flex-direction:column;">
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Wyprodukowano ogólnie</MudText>
-                    <div style="display:flex;align-items:center;gap:14px;margin-top:18px;">
-                        <div style="width:60px;height:60px;border-radius:16px;background:var(--accent-soft);display:flex;
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);white-space:nowrap;">Wyprodukowano ogólnie</MudText>
+                    <div style="display:flex;align-items:center;gap:14px;margin-top:14px;">
+                        <div style="width:70px;height:70px;border-radius:18px;background:var(--accent-soft);display:flex;
                                     align-items:center;justify-content:center;flex-shrink:0;">
-                            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Style="color:var(--accent);font-size:32px;" />
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Style="color:var(--accent);font-size:38px;" />
                         </div>
-                        <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_totalProduced.ToString("N0")</MudText>
+                        <div style="min-width:0;">
+                            <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_licznik.Ogolem.ToString("N0")</MudText>
+                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
+                                Dzisiaj: <span style="font-weight:800;color:var(--accent);">@_licznik.Dzisiaj.ToString("N0")</span>
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
+                                w tym <span style="@($"font-weight:800;color:{(_licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")};")">@_licznik.Wadliwe.ToString("N0")</span> wadliwych
+                            </MudText>
+                        </div>
                     </div>
                 </div>
 
                 <!-- OEE + A/P/Q -->
                 <div style="@CardStyle">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">OEE</MudText>
-                    <div style="display:flex;align-items:center;gap:14px;margin-top:14px;">
-                        <div style="width:60px;height:60px;border-radius:16px;background:var(--accent-soft);display:flex;
-                                    align-items:center;justify-content:center;flex-shrink:0;">
-                            <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color:var(--accent);font-size:32px;" />
+                    <!-- flex-start, a nie center: siatka 2x2 z metrykami jest wyzsza niz
+                         ikona, wiec przy centrowaniu ikona i wartosc OEE zjezdzaly o ~15 px
+                         nizej niz ikona w sasiednim kaflu "Wyprodukowano ogolnie". -->
+                    <div style="display:flex;align-items:flex-start;gap:10px;margin-top:14px;">
+                        <!-- Ikona + wartosc OEE w osobnym rzedzie: srodek procentu ma sie
+                             pokrywac ze srodkiem ikony, a caly ten rzad trzyma sie gory bloku,
+                             zeby ikona byla na tej samej wysokosci co w sasiednim kaflu. -->
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="width:70px;height:70px;border-radius:18px;background:var(--accent-soft);display:flex;
+                                        align-items:center;justify-content:center;flex-shrink:0;">
+                                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color:var(--accent);font-size:38px;" />
+                            </div>
+                            <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_kpi.OEE.ToString("P0")</MudText>
                         </div>
-                        <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_kpi.OEE.ToString("P0")</MudText>
 
-                        <div style="display:flex;gap:18px;margin-left:auto;padding-left:10px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-left:auto;">
                             <div style="text-align:right;">
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">Wydajność</MudText>
                                 <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);">@_kpi.Wydajnosc.ToString("P0")</MudText>
@@ -65,6 +79,11 @@ else
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">Jakość</MudText>
                                 <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);">@_kpi.Jakosc.ToString("P0")</MudText>
                             </div>
+                            <!-- First Pass Yield: udzial sztuk, ktore przeszly QC za pierwszym razem -->
+                            <div style="text-align:right;">
+                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">FPY</MudText>
+                                <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--accent);">@FPY.ToString("P0")</MudText>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -73,8 +92,8 @@ else
                 <div style="@CardStyle grid-row:span 2;display:flex;flex-direction:column;">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Poziom defektów</MudText>
 
-                    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:12px 0;">
-                        <div style="position:relative;width:100%;max-width:260px;aspect-ratio:1;">
+                    <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px 0;">
+                        <div style="position:relative;width:100%;max-width:260px;max-height:100%;aspect-ratio:1;">
                             <svg viewBox="0 0 42 42" style="width:100%;height:100%;transform:rotate(-90deg);">
                                 <circle cx="21" cy="21" r="15.9155" fill="none"
                                         stroke="var(--track)" stroke-width="4.2" />
@@ -85,8 +104,8 @@ else
                             <div style="position:absolute;inset:0;display:flex;flex-direction:column;
                                         align-items:center;justify-content:center;pointer-events:none;">
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Wadliwe</MudText>
-                                <MudText Style="font-size:3rem;font-weight:800;color:var(--text);line-height:1.05;">@_kpi.LiczbaWadliwych</MudText>
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">szt.</MudText>
+                                <MudText Style="font-size:3rem;font-weight:800;color:var(--text);line-height:1.05;">@_licznik.Wadliwe</MudText>
+                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">z @_licznik.Dzisiaj szt.</MudText>
                             </div>
                         </div>
                     </div>
@@ -107,70 +126,136 @@ else
                     </MudText>
                 </div>
 
-                <!-- Stan magazynu (pod kafelkami, szerokosc 2 kolumn) -->
-                <div style="@CardStyle grid-column:span 2;min-height:230px;display:flex;flex-direction:column;">
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Stan magazynu</MudText>
-                    <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);text-align:center;">
-                        <MudText Typo="Typo.body2">Do ustalenia razem z zakładką Raporty</MudText>
+                <!-- Przeglad raportow: pionowe karty przewijane w poziomie kolkiem myszy -->
+                <div style="@CardStyle grid-column:span 2;height:100%;min-height:0;display:flex;flex-direction:column;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Przegląd raportów</MudText>
+                        <MudLink Href="/raporty" Style="font-size:12px;color:var(--accent);font-weight:700;">Zobacz wszystkie →</MudLink>
                     </div>
+
+                    @if (_raporty.Count == 0)
+                    {
+                        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-muted);text-align:center;">
+                            <MudText Typo="Typo.body2">Raport powstanie po zakończeniu zajęć.</MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Kolko myszy przewija w poziomie (obsluga w app.js) -->
+                        <div class="subtelny-scroll przewijanie-poziome"
+                             style="flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;display:flex;gap:10px;align-items:stretch;">
+                            @foreach (var r in _raporty)
+                            {
+                                <div class="karta-raportu"
+                                     style="flex:0 0 162px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);white-space:nowrap;">
+                                            @r.Utworzono.ToString("dd.MM HH:mm")
+                                        </MudText>
+                                        <div class="ikona-raportu">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Assessment"
+                                                     Style="color:var(--accent);font-size:16px;" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">OEE</MudText>
+                                        <MudText Style="font-size:1.35rem;font-weight:800;color:var(--accent);line-height:1.15;">
+                                            @r.OEE.ToString("P0")
+                                        </MudText>
+                                    </div>
+
+                                    <div style="display:flex;justify-content:space-between;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">FPY</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">@r.FPY.ToString("P0")</MudText>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">OK / NOK</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">
+                                            <span style="color:var(--success);">@r.SztukOK</span>/<span style="color:var(--danger);">@r.SztukNOK</span>
+                                        </MudText>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Odrzuty</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--danger);">@r.ProcentOdrzutow.ToString("F0")%</MudText>
+                                    </div>
+                                    <div style="display:flex;justify-content:space-between;margin-top:auto;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Zleceń</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">@r.LiczbaZlecen</MudText>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 
             <!-- Rzad 3: Trend OEE + Ostatnie zlecenia -->
-            <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:stretch;">
-                <div style="@CardStyle min-height:210px;">
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);margin-bottom:8px;">Trend OEE — ostatnie cykle</MudText>
-                    @if (WykresGotowy)
-                    {
-                        <MudChart ChartType="ChartType.Line" ChartSeries="@_chartSeries" XAxisLabels="@_chartLabels"
-                                  Width="100%" Height="180px" ChartOptions="@_chartOpts" />
-                    }
-                    else
-                    {
-                        <div style="display:flex;align-items:center;justify-content:center;height:170px;">
-                            <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
-                                Za mało danych na wykres — potrzebne min. 2 cykle.
-                            </MudText>
-                        </div>
-                    }
+            <div style="display:grid;grid-template-columns:1.1fr 1fr;grid-template-rows:minmax(0,1fr);
+                        gap:11px;align-items:stretch;flex:1 1 0;min-height:195px;">
+                <!-- Oba bloki maja SZTYWNA wysokosc (WYSOKOSC_DOLNEGO_RZEDU) - inaczej
+                     kurczyly sie, gdy nie bylo danych, i uklad skakal przy kazdym resecie. -->
+                <div style="@CardStyle @WysokoscDolnegoRzedu display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                    <div style="margin-bottom:6px;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Trend OEE</MudText>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">średnia krocząca z okna 50 pomiarów</MudText>
+                    </div>
+                    <div style="flex:1;min-height:0;position:relative;">
+                        <!-- Wykres rysujemy zawsze; przy braku danych podklada sie pusta
+                             seria (dwa zera), zeby ramka i osie nie znikaly.
+                             Klasa wykres-oee chowa legende - jest jedna seria, a legenda
+                             MudBlazora renderuje sie pod SVG i wychodzila poza blok. -->
+                        <MudChart ChartType="ChartType.Line" Class="wykres-oee"
+                                  ChartSeries="@SerieWykresu" XAxisLabels="@EtykietyWykresu"
+                                  Width="100%" Height="100%" ChartOptions="@_chartOpts" />
+                        @if (!WykresGotowy)
+                        {
+                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Brak danych — wykres pojawi się po 2. cyklu.</MudText>
+                            </div>
+                        }
+                    </div>
                 </div>
 
-                <div style="@CardStyle padding:0;overflow:hidden;min-height:210px;">
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);padding:18px 18px 6px;">Ostatnie zlecenia</MudText>
-                    <MudTable Items="_zlecenia" Dense="true" Hover="true" Elevation="0" Style="background:transparent;">
-                        <HeaderContent>
-                            <MudTh>Zlecenie</MudTh>
-                            <MudTh>Wyrób</MudTh>
-                            <MudTh>Status</MudTh>
-                        </HeaderContent>
-                        <RowTemplate Context="z">
-                            <MudTd>@z.NazwaZlecenia</MudTd>
-                            <MudTd>@(z.NazwaWyrobu ?? "—")</MudTd>
-                            <MudTd>
-                                <MudChip T="string" Size="Size.Small" Color="@StatusColor(z.StatusZlecenia)">@z.StatusZlecenia</MudChip>
-                            </MudTd>
-                        </RowTemplate>
-                        <NoRecordsContent>
-                            <MudText Typo="Typo.body2" Style="padding:16px;color:var(--text-muted);">Brak zleceń.</MudText>
-                        </NoRecordsContent>
-                    </MudTable>
+                <div style="@CardStyle @WysokoscDolnegoRzedu padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);padding:16px 16px 4px;">Ostatnie zlecenia</MudText>
+                    <div class="subtelny-scroll" style="flex:1;min-height:0;overflow-y:auto;">
+                        <MudTable Items="_zlecenia" Dense="true" Hover="true" Elevation="0" Style="background:transparent;">
+                            <HeaderContent>
+                                <MudTh>Zlecenie</MudTh>
+                                <MudTh>Wyrób</MudTh>
+                                <MudTh>Status</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="z">
+                                <MudTd>@z.NazwaZlecenia</MudTd>
+                                <MudTd>@(z.NazwaWyrobu ?? "—")</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(z.StatusZlecenia)">@z.StatusZlecenia</MudChip>
+                                </MudTd>
+                            </RowTemplate>
+                            <NoRecordsContent>
+                                <MudText Typo="Typo.body2" Style="padding:16px;color:var(--text-muted);">Brak zleceń.</MudText>
+                            </NoRecordsContent>
+                        </MudTable>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- ========== PRAWA STRONA ========== -->
-        <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+        <div style="display:flex;flex-direction:column;gap:11px;min-width:0;min-height:0;">
 
             <!-- Wydajnosc cyklu - kolumna na kazdy wyrob -->
-            <div style="@CardStyle padding:14px 16px;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" style="flex-shrink:0;">
-                        <path d="M12 2c.5 3.5-1.6 4.9-2.9 6.3C7.6 9.9 6 11.5 6 14a6 6 0 0 0 12 0c0-2.6-1.2-4.2-2.4-5.7-.4 1-1.1 1.7-1.9 2.1.4-2.6-.6-5.7-1.7-8.4z"
-                              fill="var(--accent)" />
-                        <path d="M12 21a3.6 3.6 0 0 1-3.6-3.6c0-2 1.5-2.9 2.3-4.3.8 1 1.4 1.4 2.4 2 1 .6 1.5 1.4 1.5 2.3A3.6 3.6 0 0 1 12 21z"
-                              fill="#F59E0B" />
-                    </svg>
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Wydajność cyklu</MudText>
+            <div style="@CardStyle padding:11px 13px;">
+                <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+                    <div style="width:38px;height:38px;border-radius:12px;background:var(--accent-soft);display:flex;
+                                align-items:center;justify-content:center;flex-shrink:0;">
+                        <MudIcon Icon="@Icons.Material.Filled.LocalFireDepartment" Style="color:var(--accent);font-size:22px;" />
+                    </div>
+                    <div style="min-width:0;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Wydajność cyklu</MudText>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">okno 4 ostatnich cykli</MudText>
+                    </div>
                 </div>
 
                 @if (_czasyCykli.Count == 0)
@@ -188,7 +273,7 @@ else
                                     @(w.Wydajnosc.HasValue ? w.Wydajnosc.Value.ToString("P0") : "—")
                                 </MudText>
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">
-                                    @(w.SumaCzasMs > 0 ? (w.SumaCzasMs / 1000.0).ToString("0.0") + " s" : "—")
+                                    @(w.LiczbaCykli > 0 ? (w.SredniCyklMs / 1000.0).ToString("0.0") + " s" : "—")
                                 </MudText>
                             </div>
                         }
@@ -196,57 +281,156 @@ else
                 }
             </div>
 
-            <!-- Status stanowisk 2x2 -->
-            <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Status stanowisk</MudText>
-            @if (_stanowiska.Count == 0)
-            {
-                <div style="@CardStyle">
-                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Brak danych o stanowiskach.</MudText>
-                </div>
-            }
-            else
-            {
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    @foreach (var s in _stanowiska)
-                    {
-                        @StanowiskoCardCompact(s)
-                    }
-                </div>
-            }
-
-            <!-- Popularnosc wyrobow -->
-            <div style="@CardStyle flex:1;min-height:180px;">
-                <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);margin-bottom:10px;">Popularność wyrobów</MudText>
-                @if (_popularnosc.Count == 0)
+            <!-- Status stanowisk - wspolny kontener obejmujacy naglowek i wszystkie karty -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:12px;display:flex;flex-direction:column;flex:1.6 1 0;min-height:220px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);margin-bottom:10px;">Status stanowisk</MudText>
+                @if (_stanowiska.Count == 0)
                 {
-                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Brak danych.</MudText>
+                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Brak danych o stanowiskach.</MudText>
                 }
                 else
                 {
-                    <div style="display:flex;flex-direction:column;gap:8px;">
-                        @foreach (var p in _popularnosc.Take(5))
+                    <div class="subtelny-scroll" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0;overflow-y:auto;align-content:start;">
+                        @foreach (var s in _stanowiska)
                         {
-                            <div>
-                                <div style="display:flex;justify-content:space-between;">
-                                    <MudText Typo="Typo.body2" Style="color:var(--text);">@p.Nazwa</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--accent);">@p.Procent.ToString("P0")</MudText>
-                                </div>
-                                <MudProgressLinear Value="@(p.Procent * 100)" Rounded="true" Class="mt-1"
-                                                    Style="background:var(--track);" Color="Color.Primary" />
-                            </div>
+                            @StanowiskoCardCompact(s)
                         }
                     </div>
                 }
+            </div>
+
+            <!-- Dolny rzad: popularnosc + skrot magazynu (rozciagniete do dolu) -->
+            <!-- flex:1 (a nie sztywna wysokosc) - rzad ma dociagac sie do dolu kolumny,
+                 zeby dolne krawedzie rownaly sie z "Trendem OEE" i "Ostatnimi zleceniami"
+                 po lewej. min-height to podloga, ponizej ktorej sie nie skurczy. -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);
+                        gap:11px;flex:1 1 0;min-height:200px;">
+
+                <!-- Popularnosc wyrobow: lider duzy po lewej, reszta lista po prawej -->
+                <div style="@CardStyle display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                    <div style="margin-bottom:8px;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Popularność wyrobów</MudText>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">okno 50 ostatnich sztuk</MudText>
+                    </div>
+                    @* Blok jest widoczny ZAWSZE - przy braku danych zamiast liczb sa myslniki,
+                       a kolo zostaje szarym pierscieniem. Bez tego uklad podskakiwal po kazdym
+                       resecie zajec. *@
+                    <div style="display:flex;gap:10px;flex:1;min-height:0;align-items:center;">
+
+                        <!-- Lider: najpopularniejszy wyrob, duzym drukiem -->
+                        <div style="flex-shrink:0;min-width:0;">
+                            <MudText Style="font-size:1.9rem;font-weight:800;color:var(--accent);line-height:1.1;">
+                                @(Lider is null ? "—" : Lider.Procent.ToString("P0"))
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @(Lider?.Nazwa ?? "—")
+                            </MudText>
+                        </div>
+
+                        <!-- Pozostale wyroby: jeden pod drugim, mala czcionka -->
+                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                            @if (Lider is null)
+                            {
+                                @for (int i = 0; i < 4; i++)
+                                {
+                                    <div style="display:flex;justify-content:space-between;gap:6px;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">—</MudText>
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">—</MudText>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                @foreach (var p in _popularnosc.Skip(1).Take(4))
+                                {
+                                    <div style="display:flex;justify-content:space-between;gap:6px;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@p.Nazwa</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">@p.Procent.ToString("P0")</MudText>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        <!-- Kolo z udzialami. Segmenty rysuje stroke-dasharray na wspolnym
+                             okregu o obwodzie 100 - dzieki temu procent = dlugosc kreski. -->
+                        <div style="flex-shrink:0;width:74px;height:74px;">
+                            <svg viewBox="0 0 42 42" style="width:100%;height:100%;transform:rotate(-90deg);">
+                                <circle cx="21" cy="21" r="15.9155" fill="none"
+                                        stroke="var(--track)" stroke-width="6" />
+                                @{
+                                    double przesuniecie = 0;
+                                    var seg = _popularnosc.Take(PaletaKola.Length).ToList();
+                                }
+                                @foreach (var (p, i) in seg.Select((p, i) => (p, i)))
+                                {
+                                    var dlugosc = Math.Round(p.Procent * 100, 2);
+                                    <circle cx="21" cy="21" r="15.9155" fill="none"
+                                            stroke="@PaletaKola[i]" stroke-width="6"
+                                            stroke-dasharray="@Kropka(dlugosc) @Kropka(100 - dlugosc)"
+                                            stroke-dashoffset="@Kropka(-przesuniecie)" />
+                                    przesuniecie += dlugosc;
+                                }
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skrotowy stan magazynu -->
+                <div style="@CardStyle display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);margin-bottom:10px;">Stan magazynu</MudText>
+                    @if (_magazyn.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Brak danych.</MudText>
+                    }
+                    else
+                    {
+                        <!-- Lista przewija sie kolkiem myszy; pasek przewijania ukryty
+                             (scrollbar-width:none + ::-webkit-scrollbar w app.css). -->
+                        <div class="subtelny-scroll" style="flex:1;min-height:0;overflow-y:auto;
+                                    display:flex;flex-direction:column;gap:7px;padding-right:2px;">
+                            @foreach (var m in _magazyn.OrderBy(m => m.ProcentPelny))
+                            {
+                                <div>
+                                    <div style="display:flex;justify-content:space-between;gap:6px;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            @m.Wymiary @m.Kolor
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Style="@($"font-weight:800;color:{(m.NiskiStan ? "var(--danger)" : "var(--text)")};")">
+                                            @m.StanBiezacy szt
+                                        </MudText>
+                                    </div>
+                                    <MudProgressLinear Value="@m.ProcentPelny" Rounded="true" Size="Size.Small"
+                                                       Style="background:var(--track);"
+                                                       Color="@(m.NiskiStan ? Color.Error : Color.Success)" />
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>
 }
 
 @code {
-    string CardStyle => "background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;";
+    string CardStyle => "background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:15px;";
 
-    /// <summary>Udzial wyrobow wadliwych w procentach (Jakosc = udzial dobrych).</summary>
-    double ProcentWadliwych => Math.Clamp((1 - _kpi.Jakosc) * 100, 0, 100);
+    /// <summary>Udzial wadliwych w produkcji "dzisiaj". Brak produkcji = 0%, nie 100%.</summary>
+    double ProcentWadliwych => _licznik.ProcentWadliwych;
+
+    /// <summary>Najpopularniejszy wyrob albo null, gdy nie ma jeszcze zadnej produkcji.</summary>
+    WyrobPopularnosc? Lider => _popularnosc.Count > 0 ? _popularnosc[0] : null;
+
+    /// <summary>Kolory segmentow kola popularnosci - ta sama rodzina co akcent strony.</summary>
+    static readonly string[] PaletaKola = { "#FF6A3D", "#FFA07A", "#F59E0B", "#C2410C", "#9A9AA2", "#6B7280" };
+
+    /// <summary>SVG nie zna przecinka dziesietnego - liczby zawsze z kropka.</summary>
+    static string Kropka(double v) => v.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>First Pass Yield - sztuki bez poprawki / wszystkie. Brak produkcji = 100%.</summary>
+    double FPY => _licznik.Dzisiaj > 0
+        ? (_licznik.Dzisiaj - _licznik.Wadliwe) / (double)_licznik.Dzisiaj
+        : 1.0;
 
     DailyKpi                  _kpi          = new();
     List<StanowiskoStatus>    _stanowiska   = new();
@@ -254,7 +438,11 @@ else
     List<ZlecenieVM>          _zlecenia     = new();
     List<WyrobCzasCyklu>      _czasyCykli   = new();
     List<WyrobPopularnosc>    _popularnosc  = new();
-    int                       _totalProduced;
+    List<KontenerTor>         _kontenery    = new();
+    List<InventoryItem>       _magazyn      = new();
+    int                       _magazynNiskiStan;
+    ProdukcjaLicznik          _licznik      = new();
+    List<Raport>              _raporty      = new();
     bool _loading = true;
 
     List<ChartSeries> _chartSeries = new();
@@ -264,7 +452,15 @@ else
     // przy mniejszej liczbie, co zabijalo cala sesje Blazora. Straight jest bezpieczne zawsze.
     ChartOptions _chartOpts = new()
     {
-        YAxisTicks = 5,
+        ShowLegend      = false,   // jedna seria - legenda tylko wychodzila poza blok
+        ShowLabels      = true,    // podpisy osi pionowej
+        YAxisLines      = true,
+        XAxisLines      = false,
+        YAxisTicks      = 20,      // co 20 punktow procentowych
+        MaxNumYAxisTicks = 6,
+        YAxisRequireZeroPoint = true,
+        YAxisFormat     = "0'%'",
+        LineStrokeWidth = 2.5,
         InterpolationOption = InterpolationOption.Straight,
         ChartPalette = new[] { "#FF6A3D", "#FFA07A", "#F59E0B", "#9A9AA2", "#C2410C" }
     };
@@ -272,9 +468,23 @@ else
     /// <summary>Wykres liniowy MudBlazor potrzebuje min. 2 punktow w kazdej serii.</summary>
     bool WykresGotowy => _chartSeries.Count > 0 && _chartSeries.All(s => s.Data.Length >= 2);
 
+    // Puste rusztowanie wykresu - MudChart bez zadnej serii nie rysuje nawet osi,
+    // a blok mial byc widoczny caly czas, tez przy zerowej produkcji.
+    static readonly List<ChartSeries> _pustaSeria =
+        new() { new ChartSeries { Name = "OEE", Data = new double[] { 0, 0 } } };
+    static readonly string[] _pusteEtykiety = { "", "" };
+
+    List<ChartSeries> SerieWykresu     => WykresGotowy ? _chartSeries : _pustaSeria;
+    string[]          EtykietyWykresu  => WykresGotowy ? _chartLabels : _pusteEtykiety;
+
+    /// <summary>Wspolna, sztywna wysokosc dolnego rzedu (trend + ostatnie zlecenia).</summary>
+    const string WysokoscDolnegoRzedu = "height:100%;";
+
 
     System.Timers.Timer? _timer;
+    System.Timers.Timer? _tickTimer;   // samo odswiezenie widoku, bez zapytan do bazy
     volatile bool _refreshing;
+    volatile bool _szybkieOdswiezanie;
     volatile bool _disposed;
 
     protected override async Task OnInitializedAsync()
@@ -283,7 +493,9 @@ else
         { Nav.NavigateTo("/login"); return; }
 
         await LoadDataAsync();
-        _timer = new System.Timers.Timer(5000);
+        // Wolny timer (2 s): wykresy, zlecenia, magazyn, liczniki - dane, ktore nie
+        // musza reagowac natychmiast. Stanowiska maja wlasny, szybszy tik ponizej.
+        _timer = new System.Timers.Timer(2000);
         // Callback timera musi byc odporny na bledy: leci na watku w tle, wiec kazdy
         // nieobsluzony wyjatek (np. render po zamknieciu strony) zabija caly obwod
         // Blazora i strona zamiera na amen.
@@ -300,6 +512,26 @@ else
             catch (Exception ex) { Console.WriteLine($"[Dashboard] blad odswiezania: {ex.Message}"); }
         };
         _timer.Start();
+
+        // Szybki tik (400 ms): tylko stanowiska i kontenery - to na nie operator patrzy
+        // po nacisnieciu Start. Trzy lekkie zapytania zamiast kompletu kilkunastu.
+        _tickTimer = new System.Timers.Timer(400);
+        _tickTimer.Elapsed += async (_, _) =>
+        {
+            if (_disposed || _refreshing || _szybkieOdswiezanie) return;
+            _szybkieOdswiezanie = true;
+            try
+            {
+                await TryLoad(async () => _stanowiska = ScalStanowiska(_stanowiska, await Svc.GetStanowiskaStatusAsync()));
+                await TryLoad(async () => _kontenery  = await Svc.GetKontenneryAsync());
+                if (_disposed) return;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (ObjectDisposedException) { }
+            catch (Exception ex) { Console.WriteLine($"[Dashboard] blad tiku: {ex.Message}"); }
+            finally { _szybkieOdswiezanie = false; }
+        };
+        _tickTimer.Start();
     }
 
     async Task LoadDataAsync()
@@ -316,14 +548,58 @@ else
         // Kazde zapytanie osobno - blad w jednym nie ma blokowac reszty danych
         // (np. status stanowisk ma sie pokazywac zawsze, nawet gdy inne zapytanie zawiedzie).
         await TryLoad(async () => _kpi           = await Svc.GetDailyKpiAsync());
-        await TryLoad(async () => _stanowiska    = await Svc.GetStanowiskaStatusAsync());
+        await TryLoad(async () =>
+        {
+            _stanowiska = ScalStanowiska(_stanowiska, await Svc.GetStanowiskaStatusAsync());
+            // Tylko w wolnej petli - utrwala ostatni wyrob na stanowisku, zeby karty
+            // przetrwaly przeladowanie strony i reset zajec.
+            await Svc.ZapamietajStanowiskaAsync(_stanowiska);
+        });
         await TryLoad(async () => { _trend       = await Svc.GetOeeTrendAsync(30); BuildChart(); });
-        await TryLoad(async () => _zlecenia      = (await Svc.GetZleceniaAsync()).Take(6).ToList());
+        await TryLoad(async () => _zlecenia      = (await Svc.GetZleceniaAsync()).Take(20).ToList());
         await TryLoad(async () => _czasyCykli    = await Svc.GetAvgCycleTimePerWyrobAsync());
         await TryLoad(async () => _popularnosc   = await Svc.GetWyrobPopularnosciAsync());
-        await TryLoad(async () => _totalProduced = await Svc.GetTotalProducedAllTimeAsync());
+        await TryLoad(async () => _licznik   = await Svc.GetLicznikProdukcjiAsync());
+        await TryLoad(async () => _kontenery = await Svc.GetKontenneryAsync());
+        await TryLoad(async () =>
+        {
+            _magazyn = await Inv.GetStanMagazynuAsync("MAIN");
+            _magazynNiskiStan = _magazyn.Count(m => m.NiskiStan);
+        });
+        // Skroty raportow - bez szczegolow (zlecenia/materialy), karty potrzebuja
+        // tylko naglowkow, a szczegoly to dodatkowe zapytania na kazdym odswiezeniu.
+        await TryLoad(async () => _raporty = await Orders.GetRaportyAsync(zeSzczegolami: false));
         }
         finally { _refreshing = false; }
+    }
+
+    /// <summary>
+    /// Dane o zleceniu i czasach na stanowisku znikaly na moment, gdy PLC czyscilo swoje
+    /// pola miedzy sztukami - karta pokazywala wtedy same myslniki. Tutaj zachowujemy
+    /// poprzednie wartosci dopoki nie pojawi sie nowe zlecenie/sztuka.
+    /// Sam stan (PRACUJE/BEZCZYNNE) NIE jest przyklejany - musi odzwierciedlac rzeczywistosc.
+    /// </summary>
+    static List<StanowiskoStatus> ScalStanowiska(List<StanowiskoStatus> stare, List<StanowiskoStatus> nowe)
+    {
+        foreach (var n in nowe)
+        {
+            var s = stare.FirstOrDefault(x => x.IDStanowiska == n.IDStanowiska);
+            if (s == null) continue;
+
+            n.NazwaZlecenia       ??= s.NazwaZlecenia;
+            n.NazwaWyrobu         ??= s.NazwaWyrobu;
+            n.OstatniCyklMs       ??= s.OstatniCyklMs;
+            n.OstatniCzasZadanyMs ??= s.OstatniCzasZadanyMs;
+            n.Wydajnosc           ??= s.Wydajnosc;
+            n.OstatniaCzas        ??= s.OstatniaCzas;
+
+            // Moment zejscia z pracy: zatrzymujemy licznik na ostatniej wartosci,
+            // zamiast pozwolic mu zniknac. Nowy start (kolejne wejscie w stan 1)
+            // sam nadpisze go swiezym odliczaniem.
+            if (!n.Pracuje)
+                n.CzasZamrozonySek = s.Pracuje ? s.CzasRzeczywistySek : s.CzasZamrozonySek;
+        }
+        return nowe;
     }
 
     static async Task TryLoad(Func<Task> action)
@@ -334,13 +610,15 @@ else
 
     void BuildChart()
     {
+        // Jedna, ogolna linia OEE - wczesniej byla osobna seria na kazde stanowisko,
+        // przez co wykres nie odpowiadal kafelkowi OEE u gory.
         _chartLabels = _trend.Select(t => t.Czas.ToString("HH:mm")).ToArray();
-        var groups = _trend.GroupBy(t => t.Stanowisko);
-        _chartSeries = groups.Select(g => new ChartSeries
-        {
-            Name = g.Key,
-            Data = g.Select(p => Math.Round(p.OEE * 100, 1)).ToArray()
-        }).ToList();
+        _chartSeries = _trend.Count == 0
+            ? new List<ChartSeries>()
+            : new List<ChartSeries>
+              {
+                  new() { Name = "OEE", Data = _trend.Select(p => Math.Round(p.OEE * 100, 1)).ToArray() }
+              };
     }
 
     Color StatusColor(string status) => status switch
@@ -354,10 +632,11 @@ else
 
     RenderFragment StanowiskoCardCompact(StanowiskoStatus s) => __builder =>
     {
-        var statusColor = s.IsActive ? "var(--success)" : "var(--warning)";
-        var statusText  = s.IsActive ? "DZIAŁA" : "NIEAKTYWNE";
+        // Status prosto z PLC (Production.State), a nie zgadywany z czasu ostatniego zapisu.
+        var statusColor = s.StatusKolor;
+        var statusText  = s.StatusOpis;
 
-        <div style="@CardStyle padding:14px 16px;">
+        <div style="@CardStyle padding:11px 13px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
                 <div style="min-width:0;">
                     <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@s.Nazwa</MudText>
@@ -372,14 +651,41 @@ else
                 </div>
             </div>
 
-            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;margin:6px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 @(s.NazwaZlecenia ?? "—") · @(s.NazwaWyrobu ?? "—")
             </MudText>
 
+            @{
+                var tory = _kontenery.Where(k => k.IDStanowiska == s.IDStanowiska).ToList();
+            }
+            @if (tory.Any())
+            {
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Pojemniki:</MudText>
+                    @foreach (var t in tory)
+                    {
+                        var kol = t.Pusty ? "var(--danger)" : t.KonczySie ? "var(--warning)" : "var(--success)";
+                        <MudTooltip Text="@($"Tor {t.NrToru}: {t.NazwaMaterialu} — {t.Wartosc}/3 pojemniki")">
+                            <div style="@($"display:flex;align-items:center;gap:3px;padding:1px 6px;border-radius:6px;background:{kol}22;border:1px solid {kol};")">
+                                <MudText Typo="Typo.caption" Style="@($"font-weight:800;color:{kol};")">@t.Wartosc</MudText>
+                            </div>
+                        </MudTooltip>
+                    }
+                    @if (tory.Any(t => t.Pusty))
+                    {
+                        <MudText Typo="Typo.caption" Style="color:var(--danger);font-weight:700;">dołóż klocki!</MudText>
+                    }
+                </div>
+            }
+
             <div style="display:flex;justify-content:space-between;gap:8px;">
                 <div>
-                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Rzeczywisty</MudText>
-                    <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--text);">@(s.OstatniCyklMs.HasValue ? (s.OstatniCyklMs.Value / 1000.0).ToString("0.0") + "s" : "—")</MudText>
+                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">
+                        Rzeczywisty @(s.Pracuje ? "▸" : "")
+                    </MudText>
+                    <MudText Typo="Typo.body2" Style="@($"font-weight:800;color:{(s.Pracuje ? "var(--success)" : "var(--text)")};")">
+                        @(s.CzasRzeczywistySek.HasValue ? s.CzasRzeczywistySek.Value.ToString("0.0") + "s" : "—")
+                    </MudText>
                 </div>
                 <div style="text-align:right;">
                     <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Zadany</MudText>
@@ -394,5 +700,7 @@ else
         _disposed = true;
         _timer?.Stop();
         _timer?.Dispose();
+        _tickTimer?.Stop();
+        _tickTimer?.Dispose();
     }
 }

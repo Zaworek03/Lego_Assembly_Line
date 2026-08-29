@@ -25,7 +25,8 @@ namespace LiniaProdukcyjnaDashboard.Services
             var sql = $@"
                 SELECT m.ID_Materialu, m.Nazwa_Materialu, ISNULL(m.Wymiary,''), ISNULL(m.TypWysokosci,''),
                        ISNULL(m.Kolor,''), m.StanBiezacy, m.IloscZarezerwowana, m.Lokalizacja,
-                       ISNULL(b.IloscBazowa, m.StanBiezacy)
+                       ISNULL(b.IloscBazowa, m.StanBiezacy),
+                       ISNULL(m.Pojemnosc_Pojemnika, 0)
                 FROM [dbo].[Material] m
                 LEFT JOIN [dbo].[InventoryBaseline] b ON b.ID_Materialu = m.ID_Materialu
                 {where}
@@ -48,7 +49,8 @@ namespace LiniaProdukcyjnaDashboard.Services
                     StanBiezacy       = rdr.GetInt32(5),
                     IloscZarezerwowana = rdr.GetInt32(6),
                     Lokalizacja       = rdr.GetString(7),
-                    IloscBazowa       = rdr.GetInt32(8)
+                    IloscBazowa       = rdr.GetInt32(8),
+                    PojemnoscPojemnika = rdr.GetInt32(9)
                 });
             return result;
         }
@@ -341,6 +343,69 @@ namespace LiniaProdukcyjnaDashboard.Services
                 _logger.LogInformation("[INV] Reset magazynu do stanu bazowego wykonany przez op={Op}", idOperatora);
             }
             catch { await tx.RollbackAsync(); throw; }
+        }
+
+        // ── Reczna korekta stanu pojedynczego komponentu ─────────────────
+        /// <summary>
+        /// Ustawia stan magazynowy jednego komponentu. Wartosc jest przycinana do
+        /// przedzialu 0..IloscBazowa - nie da sie "wyprodukowac" klockow ponad to,
+        /// co realnie posiadamy. Zwraca faktycznie zapisana ilosc.
+        /// </summary>
+        public async Task<int> UstawStanAsync(int idMaterialu, int nowaIlosc, int? idOperatora = null)
+        {
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+
+            // Limit gorny = stan bazowy (maksimum, jakie kiedykolwiek posiadalismy).
+            await using var maxCmd = new SqlCommand(@"
+                SELECT ISNULL(b.IloscBazowa, m.StanBiezacy), m.StanBiezacy
+                FROM Material m
+                LEFT JOIN InventoryBaseline b ON b.ID_Materialu = m.ID_Materialu
+                WHERE m.ID_Materialu = @ID", conn);
+            maxCmd.Parameters.AddWithValue("@ID", idMaterialu);
+
+            int maks, stary;
+            await using (var rdr = await maxCmd.ExecuteReaderAsync())
+            {
+                if (!await rdr.ReadAsync())
+                    throw new InvalidOperationException("Nie znaleziono komponentu.");
+                maks  = rdr.GetInt32(0);
+                stary = rdr.GetInt32(1);
+            }
+
+            int docelowa = Math.Clamp(nowaIlosc, 0, maks);
+
+            await using var tx = conn.BeginTransaction();
+            try
+            {
+                await ExecuteNonQueryAsync(conn, tx,
+                    "UPDATE Material SET StanBiezacy = @Q, AktualizacjaAt = GETDATE() WHERE ID_Materialu = @ID",
+                    ("@Q", docelowa), ("@ID", idMaterialu));
+
+                await LogTransakcjiAsync(conn, tx, idMaterialu, null, "KorektaReczna", docelowa - stary,
+                    $"Reczna korekta stanu: {stary} -> {docelowa} (max {maks})");
+
+                await tx.CommitAsync();
+            }
+            catch { await tx.RollbackAsync(); throw; }
+
+            _logger.LogInformation("[INV] Reczna korekta {Id}: {Stary} -> {Nowy}", idMaterialu, stary, docelowa);
+            return docelowa;
+        }
+
+        /// <summary>Przywraca pojedynczy komponent do stanu bazowego.</summary>
+        public async Task<int> ResetujKomponentAsync(int idMaterialu, int? idOperatora = null)
+        {
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(
+                "SELECT ISNULL(b.IloscBazowa, m.StanBiezacy) FROM Material m " +
+                "LEFT JOIN InventoryBaseline b ON b.ID_Materialu = m.ID_Materialu WHERE m.ID_Materialu = @ID", conn);
+            cmd.Parameters.AddWithValue("@ID", idMaterialu);
+            int bazowa = Convert.ToInt32(await cmd.ExecuteScalarAsync() ?? 0);
+            await conn.CloseAsync();
+
+            return await UstawStanAsync(idMaterialu, bazowa, idOperatora);
         }
 
         // ── Helpers ──────────────────────────────────────────────────────

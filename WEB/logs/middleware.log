@@ -3,8 +3,32 @@
 ║      Linia Montazowa — OEE / FTY Logger          ║
 ╚══════════════════════════════════════════════════╝
 Polaczono z PLC!
-[INFO] SQL -> PLC: Synchronizacja 1 aktywnych zlecen (DB3)...
-[INFO] Przeslano zlecenie do PLC: ZlecenieID=1 PartNo(Ilosc)=1
+[INFO] Uklad DB_Zlecenia OK (rekord=140B, NastepneZlecenie=28000, ResetZlecen=28280.0)
+[INFO] Kolejka pusta - brak zlecen do wyslania.
+[INFO] Stanowisko 1: stan -1 -> 0 (zlecenie 0)
+[INFO] Stanowisko 2: stan -1 -> 0 (zlecenie 0)
+[INFO] Stanowisko 3: stan -1 -> 0 (zlecenie 0)
+[INFO] Stanowisko 4: stan -1 -> 0 (zlecenie 0)
 
 [INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...
 
+[INFO] Zlecenie -> PLC: ID=1 PartNo=1
+[INFO] Stanowisko 1: stan 0 -> 1 (zlecenie 1)
+[INFO] Stanowisko 1: stan 1 -> 0 (zlecenie 0)
+[INFO] Wskazniki st.1: A=100% P=29% Q=100% -> OEE=29%
+[INFO] Stanowisko 1: cykl 187,0 s (PLC, zlecenie 1), wydajnosc 40%
+[INFO] Wszystkie aktywne zlecenia sa juz na linii - czekam na QC.
+[INFO] Stanowisko 2: stan 0 -> 1 (zlecenie 1)
+[INFO] Stanowisko 2: stan 1 -> 0 (zlecenie 0)
+[INFO] Wskazniki st.2: A=100% P=100% Q=100% -> OEE=100%
+[INFO] Stanowisko 2: cykl 60,0 s (PLC, zlecenie 1), wydajnosc 100%
+[INFO] Stanowisko 3: stan 0 -> 1 (zlecenie 1)
+[INFO] Stanowisko 3: stan 1 -> 0 (zlecenie 0)
+[INFO] Wskazniki st.3: A=100% P=100% Q=100% -> OEE=100%
+[INFO] Stanowisko 3: cykl 34,0 s (PLC, zlecenie 1), wydajnosc 153%
+[INFO] Stanowisko 4: stan 0 -> 1 (zlecenie 1)
+[INFO] QC: zlecenie 1, sztuka 1 -> OK
+[INFO] Zlecenie 1 zamkniete na stronie -> wyzerowano Zlecenie[0] w DB3.
+[INFO] Stanowisko 4: stan 1 -> 0 (zlecenie 0)
+[INFO] Wskazniki st.4: A=100% P=43% Q=100% -> OEE=43%
+[INFO] Stanowisko 4: cykl 34,9 s (stoper, zlecenie 1), wydajnosc 43%

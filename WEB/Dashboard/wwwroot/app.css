@@ -45,3 +45,90 @@ body {
 
 /* Chip compact */
 .mud-chip { font-weight: 600 !important; }
+/* Przewijanie kolkiem myszy bez widocznego paska przewijania */
+.cichy-scroll {
+    scrollbar-width: none;        /* Firefox */
+    -ms-overflow-style: none;     /* stary Edge */
+}
+.cichy-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+/* Poziomy pasek kart raportow: kolko myszy przewija w bok (obsluga w app.js) */
+.przewijanie-poziome {
+    /* UWAGA: bez scroll-behavior:smooth. Plynnosc robi petla rAF w app.js,
+       ktora ustawia scrollLeft co klatke - natywne wygladzanie animowaloby
+       kazde z tych mikro-przypisan osobno i ruch wychodzil oporny. */
+    overscroll-behavior-x: contain;
+}
+.subtelny-scroll {
+    overscroll-behavior: contain;
+}
+
+/* Subtelny pasek przewijania - cienki, stonowany, wyrazniejszy po najechaniu */
+.subtelny-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--track) transparent;
+}
+.subtelny-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.subtelny-scroll::-webkit-scrollbar-track { background: transparent; }
+.subtelny-scroll::-webkit-scrollbar-thumb {
+    background: var(--track);
+    border-radius: 3px;
+}
+.subtelny-scroll:hover::-webkit-scrollbar-thumb { background: var(--text-muted); }
+
+/* Legenda MudBlazora renderuje sie POD svg i przy jednej serii tylko
+   wypychala zawartosc poza blok - chowamy ja dla wykresu OEE. */
+.wykres-oee .mud-chart-legend { display: none !important; }
+
+/* Panel jest statyczny - cala strona nigdy sie nie przewija.
+   Przewijaja sie wylacznie wnetrza blokow. */
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ── Karty w "Przegladzie raportow" ───────────────────────────────
+   Delikatny akcent: tlo rozjasnia sie ku prawemu dolnemu rogowi,
+   a krawedz przechodzi z neutralnej w pomaranczowa. Ramka robiona
+   pseudoelementem + maska, bo zwykly border nie przyjmuje gradientu. */
+.karta-raportu {
+    position: relative;
+    border-radius: 14px;
+    background: linear-gradient(145deg,
+                var(--surface-alt) 0%,
+                var(--surface-alt) 55%,
+                rgba(255, 106, 61, 0.10) 100%);
+}
+.karta-raportu::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(145deg,
+                var(--border) 0%,
+                var(--border) 40%,
+                rgba(255, 106, 61, 0.55) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+}
+.karta-raportu > * { position: relative; }
+
+/* Kwadratowa plakietka z ikona w prawym gornym rogu karty */
+.ikona-raportu {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(255, 106, 61, 0.12);
+    border: 1px solid rgba(255, 106, 61, 0.32);
+}

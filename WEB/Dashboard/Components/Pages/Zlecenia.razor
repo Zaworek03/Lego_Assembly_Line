@@ -190,11 +190,22 @@
                                 </tr>
                             }
                         </table>
-                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
-                                   Style="margin-top:8px;"
-                                   OnClick="@(() => { _fIlosc = _walidacjaBraki.MaxMozliwaIlosc; _walidacjaBraki = null; })">
-                            Ustaw max możliwą ilość (@_walidacjaBraki.MaxMozliwaIlosc szt)
-                        </MudButton>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                       OnClick="@(() => { _fIlosc = _walidacjaBraki.MaxMozliwaIlosc; _walidacjaBraki = null; })">
+                                Ustaw max możliwą ilość (@_walidacjaBraki.MaxMozliwaIlosc szt)
+                            </MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Warning"
+                                       StartIcon="@Icons.Material.Filled.Warning"
+                                       Disabled="_saving"
+                                       OnClick="@(() => SaveModal(ignorujBraki: true))">
+                                Zatwierdź mimo braków
+                            </MudButton>
+                        </div>
+                        <MudText Typo="Typo.caption" Style="display:block;margin-top:6px;color:var(--text-muted);">
+                            Zatwierdzenie mimo braków wprowadzi magazyn w zadłużenie — ilość dostępna
+                            tych komponentów spadnie poniżej zera.
+                        </MudText>
                     </MudAlert>
                 }
 
@@ -257,7 +268,7 @@
                 <div style="display:flex;gap:8px;">
                     <MudButton Variant="Variant.Outlined" OnClick="CloseModal" Disabled="_saving">Anuluj</MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               OnClick="SaveModal" Disabled="_saving"
+                               OnClick="@(() => SaveModal())" Disabled="_saving"
                                StartIcon="@Icons.Material.Filled.Save">
                         @(_saving ? "Zapisuję..." : "Zapisz zlecenie")
                     </MudButton>
@@ -457,10 +468,10 @@
         _formErrors     = new();
     }
 
-    async Task SaveModal()
+    async Task SaveModal(bool ignorujBraki = false)
     {
         _formErrors  = new();
-        _walidacjaBraki = null;
+        if (!ignorujBraki) _walidacjaBraki = null;
 
         // Walidacja pól
         if (_fIdWyrobu == null)   _formErrors.Add("Wybierz wyrób (SKU).");
@@ -479,9 +490,16 @@
             }
             else
             {
-                var (id, err) = await Orders.CreateZlecenieAsync(_fNazwa, _fIlosc, _fIdWyrobu!.Value, _fPriorytet);
+                var (id, err) = await Orders.CreateZlecenieAsync(_fNazwa, _fIlosc, _fIdWyrobu!.Value, _fPriorytet, ignorujBraki);
                 if (err != null) { _walidacjaBraki = err; return; }
-                Snackbar.Add($"Zlecenie 'ZL{id:D3}' utworzone!", Severity.Success);
+
+                if (ignorujBraki)
+                    Snackbar.Add($"Zlecenie 'ZL{id:D3}' utworzone mimo braków — magazyn w zadłużeniu.",
+                                 Severity.Warning, cfg => cfg.VisibleStateDuration = 7000);
+                else
+                    Snackbar.Add($"Zlecenie 'ZL{id:D3}' utworzone!", Severity.Success);
+
+                _walidacjaBraki = null;
             }
 
             _modalOpen = false;

@@ -15,13 +15,26 @@ namespace LiniaProdukcyjnaDashboard.Services
         // ─────────────────────────────────────────────────────────────
         // KPI dzienne
         // ─────────────────────────────────────────────────────────────
-        public async Task<DailyKpi> GetDailyKpiAsync(int oknoSztuk = 50)
+        /// <summary>
+        /// Okno wskaznikow, z ktorego liczy sie kafelek OEE u gory pulpitu. Ten sam
+        /// rozmiar okna wykorzystuje trend OEE, zeby jego ostatni punkt zgadzal sie
+        /// z liczba na kafelku.
+        /// </summary>
+        private const int OKNO_KPI = 50;
+
+        public async Task<DailyKpi> GetDailyKpiAsync(int oknoSztuk = OKNO_KPI)
         {
             var sql = $@"
                 ;WITH Ostatnie AS (
-                    SELECT TOP {oknoSztuk} w.*, r.Ilosc_Wyprodukowanych, r.Liczba_Wadliwych
+                    -- LEFT JOIN, nie INNER: Wskazniki sa teraz dopisywane przez Middleware
+                    -- po kazdym cyklu stanowiska i maja ID_Realizacji = NULL (Realizacja_Produkcji
+                    -- nie dostaje rekordow). Przy INNER JOIN wypadaly wszystkie co do jednego
+                    -- i caly blok OEE stal na zerach.
+                    SELECT TOP {oknoSztuk} w.*,
+                           ISNULL(r.Ilosc_Wyprodukowanych, 0) AS Ilosc_Wyprodukowanych,
+                           ISNULL(r.Liczba_Wadliwych, 0)      AS Liczba_Wadliwych
                     FROM [dbo].[Wskazniki] w
-                    JOIN [dbo].[Realizacja_Produkcji] r ON w.ID_Realizacji = r.ID
+                    LEFT JOIN [dbo].[Realizacja_Produkcji] r ON w.ID_Realizacji = r.ID
                     ORDER BY w.DataCzas_Pomiaru DESC
                 )
                 SELECT
@@ -55,18 +68,64 @@ namespace LiniaProdukcyjnaDashboard.Services
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Wyprodukowano ogolem (od zawsze, bez okna) - kafelek "Wyprodukowano ogolnie"
+        // Tory z pojemnikami na klocki (stan z HMI, zapisywany przez Middleware)
         // ─────────────────────────────────────────────────────────────
-        public async Task<int> GetTotalProducedAllTimeAsync()
+        public async Task<List<KontenerTor>> GetKontenneryAsync()
         {
             const string sql = @"
-                SELECT ISNULL(SUM(CASE WHEN ID_Stanowiska = 4 THEN Ilosc_Wyprodukowanych - Liczba_Wadliwych ELSE 0 END), 0)
-                FROM [dbo].[Realizacja_Produkcji]";
+                SELECT k.ID_Stanowiska, k.NrToru, m.Nazwa_Materialu, ISNULL(m.Kolor,''), k.Wartosc
+                FROM Kontenery k
+                JOIN Material m ON k.ID_Materialu = m.ID_Materialu
+                ORDER BY k.ID_Stanowiska, k.NrToru";
+
+            var result = new List<KontenerTor>();
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(sql, conn);
+            await using var rdr = await cmd.ExecuteReaderAsync();
+            while (await rdr.ReadAsync())
+                result.Add(new KontenerTor
+                {
+                    IDStanowiska   = rdr.GetInt32(0),
+                    NrToru         = rdr.GetInt32(1),
+                    NazwaMaterialu = rdr.GetString(2),
+                    Kolor          = rdr.GetString(3),
+                    Wartosc        = rdr.GetInt32(4)
+                });
+            return result;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Liczniki produkcji: ogolem i "dzisiaj" (od ostatniego resetu zajec).
+        // Zrodlem jest DoneAllTime z PLC, zapisywany przez Middleware.
+        // Wadliwe = sztuki odrzucone na QC, liczone wzgledem produkcji "dzisiaj".
+        // ─────────────────────────────────────────────────────────────
+        public async Task<ProdukcjaLicznik> GetLicznikProdukcjiAsync()
+        {
+            const string sql = @"
+                SELECT TOP 1
+                    ISNULL(Wyprodukowano_Ogolem, 0),
+                    ISNULL(Baseline_Dzisiaj, 0),
+                    ISNULL((SELECT SUM(SztukNOK) FROM Zlecenie_Produkcyjne WHERE IsDeleted = 0), 0)
+                FROM Ustawienia_Maszyny";
 
             await using var conn = new SqlConnection(_cs);
             await conn.OpenAsync();
             await using var cmd = new SqlCommand(sql, conn);
-            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+            await using var rdr = await cmd.ExecuteReaderAsync();
+
+            if (!await rdr.ReadAsync()) return new ProdukcjaLicznik();
+
+            int ogolem   = Convert.ToInt32(rdr[0]);
+            int baseline = Convert.ToInt32(rdr[1]);
+            int wadliwe  = Convert.ToInt32(rdr[2]);
+
+            return new ProdukcjaLicznik
+            {
+                Ogolem  = ogolem,
+                Dzisiaj = Math.Max(0, ogolem - baseline),
+                Wadliwe = wadliwe
+            };
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -74,17 +133,48 @@ namespace LiniaProdukcyjnaDashboard.Services
         // (wszystkie stanowiska razem). LEFT JOIN, zeby ZAWSZE zwrocic komplet wyrobow,
         // takze te bez zarejestrowanej produkcji.
         // ─────────────────────────────────────────────────────────────
+        /// <summary>Ile ostatnich cykli wchodzi do wyliczenia "Wydajnosci cyklu" wyrobu.</summary>
+        private const int OKNO_CYKLI = 4;
+
+        /// <summary>Ile ostatnich sztuk z QC wchodzi do "Popularnosci wyrobow".</summary>
+        private const int OKNO_SZTUK = 50;
+
         public async Task<List<WyrobCzasCyklu>> GetAvgCycleTimePerWyrobAsync()
         {
-            const string sql = @"
-                SELECT w.Nazwa_Wyrobu,
-                       ISNULL(SUM(CAST(r.Czas_Cyklu_ms AS FLOAT)), 0)     AS SumaRzeczywista,
-                       ISNULL(SUM(CAST(pm.Czas_Jednostkowy AS FLOAT)), 0) AS SumaZadana
-                FROM [dbo].[Wyrob] w
-                LEFT JOIN [dbo].[Zlecenie_Produkcyjne] zp ON zp.ID_Wyrobu  = w.ID_Wyrobu
-                LEFT JOIN [dbo].[Realizacja_Produkcji] r  ON r.ID_Zlecenia = zp.ID_Zlecenia
-                LEFT JOIN [dbo].[Proces_Montazu]       pm ON pm.ID_Wyrobu  = w.ID_Wyrobu
+            // Okno kroczace: liczy sie tylko OKNO_CYKLI ostatnich cykli danego wyrobu,
+            // dzieki czemu kafelek pokazuje biezaca formę linii, a nie srednia od poczatku
+            // swiata. Zrodlo to suma biezacych zajec (Realizacja_Produkcji) i trwalego
+            // archiwum (HistoriaCykli) - reset zajec nie zeruje wiec tego bloku.
+            string sql = $@"
+                WITH Cykle AS (
+                    SELECT zp.ID_Wyrobu,
+                           CAST(r.Czas_Cyklu_ms AS FLOAT)             AS Rzeczywisty,
+                           CAST(ISNULL(pm.Czas_Jednostkowy,0) AS FLOAT) AS Zadany,
+                           r.Czas_Zakonczenia
+                    FROM [dbo].[Realizacja_Produkcji] r
+                    JOIN [dbo].[Zlecenie_Produkcyjne] zp ON zp.ID_Zlecenia = r.ID_Zlecenia
+                    LEFT JOIN [dbo].[Proces_Montazu]  pm ON pm.ID_Wyrobu   = zp.ID_Wyrobu
                                                           AND pm.ID_Stanowiska = r.ID_Stanowiska
+                    WHERE r.Czas_Cyklu_ms > 0
+                    UNION ALL
+                    SELECT h.ID_Wyrobu,
+                           CAST(h.Czas_Cyklu_ms  AS FLOAT),
+                           CAST(h.Czas_Zadany_ms AS FLOAT),
+                           h.Czas_Zakonczenia
+                    FROM [dbo].[HistoriaCykli] h
+                    WHERE h.Czas_Cyklu_ms > 0
+                ),
+                Okno AS (
+                    SELECT *, ROW_NUMBER() OVER (PARTITION BY ID_Wyrobu
+                                                 ORDER BY Czas_Zakonczenia DESC) AS Lp
+                    FROM Cykle
+                )
+                SELECT w.Nazwa_Wyrobu,
+                       ISNULL(SUM(o.Rzeczywisty), 0) AS SumaRzeczywista,
+                       ISNULL(SUM(o.Zadany), 0)      AS SumaZadana,
+                       COUNT(o.ID_Wyrobu)            AS LiczbaCykli
+                FROM [dbo].[Wyrob] w
+                LEFT JOIN Okno o ON o.ID_Wyrobu = w.ID_Wyrobu AND o.Lp <= {OKNO_CYKLI}
                 GROUP BY w.ID_Wyrobu, w.Nazwa_Wyrobu
                 ORDER BY w.ID_Wyrobu";
 
@@ -97,11 +187,14 @@ namespace LiniaProdukcyjnaDashboard.Services
             {
                 double rzeczywista = rdr.GetDouble(1);
                 double zadana      = rdr.GetDouble(2);
+                int    liczba      = rdr.GetInt32(3);
                 result.Add(new WyrobCzasCyklu
                 {
-                    Nazwa      = rdr.GetString(0),
-                    SumaCzasMs = rzeczywista,
-                    Wydajnosc  = rzeczywista > 0 ? zadana / rzeczywista : (double?)null
+                    Nazwa        = rdr.GetString(0),
+                    SumaCzasMs   = rzeczywista,
+                    LiczbaCykli  = liczba,
+                    SredniCyklMs = liczba > 0 ? rzeczywista / liczba : 0,
+                    Wydajnosc    = rzeczywista > 0 ? zadana / rzeczywista : (double?)null
                 });
             }
             return result;
@@ -112,12 +205,28 @@ namespace LiniaProdukcyjnaDashboard.Services
         // ─────────────────────────────────────────────────────────────
         public async Task<List<WyrobPopularnosc>> GetWyrobPopularnosciAsync()
         {
-            const string sql = @"
+            // Tak jak wydajnosc cyklu: okno kroczace OKNO_SZTUK ostatnich sztuk z QC
+            // (stanowisko 4), liczone z biezacych zajec i trwalego archiwum razem.
+            // Reset zajec nie zeruje wiec tego bloku.
+            string sql = $@"
+                WITH Sztuki AS (
+                    SELECT zp.ID_Wyrobu, r.Czas_Zakonczenia
+                    FROM [dbo].[Realizacja_Produkcji] r
+                    JOIN [dbo].[Zlecenie_Produkcyjne] zp ON r.ID_Zlecenia = zp.ID_Zlecenia
+                    WHERE r.ID_Stanowiska = 4
+                    UNION ALL
+                    SELECT h.ID_Wyrobu, h.Czas_Zakonczenia
+                    FROM [dbo].[HistoriaCykli] h
+                    WHERE h.ID_Stanowiska = 4
+                ),
+                Okno AS (
+                    SELECT TOP ({OKNO_SZTUK}) ID_Wyrobu
+                    FROM Sztuki
+                    ORDER BY Czas_Zakonczenia DESC
+                )
                 SELECT w.Nazwa_Wyrobu, COUNT(*) AS Ilosc
-                FROM [dbo].[Realizacja_Produkcji] r
-                JOIN [dbo].[Zlecenie_Produkcyjne]  zp ON r.ID_Zlecenia = zp.ID_Zlecenia
-                JOIN [dbo].[Wyrob]                 w  ON zp.ID_Wyrobu = w.ID_Wyrobu
-                WHERE r.ID_Stanowiska = 4
+                FROM Okno o
+                JOIN [dbo].[Wyrob] w ON w.ID_Wyrobu = o.ID_Wyrobu
                 GROUP BY w.Nazwa_Wyrobu
                 ORDER BY COUNT(*) DESC";
 
@@ -143,22 +252,46 @@ namespace LiniaProdukcyjnaDashboard.Services
         // Wydajnosc = suma czasow zadanych (Proces_Montazu wg wyrobu danej sztuki)
         //             / suma czasow rzeczywistych (Czas_Cyklu_ms), z ostatnich 3 sztuk.
         // ─────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Okno cykli do wydajnosci stanowiska. MUSI byc rowne OKNO_CYKLI_HMI
+        /// w DatabaseHelper Middleware - obie strony maja pokazywac te sama liczbe.
+        /// </summary>
+        private const int OKNO_CYKLI_STANOWISKA = 4;
+
         public async Task<List<StanowiskoStatus>> GetStanowiskaStatusAsync()
         {
-            const string sql = @"
+            var sql = $@"
                 SELECT
                     s.ID_Stanowiska,
                     s.Nazwa_Stanowiska,
+                    ISNULL(s.Stan_Produkcji, 0) AS StanProdukcji,
+                    s.Stan_Aktualizacja,
                     w.Wskaznik_OEE,
                     r.Czas_Cyklu_ms,
                     r.Czas_Zakonczenia,
                     r.Kod_Postoju,
-                    zp.Nazwa_Zlecenia,
-                    wy.Nazwa_Wyrobu,
-                    pmLast.Czas_Jednostkowy,
+                    -- ISNULL(..., so.*) - gdy biezacych danych nie ma (np. po
+                    -- 'Rozpocznij nowe zajecia' zlecenia sa skasowane), karta pokazuje
+                    -- ostatni wyrob z trwalej pamieci StanowiskoOstatnie zamiast myslnikow.
+                    ISNULL(zp.Nazwa_Zlecenia,      so.Nazwa_Zlecenia),
+                    ISNULL(wy.Nazwa_Wyrobu,        so.Nazwa_Wyrobu),
+                    ISNULL(pmLast.Czas_Jednostkowy, so.Czas_Zadany_ms),
                     perf.SumaZadana,
-                    perf.SumaRzeczywista
+                    perf.SumaRzeczywista,
+                    -- Zmierzony czas ostatniego cyklu. Pierwszenstwo ma HistoriaCykli,
+                    -- bo tam trafia pomiar z Middleware (przejscia Production.State),
+                    -- a nie oszacowanie liczone zegarem przegladarki.
+                    ISNULL(ost.Czas_Cyklu_ms, ISNULL(r.Czas_Cyklu_ms, so.Czas_Cyklu_ms)) AS CyklZPamiecia,
+                    so.Wydajnosc                                     AS WydajnoscZPamieci
                 FROM [dbo].[Stanowisko] s
+                LEFT JOIN [dbo].[StanowiskoOstatnie] so ON so.ID_Stanowiska = s.ID_Stanowiska
+                -- Ostatni FAKTYCZNIE zmierzony cykl tego stanowiska.
+                OUTER APPLY (
+                    SELECT TOP 1 hc.Czas_Cyklu_ms
+                    FROM [dbo].[HistoriaCykli] hc
+                    WHERE hc.ID_Stanowiska = s.ID_Stanowiska AND hc.Czas_Cyklu_ms > 0
+                    ORDER BY hc.ID DESC
+                ) ost
                 LEFT JOIN (
                     SELECT r1.*
                     FROM [dbo].[Realizacja_Produkcji] r1
@@ -169,23 +302,34 @@ namespace LiniaProdukcyjnaDashboard.Services
                     ) r2 ON r1.ID_Stanowiska = r2.ID_Stanowiska
                          AND r1.Czas_Zakonczenia = r2.Maks
                 ) r ON s.ID_Stanowiska = r.ID_Stanowiska
-                LEFT JOIN [dbo].[Wskazniki]           w      ON r.ID            = w.ID_Realizacji
-                LEFT JOIN [dbo].[Zlecenie_Produkcyjne] zp    ON r.ID_Zlecenia   = zp.ID_Zlecenia
-                LEFT JOIN [dbo].[Wyrob]                wy    ON zp.ID_Wyrobu    = wy.ID_Wyrobu
-                LEFT JOIN [dbo].[Proces_Montazu]       pmLast ON pmLast.ID_Wyrobu = zp.ID_Wyrobu
-                                                              AND pmLast.ID_Stanowiska = s.ID_Stanowiska
+                LEFT JOIN [dbo].[Wskazniki] w ON r.ID = w.ID_Realizacji
+                -- Zlecenie i wyrob bierzemy z AKTYWNEGO zlecenia, nie z ostatniego zapisu
+                -- realizacji: tamten mechanizm (wyzwalacz z DB5) nie tworzy zadnych rekordow,
+                -- wiec karta stanowiska zostawala pusta przez cala prace.
                 OUTER APPLY (
-                    SELECT SUM(pm.Czas_Jednostkowy) AS SumaZadana,
-                           SUM(ost3.Czas_Cyklu_ms)   AS SumaRzeczywista
+                    SELECT TOP 1 z.Nazwa_Zlecenia, z.ID_Wyrobu
+                    FROM [dbo].[Zlecenie_Produkcyjne] z
+                    WHERE z.IsDeleted = 0 AND z.Status_Zlecenia IN ('W toku','Nowe')
+                    ORDER BY CASE WHEN z.Status_Zlecenia = 'W toku' THEN 0 ELSE 1 END,
+                             z.PriorytetNum DESC, z.ID_Zlecenia DESC
+                ) zp
+                LEFT JOIN [dbo].[Wyrob] wy ON zp.ID_Wyrobu = wy.ID_Wyrobu
+                LEFT JOIN [dbo].[Proces_Montazu] pmLast ON pmLast.ID_Wyrobu = zp.ID_Wyrobu
+                                                        AND pmLast.ID_Stanowiska = s.ID_Stanowiska
+                -- Wydajnosc stanowiska liczymy z HistoriaCykli, czyli DOKLADNIE z tego
+                -- samego okna co wartosc wysylana na panel HMI (Stats.Efficiency) -
+                -- inaczej operator widzialby na swoim panelu inna liczbe niz pulpit.
+                -- Realizacja_Produkcji sie tu nie nadaje: nie dostaje rekordow.
+                OUTER APPLY (
+                    SELECT SUM(CAST(o.Czas_Zadany_ms AS float)) AS SumaZadana,
+                           SUM(CAST(o.Czas_Cyklu_ms  AS float)) AS SumaRzeczywista
                     FROM (
-                        SELECT TOP 3 rp.Czas_Cyklu_ms, rp.ID_Zlecenia
-                        FROM [dbo].[Realizacja_Produkcji] rp
-                        WHERE rp.ID_Stanowiska = s.ID_Stanowiska
-                        ORDER BY rp.Czas_Zakonczenia DESC
-                    ) ost3
-                    JOIN [dbo].[Zlecenie_Produkcyjne] zp2 ON zp2.ID_Zlecenia = ost3.ID_Zlecenia
-                    JOIN [dbo].[Proces_Montazu]       pm  ON pm.ID_Wyrobu = zp2.ID_Wyrobu
-                                                          AND pm.ID_Stanowiska = s.ID_Stanowiska
+                        SELECT TOP ({OKNO_CYKLI_STANOWISKA}) hc.Czas_Zadany_ms, hc.Czas_Cyklu_ms
+                        FROM [dbo].[HistoriaCykli] hc
+                        WHERE hc.ID_Stanowiska = s.ID_Stanowiska
+                          AND hc.Czas_Cyklu_ms > 0 AND hc.Czas_Zadany_ms > 0
+                        ORDER BY hc.ID DESC
+                    ) o
                 ) perf
                 ORDER BY s.ID_Stanowiska";
 
@@ -196,26 +340,78 @@ namespace LiniaProdukcyjnaDashboard.Services
             await using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
             {
-                double? sumaZadana       = rdr.IsDBNull(9)  ? null : Convert.ToDouble(rdr[9]);
-                double? sumaRzeczywista  = rdr.IsDBNull(10) ? null : Convert.ToDouble(rdr[10]);
+                double? sumaZadana       = rdr.IsDBNull(11) ? null : Convert.ToDouble(rdr[11]);
+                double? sumaRzeczywista  = rdr.IsDBNull(12) ? null : Convert.ToDouble(rdr[12]);
 
                 result.Add(new StanowiskoStatus
                 {
                     IDStanowiska   = rdr.GetInt32(0),
                     Nazwa          = rdr.GetString(1),
-                    OEE            = rdr.IsDBNull(2) ? null : (double?)Convert.ToDouble(rdr[2]),
-                    OstatniCyklMs  = rdr.IsDBNull(3) ? null : rdr.GetInt32(3),
-                    OstatniaCzas   = rdr.IsDBNull(4) ? null : rdr.GetDateTime(4),
-                    KodPostoju     = rdr.IsDBNull(5) ? null : rdr.GetString(5),
-                    NazwaZlecenia  = rdr.IsDBNull(6) ? null : rdr.GetString(6),
-                    NazwaWyrobu    = rdr.IsDBNull(7) ? null : rdr.GetString(7),
-                    OstatniCzasZadanyMs = rdr.IsDBNull(8) ? null : (int?)Convert.ToInt32(rdr[8]),
+                    StanProdukcji  = Convert.ToInt32(rdr[2]),
+                    StanOd         = rdr.IsDBNull(3) ? null : rdr.GetDateTime(3),
+                    OEE            = rdr.IsDBNull(4) ? null : (double?)Convert.ToDouble(rdr[4]),
+                    OstatniCyklMs  = rdr.IsDBNull(13) ? null : Convert.ToInt32(rdr[13]),
+                    OstatniaCzas   = rdr.IsDBNull(6) ? null : rdr.GetDateTime(6),
+                    KodPostoju     = rdr.IsDBNull(7) ? null : rdr.GetString(7),
+                    NazwaZlecenia  = rdr.IsDBNull(8) ? null : rdr.GetString(8),
+                    NazwaWyrobu    = rdr.IsDBNull(9) ? null : rdr.GetString(9),
+                    OstatniCzasZadanyMs = rdr.IsDBNull(10) ? null : (int?)Convert.ToInt32(rdr[10]),
                     Wydajnosc      = (sumaZadana.HasValue && sumaRzeczywista is > 0)
                                         ? sumaZadana.Value / sumaRzeczywista.Value
-                                        : null
+                                        : (rdr.IsDBNull(14) ? null : Convert.ToDouble(rdr[14]))
                 });
             }
             return result;
+        }
+
+        // Ostatnio zapisana migawka - zeby nie strzelac UPDATE-em przy kazdym
+        // odswiezeniu pulpitu, gdy nic sie nie zmienilo.
+        private static readonly Dictionary<int, string> _ostatnioZapisane = new();
+
+        /// <summary>
+        /// Utrwala "co ostatnio bylo na stanowisku". Wolane z wolnej petli pulpitu.
+        /// Dzieki temu karty stanowisk nie pustoszeja po przeladowaniu strony ani po
+        /// "Rozpocznij nowe zajecia" - tabela StanowiskoOstatnie nie jest resetowana.
+        /// </summary>
+        public async Task ZapamietajStanowiskaAsync(List<StanowiskoStatus> stanowiska)
+        {
+            var doZapisu = new List<StanowiskoStatus>();
+            foreach (var s in stanowiska)
+            {
+                // Nie nadpisujemy pamieci pustka - inaczej pierwszy odczyt bez danych
+                // wymazalby to, co chcemy zachowac.
+                if (s.NazwaZlecenia is null && s.NazwaWyrobu is null) continue;
+
+                var odcisk = $"{s.NazwaZlecenia}|{s.NazwaWyrobu}|{s.OstatniCyklMs}|{s.OstatniCzasZadanyMs}|{s.Wydajnosc:F4}";
+                if (_ostatnioZapisane.TryGetValue(s.IDStanowiska, out var poprzedni) && poprzedni == odcisk)
+                    continue;
+
+                _ostatnioZapisane[s.IDStanowiska] = odcisk;
+                doZapisu.Add(s);
+            }
+            if (doZapisu.Count == 0) return;
+
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+            foreach (var s in doZapisu)
+            {
+                await using var cmd = new SqlCommand(@"
+                    MERGE dbo.StanowiskoOstatnie AS c
+                    USING (SELECT @St AS ID_Stanowiska) AS n ON c.ID_Stanowiska = n.ID_Stanowiska
+                    WHEN MATCHED THEN UPDATE SET
+                        Nazwa_Zlecenia = @Zl, Nazwa_Wyrobu = @Wy, Czas_Cyklu_ms = @Cykl,
+                        Czas_Zadany_ms = @Zad, Wydajnosc = @Wyd, Zaktualizowano = GETDATE()
+                    WHEN NOT MATCHED THEN INSERT
+                        (ID_Stanowiska, Nazwa_Zlecenia, Nazwa_Wyrobu, Czas_Cyklu_ms, Czas_Zadany_ms, Wydajnosc)
+                        VALUES (@St, @Zl, @Wy, @Cykl, @Zad, @Wyd);", conn);
+                cmd.Parameters.AddWithValue("@St",   s.IDStanowiska);
+                cmd.Parameters.AddWithValue("@Zl",   (object?)s.NazwaZlecenia ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Wy",   (object?)s.NazwaWyrobu ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Cykl", (object?)s.OstatniCyklMs ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Zad",  (object?)s.OstatniCzasZadanyMs ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Wyd",  (object?)s.Wydajnosc ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync();
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -223,17 +419,29 @@ namespace LiniaProdukcyjnaDashboard.Services
         // ─────────────────────────────────────────────────────────────
         public async Task<List<OeeTrendPoint>> GetOeeTrendAsync(int n = 30)
         {
+            // JEDEN ogolny trend, nie linia na stanowisko. Kazdy punkt to srednia kroczaca
+            // z tego samego okna OKNO_KPI co kafelek OEE u gory - dzieki temu ostatni punkt
+            // wykresu rowna sie liczbie na kafelku, a wykres pokazuje, jak ona doszla do tej
+            // wartosci. ID w ORDER BY rozstrzyga remisy czasu (4 stanowiska zapisuja sie
+            // w tej samej sekundzie).
             var sql = $@"
-                SELECT TOP {n}
-                    w.DataCzas_Pomiaru,
-                    s.Nazwa_Stanowiska,
-                    CAST(w.Wskaznik_OEE  AS FLOAT),
-                    CAST(w.Dostepnosc    AS FLOAT),
-                    CAST(w.Wydajnosc     AS FLOAT),
-                    CAST(w.Jakosc        AS FLOAT)
-                FROM [dbo].[Wskazniki] w
-                JOIN [dbo].[Stanowisko] s ON w.ID_Stanowiska = s.ID_Stanowiska
-                ORDER BY w.DataCzas_Pomiaru DESC";
+                WITH Kolejno AS (
+                    SELECT w.DataCzas_Pomiaru,
+                           AVG(CAST(w.Wskaznik_OEE AS FLOAT)) OVER (ORDER BY w.DataCzas_Pomiaru, w.ID
+                                ROWS BETWEEN {OKNO_KPI - 1} PRECEDING AND CURRENT ROW) AS OEE,
+                           AVG(CAST(w.Dostepnosc   AS FLOAT)) OVER (ORDER BY w.DataCzas_Pomiaru, w.ID
+                                ROWS BETWEEN {OKNO_KPI - 1} PRECEDING AND CURRENT ROW) AS A,
+                           AVG(CAST(w.Wydajnosc    AS FLOAT)) OVER (ORDER BY w.DataCzas_Pomiaru, w.ID
+                                ROWS BETWEEN {OKNO_KPI - 1} PRECEDING AND CURRENT ROW) AS P,
+                           AVG(CAST(w.Jakosc       AS FLOAT)) OVER (ORDER BY w.DataCzas_Pomiaru, w.ID
+                                ROWS BETWEEN {OKNO_KPI - 1} PRECEDING AND CURRENT ROW) AS Q,
+                           ROW_NUMBER() OVER (ORDER BY w.DataCzas_Pomiaru DESC, w.ID DESC) AS Lp
+                    FROM [dbo].[Wskazniki] w
+                )
+                SELECT DataCzas_Pomiaru, N'OEE', OEE, A, P, Q
+                FROM Kolejno
+                WHERE Lp <= {n}
+                ORDER BY DataCzas_Pomiaru DESC, Lp";
 
             var result = new List<OeeTrendPoint>();
             await using var conn = new SqlConnection(_cs);

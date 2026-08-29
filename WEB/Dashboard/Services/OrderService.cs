@@ -228,11 +228,17 @@ namespace LiniaProdukcyjnaDashboard.Services
         /// <summary>
         /// Tworzy zlecenie, wykonuje backward scheduling i rezerwuje materiały.
         /// </summary>
-        public async Task<(int idZlecenia, WalidacjaKomponentow? walidacja)> CreateZlecenieAsync(string nazwa, int iloscSztuk, int idWyrobu, string priorytet)
+        /// <param name="ignorujBraki">
+        /// Gdy true, zlecenie powstaje mimo niewystarczajacego stanu magazynu.
+        /// Rezerwacja i tak zostanie zapisana, wiec magazyn wejdzie na minus
+        /// (ilosc dostepna ujemna) - swiadome "zadluzenie" zatwierdzone przez uzytkownika.
+        /// </param>
+        public async Task<(int idZlecenia, WalidacjaKomponentow? walidacja)> CreateZlecenieAsync(
+            string nazwa, int iloscSztuk, int idWyrobu, string priorytet, bool ignorujBraki = false)
         {
             // 1. Walidacja dostępności komponentów
             var walidacja = await _inv.WalidujDostepnoscAsync(idWyrobu, iloscSztuk);
-            if (!walidacja.CzyMozna)
+            if (!walidacja.CzyMozna && !ignorujBraki)
                 return (0, walidacja);
 
             // 2. Oblicz czas realizacji (TPZ + TJ * ilość) i backward scheduling
@@ -287,6 +293,10 @@ namespace LiniaProdukcyjnaDashboard.Services
 
             // 5. Sprawdź preempcję — jeśli nowe ma wyższy priorytet od aktywnego, zatrzymaj aktywne
             await SprawdzPreempcjeAsync(idNowego, priorytetNum);
+
+            if (ignorujBraki && !walidacja.CzyMozna)
+                _logger.LogWarning("[ORDER] Zlecenie {Id} utworzone MIMO BRAKOW - magazyn na minusie ({N} pozycji)",
+                    idNowego, walidacja.Braki.Count);
 
             _logger.LogInformation("[ORDER] Utworzono zlecenie {Id} ({Nazwa}), priorytet={P}",
                 idNowego, nazwa, priorytet);
@@ -414,7 +424,8 @@ namespace LiniaProdukcyjnaDashboard.Services
 
             if (!await rdr.ReadAsync()) return; // brak aktywnego — preempcja niepotrzebna
             int idAktywnego      = rdr.GetInt32(0);
-            int priorytetAktywne = rdr.GetInt32(1);
+            // PriorytetNum to w bazie tinyint (czyli Byte) - GetInt32 rzucalby wyjatkiem rzutowania.
+            int priorytetAktywne = Convert.ToInt32(rdr[1]);
             await rdr.CloseAsync();
 
             if (priorytetNumNowego > priorytetAktywne && idAktywnego != idNowego)
@@ -492,9 +503,24 @@ namespace LiniaProdukcyjnaDashboard.Services
             using var tx = conn.BeginTransaction();
             try
             {
+                // NAJPIERW raport - dane sa kasowane ponizej, wiec zapis musi je wyprzedzic.
+                await ZapiszRaportAsync(conn, tx);
+
+                // Blok "Wydajnosc cyklu" ma przezyc reset - czasy cykli przepisujemy
+                // do trwalego archiwum, zanim Realizacja_Produkcji zostanie skasowana.
+                await ArchiwizujCykleAsync(conn, tx);
+
                 // Kolejnosc wymuszona przez FK: najpierw "liscie" (Koszty/Wskazniki zaleza
                 // od Realizacja_Produkcji), potem Realizacja_Produkcji, na koncu Zlecenie_Produkcyjne.
                 using var cmd = new Microsoft.Data.SqlClient.SqlCommand(@"
+                    -- SztukiPrzetworzone MUSI lecieć razem z resztą. To tabela odporności
+                    -- na duplikaty QC (klucz: ID_Zlecenia + PartNo). Po resecie IDENTITY
+                    -- zlecen wraca do 0, wiec nowe ZL001 znow dostaje ID_Zlecenia=1, a jego
+                    -- pierwsza sztuka PartNo=1 - czyli parę, ktora tu juz leżała z poprzednich
+                    -- zajec. ZarejestrujSztukePoQC uznawal ja wtedy za juz policzona, wychodzil
+                    -- przed IncrementQcWynik i zlecenie NIGDY nie dobijalo do Ilosc_Sztuk,
+                    -- wiec nie zmienialo statusu na 'Zakonczone'.
+                    DELETE FROM SztukiPrzetworzone;
                     DELETE FROM Koszty;
                     DELETE FROM Wskazniki;
                     DELETE FROM Harmonogram;
@@ -503,11 +529,180 @@ namespace LiniaProdukcyjnaDashboard.Services
                     DELETE FROM Zlecenie_Produkcyjne;
                     DBCC CHECKIDENT ('Zlecenie_Produkcyjne', RESEED, 0);
                     UPDATE Material SET IloscZarezerwowana = 0;
-                    UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 1;", conn, tx);
+                    -- Baseline = aktualny licznik z PLC, wiec 'wyprodukowano dzisiaj' startuje od zera.
+                    UPDATE Ustawienia_Maszyny SET Wymagany_Reset = 1,
+                                                  Baseline_Dzisiaj = Wyprodukowano_Ogolem;", conn, tx);
                 await cmd.ExecuteNonQueryAsync();
                 await tx.CommitAsync();
             }
             catch { await tx.RollbackAsync(); throw; }
+        }
+
+        /// <summary>
+        /// Przepisuje historie produkcji z Realizacja_Produkcji do trwalej HistoriaCykli.
+        /// Realizacja_Produkcji wisi na FK do Zlecenie_Produkcyjne i musi zniknac przy
+        /// resecie zajec, ale bloki "Wydajnosc cyklu" i "Popularnosc wyrobow" maja
+        /// pokazywac dane bez przerwy - licza z okna ostatnich cykli/sztuk, a nie od zera.
+        /// Archiwizujemy WSZYSTKIE wiersze (tez te z zerowym czasem, np. z QC) - popularnosc
+        /// liczy sztuki ze stanowiska 4, a filtr na czas > 0 nakladamy dopiero w zapytaniu.
+        /// </summary>
+        private static async Task ArchiwizujCykleAsync(SqlConnection conn, SqlTransaction tx)
+        {
+            await using var cmd = new SqlCommand(@"
+                INSERT INTO HistoriaCykli (ID_Wyrobu, ID_Stanowiska, Czas_Cyklu_ms, Czas_Zadany_ms, Czas_Zakonczenia)
+                SELECT zp.ID_Wyrobu, r.ID_Stanowiska, r.Czas_Cyklu_ms,
+                       ISNULL(pm.Czas_Jednostkowy, 0), r.Czas_Zakonczenia
+                FROM Realizacja_Produkcji r
+                JOIN Zlecenie_Produkcyjne zp ON zp.ID_Zlecenia = r.ID_Zlecenia
+                LEFT JOIN Proces_Montazu  pm ON pm.ID_Wyrobu   = zp.ID_Wyrobu
+                                             AND pm.ID_Stanowiska = r.ID_Stanowiska;", conn, tx);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        /// <summary>
+        /// Zapisuje migawke bloku zajec do raportow. Wywolywane w tej samej transakcji
+        /// co reset, ZANIM dane zostana skasowane.
+        /// </summary>
+        private static async Task ZapiszRaportAsync(SqlConnection conn, SqlTransaction tx)
+        {
+            // Nic nie produkowano i nie bylo zlecen - nie ma sensu tworzyc pustego raportu.
+            await using (var check = new SqlCommand(
+                "SELECT COUNT(*) FROM Zlecenie_Produkcyjne", conn, tx))
+            {
+                if (Convert.ToInt32(await check.ExecuteScalarAsync()) == 0) return;
+            }
+
+            const string naglowekSql = @"
+                INSERT INTO Raporty (Nazwa, OEE, Dostepnosc, Wydajnosc, Jakosc, FPY, SztukOK, SztukNOK)
+                SELECT
+                    'Zajęcia ' + CONVERT(varchar, GETDATE(), 120),
+                    ISNULL((SELECT AVG(CAST(Wskaznik_OEE AS float)) FROM Wskazniki), 0),
+                    ISNULL((SELECT AVG(CAST(Dostepnosc   AS float)) FROM Wskazniki), 0),
+                    ISNULL((SELECT AVG(CAST(Wydajnosc    AS float)) FROM Wskazniki), 0),
+                    ISNULL((SELECT AVG(CAST(Jakosc       AS float)) FROM Wskazniki), 0),
+                    CASE WHEN SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)) > 0
+                         THEN CAST(SUM(ISNULL(SztukOK,0)) AS float)
+                              / (SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)))
+                         ELSE 0 END,
+                    SUM(ISNULL(SztukOK,0)),
+                    SUM(ISNULL(SztukNOK,0))
+                FROM Zlecenie_Produkcyjne;
+                SELECT SCOPE_IDENTITY();";
+
+            int idRaportu;
+            await using (var cmd = new SqlCommand(naglowekSql, conn, tx))
+                idRaportu = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+            // Historia zlecen - wszystkie, razem ze statusami
+            await using (var cmd = new SqlCommand(@"
+                INSERT INTO RaportZlecenia (ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK)
+                SELECT @R, zp.Nazwa_Zlecenia, w.Nazwa_Wyrobu, zp.Status_Zlecenia,
+                       zp.Ilosc_Sztuk, ISNULL(zp.SztukOK,0), ISNULL(zp.SztukNOK,0)
+                FROM Zlecenie_Produkcyjne zp
+                LEFT JOIN Wyrob w ON zp.ID_Wyrobu = w.ID_Wyrobu
+                ORDER BY zp.ID_Zlecenia", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@R", idRaportu);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Materialy FAKTYCZNIE zuzyte - tylko te przypisane do zlecen w tym bloku,
+            // proporcjonalnie do liczby sztuk, ktore przeszly przez linie (OK + NOK).
+            // Nie sa to ogolne stany magazynowe.
+            await using (var cmd = new SqlCommand(@"
+                INSERT INTO RaportMaterialy (ID_Raportu, Nazwa, Zuzyto)
+                SELECT @R, m.Nazwa_Materialu,
+                       SUM(CAST(zm.IloscWymagana AS float) / NULLIF(zp.Ilosc_Sztuk,0)
+                           * (ISNULL(zp.SztukOK,0) + ISNULL(zp.SztukNOK,0)))
+                FROM ZlecenieMaterialy zm
+                JOIN Zlecenie_Produkcyjne zp ON zm.ID_Zlecenia = zp.ID_Zlecenia
+                JOIN Material m              ON zm.ID_Materialu = m.ID_Materialu
+                GROUP BY m.Nazwa_Materialu
+                HAVING SUM(CAST(zm.IloscWymagana AS float) / NULLIF(zp.Ilosc_Sztuk,0)
+                           * (ISNULL(zp.SztukOK,0) + ISNULL(zp.SztukNOK,0))) > 0", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@R", idRaportu);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        // ── Odczyt raportow ──────────────────────────────────────────────
+        /// <summary>
+        /// Kasuje raport razem z jego pozycjami. Kolejnosc wymuszona przez FK:
+        /// najpierw dzieci (RaportMaterialy, RaportZlecenia), potem naglowek.
+        /// Wszystko w jednej transakcji, zeby nie zostal raport bez pozycji.
+        /// </summary>
+        public async Task UsunRaportAsync(int idRaportu)
+        {
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+            await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
+            try
+            {
+                await using var cmd = new SqlCommand(@"
+                    DELETE FROM RaportMaterialy WHERE ID_Raportu = @R;
+                    DELETE FROM RaportZlecenia  WHERE ID_Raportu = @R;
+                    DELETE FROM Raporty         WHERE ID = @R;", conn, tx);
+                cmd.Parameters.AddWithValue("@R", idRaportu);
+                await cmd.ExecuteNonQueryAsync();
+                await tx.CommitAsync();
+                _logger.LogInformation("Usunieto raport {Id}", idRaportu);
+            }
+            catch { await tx.RollbackAsync(); throw; }
+        }
+
+        public async Task<List<Raport>> GetRaportyAsync(bool zeSzczegolami = true)
+        {
+            var raporty = new List<Raport>();
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+
+            await using (var cmd = new SqlCommand(@"
+                SELECT r.ID, r.Nazwa, r.Utworzono, r.OEE, r.Dostepnosc, r.Wydajnosc, r.Jakosc,
+                       r.FPY, r.SztukOK, r.SztukNOK,
+                       (SELECT COUNT(*) FROM RaportZlecenia rz WHERE rz.ID_Raportu = r.ID)
+                FROM Raporty r ORDER BY r.Utworzono DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+                while (await rdr.ReadAsync())
+                    raporty.Add(new Raport
+                    {
+                        ID = rdr.GetInt32(0), Nazwa = rdr.GetString(1), Utworzono = rdr.GetDateTime(2),
+                        OEE = rdr.GetDouble(3), Dostepnosc = rdr.GetDouble(4),
+                        Wydajnosc = rdr.GetDouble(5), Jakosc = rdr.GetDouble(6), FPY = rdr.GetDouble(7),
+                        SztukOK = rdr.GetInt32(8), SztukNOK = rdr.GetInt32(9),
+                        LiczbaZlecen = rdr.GetInt32(10)
+                    });
+            }
+
+            if (!zeSzczegolami || raporty.Count == 0) return raporty;
+
+            await using (var cmd = new SqlCommand(
+                "SELECT ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK FROM RaportZlecenia ORDER BY ID", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+                while (await rdr.ReadAsync())
+                    raporty.FirstOrDefault(r => r.ID == rdr.GetInt32(0))?.Zlecenia.Add(new RaportZlecenie
+                    {
+                        Nazwa = rdr.GetString(1),
+                        Wyrob = rdr.IsDBNull(2) ? null : rdr.GetString(2),
+                        Status = rdr.GetString(3), IloscSztuk = rdr.GetInt32(4),
+                        SztukOK = rdr.GetInt32(5), SztukNOK = rdr.GetInt32(6)
+                    });
+            }
+
+            await using (var cmd = new SqlCommand(
+                "SELECT ID_Raportu, Nazwa, Zuzyto FROM RaportMaterialy ORDER BY Zuzyto DESC", conn))
+            await using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+                while (await rdr.ReadAsync())
+                    raporty.FirstOrDefault(r => r.ID == rdr.GetInt32(0))?.Materialy.Add(new RaportMaterial
+                    {
+                        Nazwa = rdr.GetString(1), Zuzyto = rdr.GetInt32(2)
+                    });
+            }
+
+            return raporty;
         }
     }
 }

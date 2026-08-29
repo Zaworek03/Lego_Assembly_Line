@@ -12,13 +12,83 @@
         public bool     Przeczytane  { get; set; }
     }
 
+    // ── Tor z pojemnikami na klocki (HMI.Container z PLC) ─────────────
+    public class KontenerTor
+    {
+        public int    IDStanowiska   { get; set; }
+        public int    NrToru         { get; set; }
+        public string NazwaMaterialu { get; set; } = "";
+        public string Kolor          { get; set; } = "";
+        /// <summary>Liczba pojemnikow na torze (0..3).</summary>
+        public int    Wartosc        { get; set; }
+
+        public bool Pusty     => Wartosc <= 0;
+        public bool KonczySie => Wartosc == 1;
+    }
+
+    // ── Raport z bloku zajec ──────────────────────────────────────────
+    public class Raport
+    {
+        public int      ID         { get; set; }
+        public string   Nazwa      { get; set; } = "";
+        public DateTime Utworzono  { get; set; }
+        public double   OEE        { get; set; }
+        public double   Dostepnosc { get; set; }
+        public double   Wydajnosc  { get; set; }
+        public double   Jakosc     { get; set; }
+        public double   FPY        { get; set; }
+        public int      SztukOK    { get; set; }
+        public int      SztukNOK   { get; set; }
+        /// <summary>Liczone zapytaniem - karty na pulpicie nie doczytuja szczegolow.</summary>
+        public int      LiczbaZlecen { get; set; }
+
+        public int    Razem            => SztukOK + SztukNOK;
+        public double ProcentOdrzutow  => Razem > 0 ? SztukNOK * 100.0 / Razem : 0;
+
+        public List<RaportZlecenie> Zlecenia  { get; set; } = new();
+        public List<RaportMaterial> Materialy { get; set; } = new();
+    }
+
+    public class RaportZlecenie
+    {
+        public string Nazwa      { get; set; } = "";
+        public string? Wyrob     { get; set; }
+        public string Status     { get; set; } = "";
+        public int    IloscSztuk { get; set; }
+        public int    SztukOK    { get; set; }
+        public int    SztukNOK   { get; set; }
+    }
+
+    public class RaportMaterial
+    {
+        public string Nazwa  { get; set; } = "";
+        public int    Zuzyto { get; set; }
+    }
+
+    // ── Liczniki produkcji (zrodlo: DoneAllTime z PLC) ────────────────
+    public class ProdukcjaLicznik
+    {
+        /// <summary>Laczna produkcja od zawsze (suma DoneAllTime[0..3]).</summary>
+        public int Ogolem  { get; set; }
+        /// <summary>Produkcja od ostatniego resetu zajec.</summary>
+        public int Dzisiaj { get; set; }
+        /// <summary>Sztuki odrzucone na QC (kasowane przy resecie zajec).</summary>
+        public int Wadliwe { get; set; }
+        /// <summary>Udzial wadliwych w produkcji "dzisiaj". Brak produkcji = 0%, nie 100%.</summary>
+        public double ProcentWadliwych => Dzisiaj > 0 ? Math.Clamp(Wadliwe * 100.0 / Dzisiaj, 0, 100) : 0;
+    }
+
     // ── Wydajnosc cyklu per wyrob ──────────────────────────────────────
     public class WyrobCzasCyklu
     {
         public string  Nazwa      { get; set; } = "";
-        /// <summary>Suma wszystkich zarejestrowanych czasow cyklu dla tego wyrobu [ms].</summary>
+        /// <summary>Suma czasow cyklu w oknie ostatnich cykli tego wyrobu [ms].</summary>
         public double  SumaCzasMs { get; set; }
-        /// <summary>Suma czasow zadanych / suma rzeczywistych. null = brak danych produkcyjnych.</summary>
+        /// <summary>Sredni czas cyklu w oknie [ms] - to trafia na kafelek.</summary>
+        public double  SredniCyklMs { get; set; }
+        /// <summary>Ile cykli faktycznie zlapalo sie w oknie (0 = brak danych).</summary>
+        public int     LiczbaCykli  { get; set; }
+        /// <summary>Suma czasow zadanych / suma rzeczywistych w oknie. null = brak danych.</summary>
         public double? Wydajnosc  { get; set; }
     }
 
@@ -56,6 +126,56 @@
         public double?   Wydajnosc     { get; set; }
         public string?   NazwaZlecenia { get; set; }
         public string?   NazwaWyrobu   { get; set; }
+
+        /// <summary>Production.State prosto z PLC: 0=bezczynne, 1=montaz, 2=konczenie, 3=awaria.</summary>
+        public int       StanProdukcji { get; set; }
+
+        /// <summary>Moment ostatniej zmiany stanu - baza do liczenia czasu na zywo.</summary>
+        public DateTime? StanOd        { get; set; }
+
+        public bool Pracuje => StanProdukcji == 1;
+
+        /// <summary>
+        /// Czas ostatniego zakonczonego montazu, "zamrozony" w chwili zejscia ze stanu pracy.
+        /// Bez tego po zakonczeniu wyswietlalby sie mysnik, bo Realizacja_Produkcji
+        /// nie dostaje rekordow (stary mechanizm wyzwalacza z DB5 nie dziala).
+        /// </summary>
+        public double? CzasZamrozonySek { get; set; }
+
+        /// <summary>
+        /// Czas rzeczywisty. Podczas pracy licznik leci zegarem przegladarki - to tylko
+        /// oszacowanie, obarczone opoznieniem odpytywania (PLC -> Middleware -> SQL -> strona).
+        /// Po zakonczeniu cyklu pierwszenstwo ma ZMIERZONA wartosc (OstatniCyklMs z
+        /// HistoriaCykli), wiec licznik "dociaga" do prawdziwego czasu zamiast zostawac
+        /// przy wlasnym oszacowaniu. Zamrozona wartosc sluzy juz tylko za pomost na te
+        /// ulamki sekundy, zanim pomiar dojedzie do bazy.
+        /// </summary>
+        public double? CzasRzeczywistySek
+        {
+            get
+            {
+                if (Pracuje && StanOd.HasValue)
+                    return Math.Max(0, (DateTime.Now - StanOd.Value).TotalSeconds);
+                if (OstatniCyklMs.HasValue) return OstatniCyklMs.Value / 1000.0;
+                return CzasZamrozonySek;
+            }
+        }
+
+        public string StatusOpis => StanProdukcji switch
+        {
+            1 => "PRACUJE",
+            2 => "KOŃCZY",
+            3 => "AWARIA",
+            _ => "BEZCZYNNE"
+        };
+
+        public string StatusKolor => StanProdukcji switch
+        {
+            1 => "var(--success)",
+            2 => "var(--accent)",
+            3 => "var(--danger)",
+            _ => "var(--text-muted)"
+        };
         /// <summary>Czas zadany (Proces_Montazu) dla ostatniej sztuki - podany 1:1, bez przeliczen.</summary>
         public int?      OstatniCzasZadanyMs { get; set; }
 
@@ -184,6 +304,8 @@
         public int      StanBiezacy      { get; set; }
         public int      IloscZarezerwowana { get; set; }
         public int      IloscBazowa      { get; set; }
+        /// <summary>Ile sztuk miesci jeden pojemnik na torze stanowiska.</summary>
+        public int      PojemnoscPojemnika { get; set; }
         public string   Lokalizacja      { get; set; } = "MAIN";
         public int      Dostepny         => StanBiezacy - IloscZarezerwowana;
         public double   ProcentPelny     => IloscBazowa > 0 ? Math.Min(100.0, StanBiezacy * 100.0 / IloscBazowa) : 100.0;

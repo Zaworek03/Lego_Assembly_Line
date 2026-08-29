@@ -21,8 +21,8 @@
 }
 else
 {
-    <div style="@RootVars min-height:100vh;background:var(--bg);">
-        <div style="display:flex;min-height:100vh;gap:16px;">
+    <div style="@RootVars height:100vh;overflow:hidden;background:var(--bg);">
+        <div style="display:flex;height:100vh;overflow:hidden;gap:16px;">
 
             <!-- ==================== SIDEBAR (lewitujacy, zawsze ciemny) ==================== -->
             <div style="width:76px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);
@@ -53,10 +53,10 @@ else
             </div>
 
             <!-- ==================== GLOWNA KOLUMNA ==================== -->
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+            <div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
 
                 <!-- ==================== TOPBAR ==================== -->
-                <div style="display:flex;align-items:center;gap:20px;padding:20px 28px;">
+                <div style="display:flex;align-items:center;gap:20px;padding:12px 28px 10px;">
                     <div>
                         <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Witaj!</MudText>
                         <MudText Typo="Typo.h5" Style="font-weight:700;color:var(--text);">@Auth.CurrentUser!.ImieNazwisko</MudText>
@@ -142,7 +142,7 @@ else
                 </div>
 
                 <!-- ==================== TRESC STRONY ==================== -->
-                <div style="flex:1;padding:0 28px 28px;">
+                <div class="subtelny-scroll" style="flex:1;min-height:0;overflow:auto;padding:0 28px 16px;">
                     @Body
                 </div>
             </div>
@@ -152,7 +152,9 @@ else
 
 @code {
     // Logo RB inline (nie przez <img>) - dziala niezaleznie od serwowania plikow i cache przegladarki.
-    public static readonly RenderFragment LogoSvg = @<svg width="46" height="46" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    // viewBox jest szerszy niz 120: pochylone "RB" wychodzilo poza kwadrat i "B" bylo
+    // przycinane po prawej. Zakres -10..130 daje symetryczny margines na pochylenie.
+    public static readonly RenderFragment LogoSvg = @<svg width="56" height="46" viewBox="-4 0 145 120" xmlns="http://www.w3.org/2000/svg">
         <defs>
             <linearGradient id="rbGrad" x1="0" y1="0" x2="0.18" y2="1">
                 <stop offset="0%" stop-color="#7E2B3F" />
