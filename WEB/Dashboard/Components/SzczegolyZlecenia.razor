@@ -1,0 +1,131 @@
+@* ============================================================
+   Szczegoly zlecenia - wspolny modal.
+
+   Wyciagniety z Zlecenia.razor, bo dokladnie ten sam podglad jest
+   teraz potrzebny na pulpicie. Kliniecie wiersza w "Ostatnich
+   zleceniach" ma otwierac szczegoly NA MIEJSCU, bez przerzucania
+   uzytkownika do innej zakladki.
+   ============================================================ *@
+
+@if (Detail is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:flex;align-items:center;justify-content:center;"
+         @onclick="@(() => Zamknij())">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(700px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.45);"
+             @onclick:stopPropagation>
+            <div style="padding:24px 28px 0;display:flex;justify-content:space-between;align-items:center;">
+                <MudText Typo="Typo.h5" Style="font-weight:800;color:var(--text);">
+                    Szczegóły zlecenia
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Close"
+                               OnClick="@(() => Zamknij())" Size="Size.Small" />
+            </div>
+            <MudDivider Class="mt-3 mb-0" />
+            <div style="padding:24px 28px;">
+                @* Naglowek: nazwa, wyrob i status w tej samej pigulce co na kartach. *@
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;">
+                    <div style="min-width:0;">
+                        <MudText Typo="Typo.h6" Style="font-weight:800;color:var(--text);line-height:1.2;">@Detail.NazwaZlecenia</MudText>
+                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">@(Detail.NazwaWyrobu ?? "—")</MudText>
+                    </div>
+                    <span style="@($"padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;color:{StatusColor(Detail.StatusZlecenia)};background:{StatusColor(Detail.StatusZlecenia)}1F;")">
+                        @Detail.StatusZlecenia
+                    </span>
+                </div>
+
+                @* Postep w tym samym ukladzie co na karcie: duza liczba + pasek. *@
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                        <MudText Style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1;">
+                            @Detail.SztukOK<span style="color:var(--text-muted);font-size:.95rem;font-weight:700;"> / @Detail.IloscSztuk szt</span>
+                        </MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--accent);">@Detail.PostepProcent.ToString("F0")%</MudText>
+                    </div>
+                    <MudProgressLinear Value="@Detail.PostepProcent" Rounded="true" Size="Size.Small"
+                                       Style="background:var(--track);" Color="Color.Primary" />
+                </div>
+
+                @* Siatka faktow - podpis nad wartoscia, jak w stopce kart. *@
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;
+                            padding-top:12px;border-top:1px solid var(--border);">
+                    @Fakt("Rozpoczęto",  Detail.StartedAt?.ToString("dd.MM HH:mm")  ?? "—", "var(--text)")
+                    @Fakt("Zakończono",  Detail.CompletedAt?.ToString("dd.MM HH:mm") ?? "—", "var(--text)")
+                    @* Bez StartedAt nie ma od czego liczyc - wczesniej pokazywalo sie tu
+                       jakies "00:03:01" dla zlecenia, ktore w ogole nie ruszylo. *@
+                    @Fakt("Czas realizacji",
+                          Detail.StartedAt.HasValue && Detail.CalkowityCzasMs > 0
+                              ? TimeSpan.FromMilliseconds(Detail.CalkowityCzasMs).ToString(@"hh\:mm\:ss")
+                              : "—",
+                          "var(--text)")
+                    @Fakt("Sztuk OK",  Detail.SztukOK.ToString(),  "var(--success)")
+                    @Fakt("Sztuk NOK", Detail.SztukNOK.ToString(), Detail.SztukNOK > 0 ? "var(--danger)" : "var(--text-muted)")
+                    @Fakt("Priorytet", Detail.Priorytet, "var(--text)")
+                </div>
+
+                @if (Detail.Materialy.Any())
+                {
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;margin-top:20px;margin-bottom:8px;">
+                        Zapotrzebowanie materiałowe (BOM)
+                    </MudText>
+                    <MudSimpleTable Dense="true" Striped="true">
+                        <thead>
+                            <tr>
+                                <th>Komponent</th>
+                                <th>Wymaga</th>
+                                <th>Zarezerwowano</th>
+                                <th>Brakuje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in Detail.Materialy)
+                            {
+                                <tr style="@(m.MaBraki ? "background:rgba(255,106,61,0.14);" : "")">
+                                    <td>@m.NazwaMaterialu</td>
+                                    <td style="text-align:center;">@m.IloscWymagana</td>
+                                    <td style="text-align:center;">@m.IloscZarezerwowana</td>
+                                    <td style="text-align:center;color:@(m.MaBraki ? "#ef5350" : "#66bb6a");font-weight:@(m.MaBraki ? "700" : "400");">
+                                        @(m.MaBraki ? m.IloscBrakujaca.ToString() : "—")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+                        Brak danych BOM — wyrób nie ma zdefiniowanej listy materiałowej.
+                    </MudAlert>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Dane do pokazania. null = modal w ogole sie nie renderuje.</summary>
+    [Parameter, EditorRequired] public ZlecenieDetail? Detail { get; set; }
+
+    /// <summary>Wywolywane przy krzyzyku, kliknieciu w tlo i klawiszu Esc.</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    Task Zamknij() => OnClose.InvokeAsync();
+
+    /// <summary>Pojedynczy fakt: podpis nad wartoscia, jak w stopce kart.</summary>
+    static RenderFragment Fakt(string nazwa, string wartosc, string kolor) => __builder =>
+    {
+        <div style="min-width:0;">
+            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">@nazwa</MudText>
+            <MudText Typo="Typo.body2" Style="@($"font-weight:800;color:{kolor};")">@wartosc</MudText>
+        </div>;
+    };
+
+    static string StatusColor(string? s) => s switch
+    {
+        "W toku"     => "var(--accent)",
+        "Zakonczone" => "var(--success)",
+        "Zakończone" => "var(--success)",
+        "Anulowane"  => "var(--danger)",
+        _            => "var(--text-muted)"
+    };
+}

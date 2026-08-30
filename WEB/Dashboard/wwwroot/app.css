@@ -132,3 +132,86 @@ html, body {
     background: rgba(255, 106, 61, 0.12);
     border: 1px solid rgba(255, 106, 61, 0.32);
 }
+
+/* ── Pasek stanu magazynu ────────────────────────────────────────
+   Zielone/czerwone paski MudBlazora odstawaly od reszty strony.
+   Ten sam gradient pomaranczowy co akcent; przy niskim stanie
+   zaczyna sie czerwienia, wiec ostrzezenie zostaje czytelne. */
+.pasek-stanu {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--track);
+    overflow: hidden;
+}
+.pasek-stanu > i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #E0663A 0%, #FF7A4D 100%);
+    transition: width .45s ease;
+}
+.pasek-stanu.niski > i {
+    background: linear-gradient(90deg, #E05555 0%, #F0764A 100%);
+}
+
+/* ── Powiadomienia ───────────────────────────────────────────────── */
+.powiadomienie {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 10px;
+    border-radius: 11px;
+    background: transparent;
+    transition: background .25s ease;
+}
+.powiadomienie:hover { background: var(--surface-alt); }
+.powiadomienie .kropka {
+    width: 7px; height: 7px; border-radius: 50%;
+    margin-top: 6px; flex-shrink: 0;
+    background: transparent;
+    transition: background .35s ease, box-shadow .35s ease;
+}
+/* Nieprzeczytane maja pomaranczowa kropke; gasnie plynnie po najechaniu,
+   bo wtedy wpis jest oznaczany jako przeczytany. */
+.powiadomienie.nowe .kropka {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255, 106, 61, 0.16);
+}
+
+/* ── Plynne przejscia zamiast skokow ─────────────────────────────── */
+/* Nawigacja: podswietlenie aktywnej zakladki przechodzi, a nie przeskakuje. */
+.nav-kafel {
+    transition: background .28s ease, color .28s ease, transform .18s ease;
+}
+.nav-kafel:hover { transform: translateY(-1px); }
+
+/* Kafle i karty: zmiana tla/ramki (np. aktywny filtr) rowniez plynnie. */
+.pasek-stanu > i,
+.mud-progress-linear-bar { transition: width .5s ease, transform .5s ease !important; }
+
+/* Licznik animowany przez app.js - bez skoku wartosci. */
+.licznik { font-variant-numeric: tabular-nums; }
+
+/* Dymki opisow wskaznikow.
+   Domyslnie MudBlazor nie lamie tekstu i pelne zdanie rozciaga sie na
+   cala szerokosc okna w jednej linii. Ograniczamy szerokosc i wlaczamy
+   zawijanie - `white-space` trzeba nadpisac jawnie, bo motyw ustawia
+   `nowrap` bezposrednio na tej klasie. */
+.mud-tooltip {
+    max-width: 320px;
+    white-space: normal !important;
+    line-height: 1.45;
+    text-align: left;
+}
+
+/* Raport wskazany kaflem z pulpitu: dwa delikatne mrugniecia obwodka.
+   Cien zamiast zmiany tla - tlo karty jest tu nosnikiem tresci i jego
+   miganie bylo zbyt agresywne. */
+@keyframes mrugniecie-raportu {
+      0% { box-shadow: 0 0 0 0   rgba(255, 106, 61, 0); }
+     50% { box-shadow: 0 0 0 3px rgba(255, 106, 61, 0.45); }
+    100% { box-shadow: 0 0 0 0   rgba(255, 106, 61, 0); }
+}
+.raport-wskazany {
+    animation: mrugniecie-raportu 0.55s ease-in-out 2;
+}

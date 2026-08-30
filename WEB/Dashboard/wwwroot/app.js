@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  Plynne przewijanie z bezwladnoscia (styl Apple)
 //  ------------------------------------------------------------
 //  Natywne kolko myszy na Windowsie przeskakuje skokowo o ~100 px.
@@ -18,13 +18,13 @@
     'use strict';
 
     // Stala czasowa wygaszania [ms]. Wieksza = dluzszy, bardziej "maslany"
-    // poslizg. 78 ms daje ok. 420 ms na jeden zab kolka - plynnie, bez ociezalosci.
-    const TAU = 78;
+    // poslizg. 312 ms daje ok. 1,7 s na jeden zab kolka - mocna, dluga bezwladnosc.
+    const TAU = 312;
     // Wariant dla wlaczonego "ogranicz animacje" (w Windowsie: Ustawienia ->
     // Ulatwienia dostepu -> Efekty wizualne -> Efekty animacji). Nie wylaczamy
     // poslizgu calkiem - plynne przewijanie bylo wprost zamowione - tylko
     // skracamy go tak, by ruch trwal ~150 ms zamiast ~420 ms.
-    const TAU_KROTKIE = 28;
+    const TAU_KROTKIE = 112;
     // Ponizej tej odleglosci [px] dosuwamy na styk i konczymy animacje.
     const PROG_KONCA = 0.5;
     // Ile pikseli na jeden "zab" kolka. Natywne 100 px jest szarpiace,
@@ -120,3 +120,158 @@
         if (!s.raf) s.raf = requestAnimationFrame(() => animuj(el, poziomo));
     }, { passive: false });
 })();
+
+
+// ============================================================
+//  Animowane liczniki
+//  ------------------------------------------------------------
+//  Blazor podmienia liczbe skokowo; tutaj dojezdzamy do niej
+//  plynnie - najpierw przyspieszenie, potem wyhamowanie na celu.
+//
+//  UWAGA - tu byl blad, ktory zawiesil przegladarke i maszyne.
+//  Poprzednia wersja pilnowala sie flaga ustawiana synchronicznie
+//  wokol wlasnego zapisu. To NIE dziala: callback MutationObserver
+//  leci w mikrozadaniu, wiec flaga byla juz skasowana, obserwator
+//  widzial wlasny zapis jako zmiane "z zewnatrz" i startowal kolejna
+//  animacje. Liczba petli rAF rosla wykladniczo.
+//
+//  Teraz sa trzy niezalezne bariery:
+//   1) Porownanie tresci z ostatnim tekstem, ktory sami wpisalismy
+//      (WeakMap, nie zalezy od momentu wywolania callbacku).
+//   2) JEDNA petla rAF na cala strone - nie da sie ich rozmnozyc,
+//      bo `raf` jest pojedyncza zmienna modulu.
+//   3) Staly czas trwania animacji + limit liczby elementow.
+// ============================================================
+(function () {
+    'use strict';
+
+    const CZAS       = 600;   // [ms] pelny przejazd do wartosci docelowej
+    const CZAS_KROTKI = 180;  // przy wlaczonym "ogranicz animacje"
+    const MAX_ELEMENTOW = 32; // ponad to wpisujemy od razu, bez animacji
+    const OKNO_STARTU = 1200; // [ms] cisza po pojawieniu sie elementu na stronie
+
+    const aktywne   = new Map();      // el -> opis biezacej animacji
+    const naszZapis = new WeakMap();  // el -> ostatni tekst wpisany PRZEZ NAS
+    const poprzednia = new WeakMap(); // el -> ostatnia znana wartosc liczbowa
+    const pierwszeWidzenie = new WeakMap(); // el -> kiedy element pojawil sie na stronie
+    let raf = 0;                      // bariera 2): jedyny uchwyt rAF
+
+    const redukcjaRuchu = window.matchMedia
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : { matches: false };
+
+    // Liczba moze byc otoczona tekstem ("85%", "12 szt").
+    const RE = /^(\D*?)(-?\d+(?:[.,]\d+)?)(.*)$/s;
+
+    /**
+     * Zapis przez nodeValue, a nie textContent: textContent niszczy wezel
+     * tekstowy, a Blazor trzyma do niego referencje i przy nastepnym
+     * renderze nie znalazlby czego podmienic.
+     */
+    function pisz(el, tekst) {
+        const w = el.firstChild;
+        if (w && w.nodeType === 3 && el.childNodes.length === 1) w.nodeValue = tekst;
+        else el.textContent = tekst;
+        naszZapis.set(el, tekst);
+    }
+
+    /** Przyspiesza, potem hamuje - dokladnie o to chodzilo. */
+    function wygladz(p) {
+        return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+    }
+
+    function tik(teraz) {
+        raf = 0;
+        for (const [el, a] of aktywne) {
+            if (!el.isConnected) { aktywne.delete(el); continue; }
+
+            const p = (teraz - a.start) / a.czas;
+            if (p >= 1) { pisz(el, a.docelowyTekst); aktywne.delete(el); continue; }
+
+            const v = a.od + (a.doo - a.od) * wygladz(p);
+            pisz(el, a.prefiks + v.toFixed(a.miejsca).replace('.', a.separator) + a.sufiks);
+        }
+        if (aktywne.size) raf = requestAnimationFrame(tik);
+    }
+
+    function obsluz(el) {
+        const tekst = el.textContent;
+
+        // Bariera 1): to nasz wlasny zapis z poprzedniej klatki - ignorujemy.
+        if (naszZapis.get(el) === tekst) return;
+
+        const m = RE.exec(tekst);
+        if (!m) { poprzednia.delete(el); return; }
+
+        const [, prefiks, liczba, sufiks] = m;
+        const separator = liczba.includes(',') ? ',' : '.';
+        const doo = parseFloat(liczba.replace(',', '.'));
+        if (!isFinite(doo)) return;
+
+        const od = poprzednia.get(el);
+        poprzednia.set(el, doo);
+
+        const teraz = performance.now();
+        let odKiedy = pierwszeWidzenie.get(el);
+        if (odKiedy === undefined) { pierwszeWidzenie.set(el, teraz); odKiedy = teraz; }
+
+        // Pierwsze pojawienie sie elementu albo brak zmiany - nie animujemy.
+        if (od === undefined || od === doo) return;
+
+        // Okno wyciszenia po wejsciu na strone. Blazor renderuje pulpit
+        // najpierw z zerami i dopiero potem wstawia dane z bazy, w dodatku
+        // partiami z kilku zapytan. Bez tego kazdy powrot na strone glowna
+        // rozpedzal wszystkie liczniki od zera, i to po kilka razy pod rzad.
+        if (teraz - odKiedy < OKNO_STARTU) return;
+
+        if (aktywne.size >= MAX_ELEMENTOW) return;
+
+        const kropka = liczba.indexOf('.') >= 0 ? liczba.indexOf('.') : liczba.indexOf(',');
+        aktywne.set(el, {
+            od, doo, prefiks, sufiks, separator,
+            miejsca: kropka < 0 ? 0 : liczba.length - kropka - 1,
+            docelowyTekst: tekst,
+            start: performance.now(),
+            czas: redukcjaRuchu.matches ? CZAS_KROTKI : CZAS
+        });
+        if (!raf) raf = requestAnimationFrame(tik);
+    }
+
+    new MutationObserver(zmiany => {
+        const dotkniete = new Set();
+        for (const z of zmiany) {
+            const w = z.type === 'characterData' ? z.target.parentElement : z.target;
+            const el = w && w.closest ? w.closest('.licznik') : null;
+            if (el) dotkniete.add(el);
+        }
+        dotkniete.forEach(obsluz);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+})();
+
+// ============================================================
+//  Przewijanie do wskazanego elementu
+//  ------------------------------------------------------------
+//  Wejscie z kafla "Przegladu raportow" ma nie tylko otworzyc
+//  zakladke, ale i dojechac do konkretnego raportu.
+//  Male opoznienie zamiast requestAnimationFrame: Blazor dopisuje
+//  rozwiniete sekcje dopiero po renderze, a rAF w karcie w tle bywa
+//  zamrozony i przewijanie w ogole by nie ruszylo.
+// ============================================================
+window.przewinDoElementu = function (id) {
+    setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        // block:center, a nie start - raport ma wyladowac na srodku ekranu,
+        // a nie przykleic sie gorna krawedzia pod naglowkiem.
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Dwa subtelne mrugniecia, zeby oko zlapalo, ktora karta to ta wybrana.
+        // Klase zdejmujemy po animacji, inaczej ponowne wejscie w ten sam
+        // raport juz by nie mrugnelo (animacja nie startuje drugi raz).
+        el.classList.remove("raport-wskazany");
+        void el.offsetWidth;                      // wymuszenie przeliczenia stylu
+        el.classList.add("raport-wskazany");
+        setTimeout(() => el.classList.remove("raport-wskazany"), 1600);
+    }, 80);
+};

@@ -128,7 +128,7 @@ namespace LiniaProdukcyjnaDashboard.Services
                        ISNULL(zp.Czas_Planowany_ms, 0),
                        w.Nazwa_Wyrobu, zp.ID_Wyrobu,
                        zp.Priorytet, zp.NajpozniejszyStart,
-                       zp.CompletedAt, zp.SztukNOK
+                       zp.CompletedAt, zp.SztukNOK, zp.StartedAt
                 FROM [dbo].[Zlecenie_Produkcyjne] zp
                 LEFT JOIN [dbo].[Wyrob] w ON zp.ID_Wyrobu = w.ID_Wyrobu
                 WHERE zp.IsDeleted = 0
@@ -154,7 +154,7 @@ namespace LiniaProdukcyjnaDashboard.Services
                        ISNULL(zp.Czas_Planowany_ms, 0),
                        w.Nazwa_Wyrobu, zp.ID_Wyrobu,
                        zp.Priorytet, zp.NajpozniejszyStart,
-                       zp.CompletedAt, zp.SztukNOK
+                       zp.CompletedAt, zp.SztukNOK, zp.StartedAt
                 FROM [dbo].[Zlecenie_Produkcyjne] zp
                 LEFT JOIN [dbo].[Wyrob] w ON zp.ID_Wyrobu = w.ID_Wyrobu
                 WHERE zp.ID_Zlecenia = @ID AND zp.IsDeleted = 0";
@@ -179,7 +179,10 @@ namespace LiniaProdukcyjnaDashboard.Services
                 CzasPlanowanyMs   = vm.CzasPlanowanyMs,  NazwaWyrobu       = vm.NazwaWyrobu,
                 IDWyrobu          = vm.IDWyrobu,          Priorytet         = vm.Priorytet,
                 NajpozniejszyStart = vm.NajpozniejszyStart, CompletedAt      = vm.CompletedAt,
-                SztukOK           = vm.SztukOK,           SztukNOK         = vm.SztukNOK
+                SztukOK           = vm.SztukOK,           SztukNOK         = vm.SztukNOK,
+                // Latwo tu o przeoczenie: kazde nowe pole trzeba dopisac RECZNIE,
+                // inaczej cicho zostaje nullem (tak wlasnie zginelo StartedAt).
+                StartedAt         = vm.StartedAt
             };
 
             // Załaduj materiały (wynik eksplozji BOM)
@@ -487,7 +490,8 @@ namespace LiniaProdukcyjnaDashboard.Services
             Priorytet         = r.IsDBNull(10) ? Priorytety.P3 : r.GetString(10),
             NajpozniejszyStart = r.IsDBNull(11) ? null : r.GetDateTime(11),
             CompletedAt       = r.IsDBNull(12) ? null : r.GetDateTime(12),
-            SztukNOK          = r.IsDBNull(13) ? 0 : r.GetInt32(13)
+            SztukNOK          = r.IsDBNull(13) ? 0 : r.GetInt32(13),
+            StartedAt         = r.IsDBNull(14) ? null : r.GetDateTime(14)
         };
 
         /// <summary>
@@ -580,9 +584,12 @@ namespace LiniaProdukcyjnaDashboard.Services
                     ISNULL((SELECT AVG(CAST(Dostepnosc   AS float)) FROM Wskazniki), 0),
                     ISNULL((SELECT AVG(CAST(Wydajnosc    AS float)) FROM Wskazniki), 0),
                     ISNULL((SELECT AVG(CAST(Jakosc       AS float)) FROM Wskazniki), 0),
-                    CASE WHEN SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)) > 0
+                    -- FPY: przeszlo cala linie za pierwszym razem / wszystkie rozpoczete.
+                    -- SztukAbort to sztuki przerwane na stanowisku 1-3, ktore nigdy nie
+                    -- dojechaly do QC - bez nich FPY bylby liczbowo rowny Jakosci.
+                    CASE WHEN SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)) + SUM(ISNULL(SztukAbort,0)) > 0
                          THEN CAST(SUM(ISNULL(SztukOK,0)) AS float)
-                              / (SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)))
+                              / (SUM(ISNULL(SztukOK,0)) + SUM(ISNULL(SztukNOK,0)) + SUM(ISNULL(SztukAbort,0)))
                          ELSE 0 END,
                     SUM(ISNULL(SztukOK,0)),
                     SUM(ISNULL(SztukNOK,0))

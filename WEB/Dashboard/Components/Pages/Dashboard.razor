@@ -37,12 +37,12 @@ else
                             <MudIcon Icon="@Icons.Material.Filled.Inventory2" Style="color:var(--accent);font-size:38px;" />
                         </div>
                         <div style="min-width:0;">
-                            <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_licznik.Ogolem.ToString("N0")</MudText>
+                            <MudText Class="licznik" Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_licznik.Ogolem.ToString("N0")</MudText>
                             <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
-                                Dzisiaj: <span style="font-weight:800;color:var(--accent);">@_licznik.Dzisiaj.ToString("N0")</span>
+                                Dzisiaj: <span style="font-weight:800;color:var(--accent);">@(MaProdukcje ? _licznik.Dzisiaj.ToString("N0") : "b/d")</span>
                             </MudText>
                             <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
-                                w tym <span style="@($"font-weight:800;color:{(_licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")};")">@_licznik.Wadliwe.ToString("N0")</span> wadliwych
+                                w tym <span style="@($"font-weight:800;color:{(_licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")};")">@(MaProdukcje ? _licznik.Wadliwe.ToString("N0") : "b/d")</span> wadliwych
                             </MudText>
                         </div>
                     </div>
@@ -63,27 +63,20 @@ else
                                         align-items:center;justify-content:center;flex-shrink:0;">
                                 <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Style="color:var(--accent);font-size:38px;" />
                             </div>
-                            <MudText Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_kpi.OEE.ToString("P0")</MudText>
+                            <MudTooltip Placement="Placement.Bottom">
+                                <TooltipContent>@Dymek(OpisOEE)</TooltipContent>
+                                <ChildContent>
+                                    <MudText Class="licznik" Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;cursor:help;">@Pct(_kpi.OEE, MaWskazniki)</MudText></ChildContent>
+                            </MudTooltip>
                         </div>
 
+                        @* Kazdy wskaznik ma dymek tlumaczacy, czym naprawde jest i skad
+                           sie liczy - inaczej "82%" nic nie mowi. *@
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-left:auto;">
-                            <div style="text-align:right;">
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">Wydajność</MudText>
-                                <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);">@_kpi.Wydajnosc.ToString("P0")</MudText>
-                            </div>
-                            <div style="text-align:right;">
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">Dostępność</MudText>
-                                <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);">@_kpi.Dostepnosc.ToString("P0")</MudText>
-                            </div>
-                            <div style="text-align:right;">
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">Jakość</MudText>
-                                <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);">@_kpi.Jakosc.ToString("P0")</MudText>
-                            </div>
-                            <!-- First Pass Yield: udzial sztuk, ktore przeszly QC za pierwszym razem -->
-                            <div style="text-align:right;">
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">FPY</MudText>
-                                <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--accent);">@FPY.ToString("P0")</MudText>
-                            </div>
+                            @Wskaznik("Wydajność", Pct(_kpi.Wydajnosc, MaWskazniki), "var(--text)", OpisWydajnosc)
+                            @Wskaznik("Dostępność", Pct(_kpi.Dostepnosc, MaWskazniki), "var(--text)", OpisDostepnosc)
+                            @Wskaznik("Jakość", Pct(_kpi.Jakosc, MaWskazniki), "var(--text)", OpisJakosc)
+                            @Wskaznik("FPY", Pct(FPY, MaProdukcje), "var(--accent)", OpisFPY)
                         </div>
                     </div>
                 </div>
@@ -92,38 +85,56 @@ else
                 <div style="@CardStyle grid-row:span 2;display:flex;flex-direction:column;">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Poziom defektów</MudText>
 
-                    <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:10px 0;">
-                        <div style="position:relative;width:100%;max-width:260px;max-height:100%;aspect-ratio:1;">
+                    @* Kwadratowy kafelek na wykres, dokladnie w tym samym stylu co karty
+                       w bloku "Status stanowisk" (to samo tlo --surface i ta sama ramka). *@
+                    <div style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;margin:8px 0;">
+                        <div style="aspect-ratio:1;max-width:100%;max-height:100%;
+                                    background:var(--surface);border:1px solid var(--border);
+                                    border-radius:16px;padding:14px;
+                                    display:flex;align-items:center;justify-content:center;">
+                            <div style="position:relative;width:100%;height:100%;aspect-ratio:1;">
                             <svg viewBox="0 0 42 42" style="width:100%;height:100%;transform:rotate(-90deg);">
                                 <circle cx="21" cy="21" r="15.9155" fill="none"
                                         stroke="var(--track)" stroke-width="4.2" />
-                                <circle cx="21" cy="21" r="15.9155" fill="none"
-                                        stroke="#EF4444" stroke-width="4.2" stroke-linecap="round"
-                                        stroke-dasharray="@ProcentWadliwych.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) @((100 - ProcentWadliwych).ToString("F1", System.Globalization.CultureInfo.InvariantCulture))" />
+                                @if (ProcentWadliwych > 0)
+                                {
+                                    @* Luk rysujemy dopiero przy niezerowej wartosci: zaokraglona
+                                       koncowka przy zerowej dlugosci zostawiala samotna czerwona
+                                       kropke, ktora wygladala jak realny odczyt. *@
+                                    <circle cx="21" cy="21" r="15.9155" fill="none"
+                                            stroke="#EF4444" stroke-width="4.2" stroke-linecap="round"
+                                            stroke-dasharray="@Kropka(ProcentWadliwych) @Kropka(100 - ProcentWadliwych)" />
+                                    @* Rozjasniona "glowa" wskaznika - bez niej przy 100% konce
+                                       luku schodza sie w jedno i nie widac, gdzie sie konczy. *@
+                                    <circle cx="@Kropka(KoniecLukuX)" cy="@Kropka(KoniecLukuY)" r="3.1"
+                                            fill="#FF8A8A" stroke="var(--surface)" stroke-width="1.1" />
+                                }
                             </svg>
                             <div style="position:absolute;inset:0;display:flex;flex-direction:column;
                                         align-items:center;justify-content:center;pointer-events:none;">
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Wadliwe</MudText>
-                                <MudText Style="font-size:3rem;font-weight:800;color:var(--text);line-height:1.05;">@_licznik.Wadliwe</MudText>
-                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">z @_licznik.Dzisiaj szt.</MudText>
+                                <MudText Class="licznik" Style="font-size:3rem;font-weight:800;color:var(--text);line-height:1.05;">@(MaProdukcje ? _licznik.Wadliwe.ToString() : "b/d")</MudText>
+                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">@(MaProdukcje ? $"z {_licznik.Dzisiaj} szt." : "brak sztuk")</MudText>
+                            </div>
                             </div>
                         </div>
                     </div>
 
-                    <div style="display:flex;justify-content:center;gap:18px;">
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:8px;height:8px;border-radius:50%;background:#EF4444;"></div>
-                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Wadliwe</MudText>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:6px;">
-                            <div style="width:8px;height:8px;border-radius:50%;background:var(--track);"></div>
-                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Dobre</MudText>
-                        </div>
-                    </div>
-
-                    <MudText Style="font-size:1.3rem;font-weight:800;color:var(--danger);text-align:center;margin-top:8px;">
-                        @ProcentWadliwych.ToString("F1")% wadliwych
+                    @* Zamiast legendy "Wadliwe / Dobre" (ktora niczego nie wnosila, bo kolory
+                       widac na kole) - stopka z realnymi licznikami, w tym samym jezyku
+                       wizualnym co karty w zakladce Zlecenia: podpis nad wartoscia,
+                       oddzielone gorna linia. Blok przestaje wygladac na pusty. *@
+                    <MudText Style="@($"font-size:1.25rem;font-weight:800;text-align:center;line-height:1.2;" +
+                                      $"color:{(MaProdukcje && ProcentWadliwych > 0 ? "var(--danger)" : "var(--text-muted)")};")">
+                        @(MaProdukcje ? $"{ProcentWadliwych:F1}% wadliwych" : "b/d")
                     </MudText>
+
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:9px;
+                                border-top:1px solid var(--border);">
+                        @LicznikDefektow("Dobre", _licznik.Dobre, "var(--success)")
+                        @LicznikDefektow("Wadliwe", _licznik.Wadliwe, _licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")
+                        @LicznikDefektow("Przerwane", _licznik.Przerwane, _licznik.Przerwane > 0 ? "var(--warning)" : "var(--text-muted)")
+                    </div>
                 </div>
 
                 <!-- Przeglad raportow: pionowe karty przewijane w poziomie kolkiem myszy -->
@@ -147,7 +158,8 @@ else
                             @foreach (var r in _raporty)
                             {
                                 <div class="karta-raportu"
-                                     style="flex:0 0 162px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+                                     style="flex:0 0 162px;padding:12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;"
+                                     @onclick="@(() => Nav.NavigateTo($"/raporty?id={r.ID}"))">
                                     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
                                         <MudText Typo="Typo.caption" Style="color:var(--text-muted);white-space:nowrap;">
                                             @r.Utworzono.ToString("dd.MM HH:mm")
@@ -201,15 +213,31 @@ else
                         <MudText Typo="Typo.caption" Style="color:var(--text-muted);">średnia krocząca z okna 50 pomiarów</MudText>
                     </div>
                     <div style="flex:1;min-height:0;position:relative;">
-                        <!-- Wykres rysujemy zawsze; przy braku danych podklada sie pusta
-                             seria (dwa zera), zeby ramka i osie nie znikaly.
-                             Klasa wykres-oee chowa legende - jest jedna seria, a legenda
-                             MudBlazora renderuje sie pod SVG i wychodzila poza blok. -->
-                        <MudChart ChartType="ChartType.Line" Class="wykres-oee"
-                                  ChartSeries="@SerieWykresu" XAxisLabels="@EtykietyWykresu"
-                                  Width="100%" Height="100%" ChartOptions="@_chartOpts" />
-                        @if (!WykresGotowy)
+                        @if (WykresGotowy)
                         {
+                            @* Klasa wykres-oee chowa legende - jest jedna seria, a legenda
+                               MudBlazora renderuje sie pod SVG i wychodzila poza blok. *@
+                            <MudChart ChartType="ChartType.Line" Class="wykres-oee"
+                                      ChartSeries="@SerieWykresu" XAxisLabels="@EtykietyWykresu"
+                                      Width="100%" Height="100%" ChartOptions="@_chartOpts" />
+                        }
+                        else
+                        {
+                            @* Zanim beda dane, rysujemy sama siatke - te same delikatne linie
+                               poziome co na wykresie popularnosci. Wczesniej podkladalem tu
+                               pusta serie MudChart, ktora rysowala plaska kreske na zerze
+                               wygladajaca jak realny odczyt. *@
+                            <svg viewBox="0 0 100 60" preserveAspectRatio="none"
+                                 style="width:100%;height:100%;">
+                                @for (int g = 0; g <= 4; g++)
+                                {
+                                    var y = 4 + g * 13;
+                                    <line x1="0" y1="@y" x2="100" y2="@y"
+                                          stroke="var(--border)" stroke-width="0.5" vector-effect="non-scaling-stroke" />
+                                }
+                                <line x1="0" y1="56" x2="100" y2="56" stroke="var(--track)"
+                                      stroke-width="1" vector-effect="non-scaling-stroke" />
+                            </svg>
                             <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
                                 <MudText Typo="Typo.caption" Style="color:var(--text-muted);">Brak danych — wykres pojawi się po 2. cyklu.</MudText>
                             </div>
@@ -220,17 +248,30 @@ else
                 <div style="@CardStyle @WysokoscDolnegoRzedu padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0;">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);padding:16px 16px 4px;">Ostatnie zlecenia</MudText>
                     <div class="subtelny-scroll" style="flex:1;min-height:0;overflow-y:auto;">
-                        <MudTable Items="_zlecenia" Dense="true" Hover="true" Elevation="0" Style="background:transparent;">
+                        @* Szczegoly otwieraja sie NA MIEJSCU, w tym samym modalu co
+                           w zakladce Zlecenia - bez przerzucania na inna strone. *@
+                        <MudTable T="ZlecenieVM" Items="_zlecenia" Dense="true" Hover="true" Elevation="0"
+                                  Style="background:transparent;" RowStyle="cursor:pointer;"
+                                  OnRowClick="@(e => PokazSzczegoly(e.Item!.IDZlecenia))">
                             <HeaderContent>
                                 <MudTh>Zlecenie</MudTh>
                                 <MudTh>Wyrób</MudTh>
+                                @* Start i koniec w jednej kolumnie - osobno rozpychaly tabele
+                                   i status wypadal poza blok. *@
+                                <MudTh Style="white-space:nowrap;">Start → koniec</MudTh>
                                 <MudTh>Status</MudTh>
                             </HeaderContent>
                             <RowTemplate Context="z">
                                 <MudTd>@z.NazwaZlecenia</MudTd>
                                 <MudTd>@(z.NazwaWyrobu ?? "—")</MudTd>
+                                <MudTd Style="color:var(--text-muted);white-space:nowrap;">
+                                    @z.StartGodzina <span style="opacity:.55;">→</span> @z.KoniecGodzina
+                                </MudTd>
                                 <MudTd>
-                                    <MudChip T="string" Size="Size.Small" Color="@StatusColor(z.StatusZlecenia)">@z.StatusZlecenia</MudChip>
+                                    @* Ta sama pigulka statusu co w zakladce Zlecenia - wczesniej
+                                       byl tu MudChip w innej kolorystyce i te same statusy
+                                       wygladaly na dwoch stronach inaczej. *@
+                                    <span style="@PigulkaStatusu(z.StatusZlecenia)">@z.StatusZlecenia</span>
                                 </MudTd>
                             </RowTemplate>
                             <NoRecordsContent>
@@ -308,18 +349,18 @@ else
 
                 <!-- Popularnosc wyrobow: lider duzy po lewej, reszta lista po prawej -->
                 <div style="@CardStyle display:flex;flex-direction:column;min-height:0;overflow:hidden;">
-                    <div style="margin-bottom:8px;">
-                        <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);">Popularność wyrobów</MudText>
-                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">okno 50 ostatnich sztuk</MudText>
-                    </div>
-                    @* Blok jest widoczny ZAWSZE - przy braku danych zamiast liczb sa myslniki,
-                       a kolo zostaje szarym pierscieniem. Bez tego uklad podskakiwal po kazdym
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800;color:var(--text);margin-bottom:6px;">Popularność wyrobów</MudText>
+                    @* Blok jest widoczny ZAWSZE - przy braku danych zamiast liczb sa zera,
+                       a slupki zostaja kikutami. Bez tego uklad podskakiwal po kazdym
                        resecie zajec. *@
-                    <div style="display:flex;gap:10px;flex:1;min-height:0;align-items:center;">
+                    @* Lider na calej szerokosci, a ponizej lista i wykres obok siebie -
+                       dzieki temu gora wykresu rownia sie z pierwszym wierszem listy,
+                       a nie z gora calego kafla. *@
+                    <div style="display:flex;flex-direction:column;flex:1;min-height:0;">
 
-                        <!-- Lider: najpopularniejszy wyrob, duzym drukiem -->
-                        <div style="flex-shrink:0;min-width:0;">
-                            <MudText Style="font-size:1.9rem;font-weight:800;color:var(--accent);line-height:1.1;">
+                        <!-- Lider: najpopularniejszy wyrob -->
+                        <div style="min-width:0;margin-bottom:8px;">
+                            <MudText Style="font-size:1.65rem;font-weight:800;color:var(--accent);line-height:1;">
                                 @(Lider is null ? "—" : Lider.Procent.ToString("P0"))
                             </MudText>
                             <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -327,50 +368,62 @@ else
                             </MudText>
                         </div>
 
-                        <!-- Pozostale wyroby: jeden pod drugim, mala czcionka -->
-                        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
-                            @if (Lider is null)
-                            {
-                                @for (int i = 0; i < 4; i++)
-                                {
-                                    <div style="display:flex;justify-content:space-between;gap:6px;">
-                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">—</MudText>
-                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">—</MudText>
-                                    </div>
-                                }
-                            }
-                            else
-                            {
-                                @foreach (var p in _popularnosc.Skip(1).Take(4))
-                                {
-                                    <div style="display:flex;justify-content:space-between;gap:6px;">
-                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@p.Nazwa</MudText>
-                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">@p.Procent.ToString("P0")</MudText>
-                                    </div>
-                                }
-                            }
-                        </div>
+                        <div style="display:flex;gap:8px;flex:1;min-height:0;">
 
-                        <!-- Kolo z udzialami. Segmenty rysuje stroke-dasharray na wspolnym
-                             okregu o obwodzie 100 - dzieki temu procent = dlugosc kreski. -->
-                        <div style="flex-shrink:0;width:74px;height:74px;">
-                            <svg viewBox="0 0 42 42" style="width:100%;height:100%;transform:rotate(-90deg);">
-                                <circle cx="21" cy="21" r="15.9155" fill="none"
-                                        stroke="var(--track)" stroke-width="6" />
-                                @{
-                                    double przesuniecie = 0;
-                                    var seg = _popularnosc.Take(PaletaKola.Length).ToList();
-                                }
-                                @foreach (var (p, i) in seg.Select((p, i) => (p, i)))
+                            @* Bez przewijania: po zdjeciu podpisu wszystkie pozycje mieszcza sie
+                               na raz, a zaoszczedzona wysokosc idzie na wykres. *@
+                            <div style="flex:1;min-width:0;display:grid;
+                                        grid-template-columns:1fr 1fr;gap:2px 4px;align-content:start;">
+                                @foreach (var p in _popularnosc.Skip(1))
                                 {
-                                    var dlugosc = Math.Round(p.Procent * 100, 2);
-                                    <circle cx="21" cy="21" r="15.9155" fill="none"
-                                            stroke="@PaletaKola[i]" stroke-width="6"
-                                            stroke-dasharray="@Kropka(dlugosc) @Kropka(100 - dlugosc)"
-                                            stroke-dashoffset="@Kropka(-przesuniecie)" />
-                                    przesuniecie += dlugosc;
+                                    <div style="min-width:0;">
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@p.Nazwa</MudText>
+                                        <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);display:block;">@p.Procent.ToString("P0")</MudText>
+                                    </div>
+                                }
+                            </div>
+
+                        <!-- Wykres slupkowy: slupek na wyrob, najpopularniejszy w kolorze
+                             akcentu (ten sam co duzy procent obok), reszta stonowana.
+                             W tle delikatne poziome linie siatki, pod osia numery wyrobow. -->
+                        <!-- Bez preserveAspectRatio="none": przy waskim kaflu slupki bylyby
+                             sciskane w poziomie i wykres wygladalby na zgnieciony. -->
+                        <!-- align-self:flex-start - gora wykresu ma sie rownac z pierwszym
+                             wierszem listy obok, tak jak na wzorze. Bez preserveAspectRatio="none",
+                             bo rozciaganie w jednej osi zniekstalcaloby grubosc kresek i cyfry. -->
+                        <div style="flex-shrink:0;width:140px;align-self:flex-start;">
+                            <svg viewBox="0 0 140 106" style="width:100%;height:auto;overflow:visible;">
+                                @for (int g = 0; g <= 4; g++)
+                                {
+                                    var y = 4 + g * 20;
+                                    <line x1="0" y1="@y" x2="140" y2="@y"
+                                          stroke="var(--border)" stroke-width="0.8" />
+                                }
+                                <line x1="0" y1="84" x2="140" y2="84" stroke="var(--track)" stroke-width="1.2" />
+
+                                @{
+                                    var wyroby = _popularnosc.Take(6).ToList();
+                                    double maks = wyroby.Count > 0 ? wyroby.Max(w => w.Procent) : 0;
+                                    if (maks <= 0) maks = 1;
+                                }
+                                @foreach (var (p, i) in wyroby.Select((p, i) => (p, i)))
+                                {
+                                    // Cienka kreska z zaokraglona koncowka zamiast grubego slupka.
+                                    // Minimalna wysokosc 0,5 - inaczej wyrob z 0% znikalby i nie bylo
+                                    // widac, ze slupek w ogole tam jest.
+                                    var h = Math.Max(0.5, p.Procent / maks * 76.0);
+                                    var x = 14 + i * 22.4;
+                                    <line x1="@Kropka(x)" y1="83" x2="@Kropka(x)" y2="@Kropka(84 - h)"
+                                          stroke="@(i == 0 ? "var(--accent)" : "var(--track)")"
+                                          stroke-width="2.6" stroke-linecap="round">
+                                        <title>@p.Nazwa — @p.Procent.ToString("P0")</title>
+                                    </line>
+                                    @* Razor traktuje <text> jako wlasny znacznik sterujacy i nie
+                                       przepuszcza atrybutow - etykieta osi musi isc surowym markupem. *@
+                                    @((MarkupString)$"<text x=\"{Kropka(x)}\" y=\"98\" text-anchor=\"middle\" font-size=\"9\" fill=\"var(--text-muted)\">{i + 1}</text>")
                                 }
                             </svg>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -399,9 +452,9 @@ else
                                             @m.StanBiezacy szt
                                         </MudText>
                                     </div>
-                                    <MudProgressLinear Value="@m.ProcentPelny" Rounded="true" Size="Size.Small"
-                                                       Style="background:var(--track);"
-                                                       Color="@(m.NiskiStan ? Color.Error : Color.Success)" />
+                                    <div class="@($"pasek-stanu {(m.NiskiStan ? "niski" : "")}")">
+                                        <i style="@($"width:{Kropka(Math.Clamp(m.ProcentPelny, 0, 100))}%;")"></i>
+                                    </div>
                                 </div>
                             }
                         </div>
@@ -412,25 +465,125 @@ else
     </div>
 }
 
+
+<!-- ==================== SZCZEGÓŁY ZLECENIA ==================== -->
+@* Ten sam modal co w zakladce Zlecenia. Wczesniej klikniecie wiersza
+   przerzucalo na /zlecenia; teraz podglad otwiera sie tutaj. *@
+@if (_detailOpen)
+{
+    <SzczegolyZlecenia Detail="@_detail" OnClose="@(() => _detailOpen = false)" />
+}
+
 @code {
+    // ── Szczegóły zlecenia (modal na miejscu) ───────────────────────
+    bool           _detailOpen;
+    ZlecenieDetail? _detail;
+
+    /// <summary>
+    /// Klikniecie wiersza w "Ostatnich zleceniach". Dane dociagamy dopiero
+    /// tutaj - naglowki na liscie nie zawieraja BOM-u ani czasow, a ciagniecie
+    /// tego dla kazdego wiersza przy kazdym odswiezeniu byloby marnotrawstwem.
+    /// </summary>
+    async Task PokazSzczegoly(int idZlecenia)
+    {
+        _detail = await Orders.GetZlecenieDetailAsync(idZlecenia);
+        if (_detail is not null) _detailOpen = true;
+    }
+
     string CardStyle => "background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:15px;";
 
     /// <summary>Udzial wadliwych w produkcji "dzisiaj". Brak produkcji = 0%, nie 100%.</summary>
     double ProcentWadliwych => _licznik.ProcentWadliwych;
 
+    /// <summary>
+    /// Czy w tej sesji cokolwiek zjechalo z linii. Liczniki produkcji zeruja sie przy
+    /// "Rozpocznij nowe zajecia", wiec zamiast mylacego 0 / 0% pokazujemy wtedy "b/d".
+    /// </summary>
+    bool MaProdukcje => _licznik.Dzisiaj > 0;
+
+    /// <summary>Czy sa jakiekolwiek pomiary do policzenia OEE (tabela Wskazniki tez sie resetuje).</summary>
+    bool MaWskazniki => _kpi.LiczbaPomiarow > 0;
+
+    /// <summary>Procent albo "b/d", gdy nie ma jeszcze z czego liczyc.</summary>
+    static string Pct(double v, bool sa) => sa ? v.ToString("P0") : "b/d";
+
+    // ── Opisy wskaznikow (dymki) ─────────────────────────────────────
+    const string OpisOEE =
+        "OEE — Overall Equipment Effectiveness. Iloczyn trzech skladowych: " +
+        "Dostępność × Wydajność × Jakość. Średnia z okna 50 ostatnich pomiarów.";
+
+    const string OpisWydajnosc =
+        "Wydajność (Performance) — czas zadany podzielony przez rzeczywisty czas montażu. " +
+        "Norma pochodzi z Procesu Montażu dla danego wyrobu i stanowiska. " +
+        "Przycięta do 100%, zgodnie z metodyką OEE.";
+
+    const string OpisDostepnosc =
+        "Dostępność (Availability) — czas pracy podzielony przez czas pracy plus transport palety " +
+        "między stanowiskami (od zakończenia jednego do rozpoczęcia następnego). " +
+        "Przerwy dłuższe niż 5 minut traktowane są jako przerwa w zajęciach, nie przestój.";
+
+    const string OpisJakosc =
+        "Jakość (Quality) — sztuki dobre podzielone przez wszystkie, które dostały werdykt na QC. " +
+        "Liczona per zlecenie i uzupełniana wstecz po każdym werdykcie.";
+
+    const string OpisFPY =
+        "FPY — First Pass Yield. Sztuki, które przeszły całą linię za pierwszym razem: " +
+        "bez przerwania (Abort) na stanowisku 1–3 i bez odrzutu na QC, podzielone przez wszystkie rozpoczęte. " +
+        "Różni się od Jakości o sztuki przerwane, które nigdy nie dojechały do kontroli.";
+
+    /// <summary>Wskaznik w kaflu OEE: podpis, wartosc i dymek z wyjasnieniem.</summary>
+    RenderFragment Wskaznik(string nazwa, string wartosc, string kolor, string opis) => __builder =>
+    {
+        <MudTooltip Placement="Placement.Bottom">
+            <TooltipContent>@Dymek(opis)</TooltipContent>
+            <ChildContent>
+                <div style="text-align:right;cursor:help;">
+                    <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">@nazwa</MudText>
+                    <MudText Typo="Typo.body1" Class="licznik" Style="@($"font-weight:800;color:{kolor};")">@wartosc</MudText>
+                </div>
+            </ChildContent>
+        </MudTooltip>;
+    };
+
+    /// <summary>
+    /// Tresc dymka. Szerokosc narzucamy wlasnemu elementowi, a nie klasom
+    /// MudBlazora: sam dymek nie ma zadnego ograniczenia i pelne zdanie
+    /// rozciagalo sie na cala szerokosc okna w jednej linii.
+    /// </summary>
+    static RenderFragment Dymek(string tresc) => __builder =>
+    {
+        <div style="max-width:260px;white-space:normal;text-align:left;line-height:1.5;padding:2px 1px;">
+            @tresc
+        </div>;
+    };
+
+    // Koniec luku na kole defektow. Kolo jest obrocone o -90 stopni, wiec liczymy
+    // od gory zegarowo; promien 15.9155 daje obwod rowny 100 (procent = dlugosc luku).
+    double KoniecLukuKat => ProcentWadliwych / 100.0 * 2 * Math.PI;
+    double KoniecLukuX   => 21 + 15.9155 * Math.Cos(KoniecLukuKat);
+    double KoniecLukuY   => 21 + 15.9155 * Math.Sin(KoniecLukuKat);
+
     /// <summary>Najpopularniejszy wyrob albo null, gdy nie ma jeszcze zadnej produkcji.</summary>
     WyrobPopularnosc? Lider => _popularnosc.Count > 0 ? _popularnosc[0] : null;
-
-    /// <summary>Kolory segmentow kola popularnosci - ta sama rodzina co akcent strony.</summary>
-    static readonly string[] PaletaKola = { "#FF6A3D", "#FFA07A", "#F59E0B", "#C2410C", "#9A9AA2", "#6B7280" };
 
     /// <summary>SVG nie zna przecinka dziesietnego - liczby zawsze z kropka.</summary>
     static string Kropka(double v) => v.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
 
-    /// <summary>First Pass Yield - sztuki bez poprawki / wszystkie. Brak produkcji = 100%.</summary>
-    double FPY => _licznik.Dzisiaj > 0
-        ? (_licznik.Dzisiaj - _licznik.Wadliwe) / (double)_licznik.Dzisiaj
-        : 1.0;
+    /// <summary>Pozycja stopki w bloku defektow: podpis nad wartoscia, jak na kartach zlecen.</summary>
+    RenderFragment LicznikDefektow(string nazwa, int wartosc, string kolor) => __builder =>
+    {
+        <div style="flex:1;min-width:0;">
+            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@nazwa</MudText>
+            <MudText Typo="Typo.body2" Style="@($"font-weight:800;color:{kolor};")">@(MaProdukcje ? wartosc.ToString() : "b/d")</MudText>
+        </div>;
+    };
+
+    /// <summary>
+    /// First Pass Yield: przeszlo cala linie za pierwszym razem (bez Abortu i bez
+    /// odrzutu na QC) / wszystkie rozpoczete sztuki. Liczone w modelu, zeby raport
+    /// i pulpit korzystaly z jednej definicji.
+    /// </summary>
+    double FPY => _licznik.FPY;
 
     DailyKpi                  _kpi          = new();
     List<StanowiskoStatus>    _stanowiska   = new();
@@ -492,6 +645,12 @@ else
         if (!Auth.IsLoggedIn)
         { Nav.NavigateTo("/login"); return; }
 
+        // Start od ostatniego znanego stanu - ta czesc leci jeszcze przed pierwszym
+        // renderem, wiec wracajac na pulpit widac od razu wlasciwe liczby zamiast zer
+        // podmienianych sekunde pozniej.
+        _kpi     = Svc.OstatnieKpi    ?? _kpi;
+        _licznik = Svc.OstatniLicznik ?? _licznik;
+
         await LoadDataAsync();
         // Wolny timer (2 s): wykresy, zlecenia, magazyn, liczniki - dane, ktore nie
         // musza reagowac natychmiast. Stanowiska maja wlasny, szybszy tik ponizej.
@@ -515,17 +674,30 @@ else
 
         // Szybki tik (400 ms): tylko stanowiska i kontenery - to na nie operator patrzy
         // po nacisnieciu Start. Trzy lekkie zapytania zamiast kompletu kilkunastu.
-        _tickTimer = new System.Timers.Timer(400);
+        _tickTimer = new System.Timers.Timer(250);
         _tickTimer.Elapsed += async (_, _) =>
         {
-            if (_disposed || _refreshing || _szybkieOdswiezanie) return;
+            // UWAGA: swiadomie NIE patrzymy tu na _refreshing. Wczesniej szybki tik byl
+            // wstrzymywany na caly czas trwania wolnego przebiegu (kilkanascie zapytan),
+            // wiec to, na co operator patrzy najbardziej - stan stanowiska - bylo glodzone
+            // przez dane, ktore moga poczekac. Osobne polaczenia SQL nie przeszkadzaja sobie.
+            if (_disposed || _szybkieOdswiezanie) return;
             _szybkieOdswiezanie = true;
+            var zegar = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 await TryLoad(async () => _stanowiska = ScalStanowiska(_stanowiska, await Svc.GetStanowiskaStatusAsync()));
                 await TryLoad(async () => _kontenery  = await Svc.GetKontenneryAsync());
+                // Statusy zlecen tez ida szybkim tikiem - operator zmienia je nacisnieciem
+                // na HMI i czekal na to nawet 2 s. To jedno lekkie zapytanie o 20 wierszy.
+                await TryLoad(async () => _zlecenia   = (await Svc.GetZleceniaAsync()).Take(20).ToList());
                 if (_disposed) return;
                 await InvokeAsync(StateHasChanged);
+
+                // Gdy tik zaczyna trwac dluzej niz jego wlasny okres, opoznienie sie kumuluje
+                // - wtedy chcemy to zobaczyc w logu, a nie zgadywac.
+                if (zegar.ElapsedMilliseconds > 250)
+                    Console.WriteLine($"[Dashboard] wolny tik: {zegar.ElapsedMilliseconds} ms");
             }
             catch (ObjectDisposedException) { }
             catch (Exception ex) { Console.WriteLine($"[Dashboard] blad tiku: {ex.Message}"); }
@@ -547,7 +719,7 @@ else
 
         // Kazde zapytanie osobno - blad w jednym nie ma blokowac reszty danych
         // (np. status stanowisk ma sie pokazywac zawsze, nawet gdy inne zapytanie zawiedzie).
-        await TryLoad(async () => _kpi           = await Svc.GetDailyKpiAsync());
+        await TryLoad(async () => _kpi           = Svc.OstatnieKpi    = await Svc.GetDailyKpiAsync());
         await TryLoad(async () =>
         {
             _stanowiska = ScalStanowiska(_stanowiska, await Svc.GetStanowiskaStatusAsync());
@@ -559,7 +731,7 @@ else
         await TryLoad(async () => _zlecenia      = (await Svc.GetZleceniaAsync()).Take(20).ToList());
         await TryLoad(async () => _czasyCykli    = await Svc.GetAvgCycleTimePerWyrobAsync());
         await TryLoad(async () => _popularnosc   = await Svc.GetWyrobPopularnosciAsync());
-        await TryLoad(async () => _licznik   = await Svc.GetLicznikProdukcjiAsync());
+        await TryLoad(async () => _licznik   = Svc.OstatniLicznik = await Svc.GetLicznikProdukcjiAsync());
         await TryLoad(async () => _kontenery = await Svc.GetKontenneryAsync());
         await TryLoad(async () =>
         {
@@ -621,14 +793,25 @@ else
               };
     }
 
-    Color StatusColor(string status) => status switch
+    /// <summary>
+    /// Kolor statusu zlecenia - DOKLADNIE ten sam zestaw co w zakladce Zlecenia,
+    /// zeby ten sam status nie wygladal inaczej na dwoch stronach.
+    /// </summary>
+    static string KolorStatusu(string status) => status switch
     {
-        "W toku"     => Color.Primary,
-        "Zakonczone" => Color.Success,
-        "Anulowane"  => Color.Error,
-        "Wstrzymane" => Color.Secondary,
-        _            => Color.Warning
+        "W toku"     => "#FF6A3D",
+        "Zakonczone" => "#22C55E",
+        "Anulowane"  => "#EF4444",
+        _            => "#F59E0B"
     };
+
+    /// <summary>Pigulka statusu: kolor tekstu na tle tego samego koloru z alfa 1F.</summary>
+    static string PigulkaStatusu(string status)
+    {
+        var c = KolorStatusu(status);
+        return $"display:inline-block;padding:3px 9px;border-radius:8px;font-size:11px;" +
+               $"font-weight:800;white-space:nowrap;color:{c};background:{c}1F;";
+    }
 
     RenderFragment StanowiskoCardCompact(StanowiskoStatus s) => __builder =>
     {

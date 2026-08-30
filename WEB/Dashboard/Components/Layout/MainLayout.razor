@@ -36,7 +36,8 @@ else
                     {
                         var active = IsActive(item.Href);
                         <MudTooltip Text="@item.Label" Placement="Placement.Right">
-                            <div style="@($"width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;{(active ? "background:var(--accent);" : "")}")"
+                            <div class="nav-kafel"
+                                 style="@($"width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:{(active ? "var(--accent)" : "transparent")};")"
                                  @onclick="@(() => Nav.NavigateTo(item.Href))">
                                 <MudIcon Icon="@item.Icon" Style="@($"color:{(active ? "#fff" : "#8A8A93")};")" />
                             </div>
@@ -47,7 +48,7 @@ else
                 <MudTooltip Text="Rozpocznij nowe zajęcia" Placement="Placement.Right">
                     <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(239,68,68,0.12);"
                          @onclick="PotwierdzenieNoweZajecia">
-                        <MudIcon Icon="@Icons.Material.Filled.DeleteSweep" Style="color:#EF4444;" />
+                        <MudIcon Icon="@Icons.Material.Filled.RestartAlt" Style="color:#EF4444;" />
                     </div>
                 </MudTooltip>
             </div>
@@ -107,28 +108,44 @@ else
                             </MudBadge>
                         </ActivatorContent>
                         <ChildContent>
-                            <div style="width:360px;max-height:420px;overflow-y:auto;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;">
-                                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;">Powiadomienia</MudText>
+                            <div class="subtelny-scroll" style="width:380px;max-height:440px;overflow-y:auto;padding:6px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px 10px;">
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2" Style="font-weight:800;color:var(--text);">Powiadomienia</MudText>
+                                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);">
+                                            @(_unreadCount > 0 ? $"{_unreadCount} nowe" : "wszystko przeczytane")
+                                        </MudText>
+                                    </div>
                                     @if (_unreadCount > 0)
                                     {
-                                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="MarkAllRead">
-                                            Oznacz jako przeczytane
+                                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="MarkAllRead">
+                                            Oznacz wszystkie
                                         </MudButton>
                                     }
                                 </div>
-                                <MudDivider />
+
                                 @if (_notifications.Count == 0)
                                 {
-                                    <MudText Typo="Typo.body2" Style="padding:16px;color:#999;">Brak powiadomień.</MudText>
+                                    <div style="padding:26px 16px;text-align:center;">
+                                        <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone" Style="color:var(--text-muted);font-size:30px;" />
+                                        <MudText Typo="Typo.body2" Style="color:var(--text-muted);margin-top:4px;">Brak powiadomień.</MudText>
+                                    </div>
                                 }
                                 else
                                 {
                                     @foreach (var n in _notifications)
                                     {
-                                        <div style="@($"padding:10px 16px;border-bottom:1px solid var(--border);{(n.Przeczytane ? "" : "background:rgba(255,106,61,0.14);")}")">
-                                            <MudText Typo="Typo.body2">@n.Tresc</MudText>
-                                            <MudText Typo="Typo.caption" Style="color:#999;">@n.Utworzono.ToString("dd.MM HH:mm:ss")</MudText>
+                                        @* Najechanie kursorem oznacza wpis jako przeczytany -
+                                           bez klikania czegokolwiek. *@
+                                        <div class="powiadomienie @(n.Przeczytane ? "" : "nowe")"
+                                             @onmouseenter="@(() => OznaczPrzeczytane(n))">
+                                            <span class="kropka"></span>
+                                            <div style="min-width:0;">
+                                                <MudText Typo="Typo.body2" Style="color:var(--text);">@n.Tresc</MudText>
+                                                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">
+                                                    @n.Utworzono.ToString("dd.MM HH:mm:ss")
+                                                </MudText>
+                                            </div>
                                         </div>
                                     }
                                 }
@@ -247,6 +264,20 @@ else
     {
         await Notifications.MarkAllReadAsync();
         await LoadNotificationsAsync();
+    }
+
+    /// <summary>
+    /// Oznacza wpis po najechaniu kursorem. Stan zmieniamy od razu lokalnie, zeby
+    /// podswietlenie zgaslo natychmiast, a nie dopiero po powrocie z bazy.
+    /// </summary>
+    async Task OznaczPrzeczytane(Powiadomienie n)
+    {
+        if (n.Przeczytane) return;
+        n.Przeczytane = true;
+        if (_unreadCount > 0) _unreadCount--;
+        StateHasChanged();
+        try { await Notifications.MarkReadAsync(n.ID); }
+        catch (Exception ex) { Console.WriteLine($"[Powiadomienia] {ex.Message}"); }
     }
 
     public void Dispose()

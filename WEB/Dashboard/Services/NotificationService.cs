@@ -58,5 +58,19 @@ namespace LiniaProdukcyjnaDashboard.Services
             await using var cmd = new SqlCommand(sql, conn);
             await cmd.ExecuteNonQueryAsync();
         }
+
+        /// <summary>
+        /// Oznacza jedno powiadomienie jako przeczytane. Wolane po najechaniu kursorem -
+        /// samo spojrzenie na wpis wystarczy, zeby przestal sie podswietlac.
+        /// </summary>
+        public async Task MarkReadAsync(int id)
+        {
+            const string sql = "UPDATE Powiadomienia SET Przeczytane = 1 WHERE ID = @ID AND Przeczytane = 0";
+            await using var conn = new SqlConnection(_cs);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@ID", id);
+            await cmd.ExecuteNonQueryAsync();
+        }
     }
 }

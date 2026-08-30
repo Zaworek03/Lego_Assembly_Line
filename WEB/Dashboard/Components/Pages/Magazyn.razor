@@ -1,4 +1,4 @@
-@page "/magazyn"
+﻿@page "/magazyn"
 @inject AuthService Auth
 @inject InventoryService Inv
 @inject NavigationManager Nav
@@ -12,110 +12,62 @@
 
 
 <!-- NAGŁÓWEK -->
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-    <div>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+    <div style="min-width:0;">
         <MudText Typo="Typo.h4" Style="font-weight:800;color:var(--text);">Magazyn komponentów</MudText>
         <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
-            Elementy LEGO · @_mainItems.Count pozycji w magazynie głównym
+            @_mainItems.Count @Odmiana(_mainItems.Count, "pozycja", "pozycje", "pozycji") ·
+            @SumaSztuk @Odmiana(SumaSztuk, "klocek", "klocki", "klocków") na stanie
         </MudText>
-        @if (_mainItems.Any(i => i.Dostepny < 0))
-        {
-            <MudText Typo="Typo.body2" Style="color:var(--danger);font-weight:700;margin-top:4px;">
-                ⚠ Zadłużenie magazynu: @_mainItems.Count(i => i.Dostepny < 0) pozycji poniżej zera
-                (zlecenia zatwierdzone mimo braków)
-            </MudText>
-        }
     </div>
-    <MudButton Variant="Variant.Outlined" Color="Color.Error"
-               StartIcon="@Icons.Material.Filled.RestartAlt"
-               OnClick="PotwierdzenieReset">
-        Resetuj do stanu bazowego
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.RestartAlt"
+               Style="color:var(--danger);flex-shrink:0;" OnClick="PotwierdzenieReset">
+        Resetuj stan bazowy
     </MudButton>
 </div>
 
-<!-- ZAKŁADKI -->
-<MudTabs Elevation="2" Rounded="true" Class="mb-4" PanelClass="pa-4">
+@if (Zadluzonych > 0)
+{
+    <div style="@Karta border-color:var(--danger);display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <MudIcon Icon="@Icons.Material.Filled.Warning" Style="color:var(--danger);" />
+        <MudText Typo="Typo.body2" Style="color:var(--text);">
+            <b>Zadłużenie magazynu:</b> @Zadluzonych @Odmiana(Zadluzonych, "pozycja", "pozycje", "pozycji")
+            poniżej zera — zlecenia zatwierdzone mimo braków.
+        </MudText>
+    </div>
+}
 
-    <!-- MAGAZYN GŁÓWNY -->
-    <MudTabPanel Text="Magazyn główny (MAIN)">
-        <MudTable Items="_mainItems" Dense="true" Hover="true" Striped="true"
-                  Filter="FilterItem" @ref="_tableMain">
-            <ToolBarContent>
-                <MudTextField @bind-Value="_searchText" Placeholder="Szukaj..."
-                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                              IconSize="Size.Medium" Class="mt-0" Immediate="true" />
-                <MudSpacer />
-                <MudText Typo="Typo.caption" Style="color:var(--text-muted);">
-                    Niski stan: @_mainItems.Count(i => i.NiskiStan) pozycji
-                </MudText>
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh><MudTableSortLabel SortBy="new Func<InventoryItem,object>(i=>i.Wymiary)">Wymiary</MudTableSortLabel></MudTh>
-                <MudTh>Typ</MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<InventoryItem,object>(i=>i.Kolor)">Kolor</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel SortBy="new Func<InventoryItem,object>(i=>i.StanBiezacy)">Stan</MudTableSortLabel></MudTh>
-                <MudTh>Na pojemnik</MudTh>
-                <MudTh>Zarezerwowane</MudTh>
-                <MudTh>Dostępne</MudTh>
-                <MudTh>Stan wizualny</MudTh>
-                <MudTh>Korekta</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <MudText Style="font-weight:600;font-family:monospace;">@context.Wymiary</MudText>
-                </MudTd>
-                <MudTd><MudText Typo="Typo.caption">@context.TypWysokosci</MudText></MudTd>
-                <MudTd>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style=@($"width:14px;height:14px;border-radius:3px;background:{LegoColor(context.Kolor)};border:1px solid rgba(0,0,0,0.2);flex-shrink:0;")></div>
-                        @context.Kolor
-                    </div>
-                </MudTd>
-                <MudTd>
-                    <MudText Style=@($"font-weight:800;color:{(context.NiskiStan ? "#EF4444" : "var(--text)")}")>
-                        @context.StanBiezacy
-                    </MudText>
-                </MudTd>
-                <MudTd>
-                    <MudText Typo="Typo.body2" Style="color:var(--text-muted);">
-                        @(context.PojemnoscPojemnika > 0 ? context.PojemnoscPojemnika.ToString() : "—")
-                    </MudText>
-                </MudTd>
-                <MudTd>
-                    @if (context.IloscZarezerwowana > 0)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
-                                 Style="height:20px;">@context.IloscZarezerwowana</MudChip>
-                    }
-                    else { <span style="color:var(--text-muted);">—</span> }
-                </MudTd>
-                <MudTd>
-                    <MudText Style=@($"font-weight:800;color:{StanColor(context.ProcentDostepny)}")>
-                        @context.Dostepny
-                    </MudText>
-                </MudTd>
-                <MudTd>
-                    <MudProgressLinear Value="@context.ProcentPelny"
-                                       Color="@StanMudColor(context.ProcentPelny)"
-                                       Style="min-width:80px;background:var(--track);" Rounded="true" Size="Size.Small" />
-                </MudTd>
-                <MudTd>
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Tune"
-                               OnClick="@(() => OpenKorekta(context))">
-                        Uzupełnij
-                    </MudButton>
-                </MudTd>
-            </RowTemplate>
-            <NoRecordsContent>
-                <MudText Style="padding:20px;color:var(--text-muted);">Brak komponentów w magazynie.</MudText>
-            </NoRecordsContent>
-        </MudTable>
-    </MudTabPanel>
+<!-- PASEK: widok + filtry + szukajka -->
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    @foreach (var w in Widoki)
+    {
+        var aktywny = _widok == w.Klucz;
+        <div @onclick="@(() => _widok = w.Klucz)"
+             style="@($"display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;padding:7px 13px;border-radius:11px;background:{(aktywny ? "var(--accent-soft)" : "var(--surface)")};border:1px solid {(aktywny ? "var(--accent)" : "var(--border)")};")">
+            <MudIcon Icon="@w.Ikona" Style="@($"font-size:16px;color:{(aktywny ? "var(--accent)" : "var(--text-muted)")};")" />
+            <MudText Typo="Typo.body2" Style="@($"font-weight:700;color:{(aktywny ? "var(--accent)" : "var(--text-muted)")};")">@w.Etykieta</MudText>
+            @if (w.Licznik is int n)
+            {
+                <MudText Typo="Typo.caption" Style="font-weight:800;color:var(--text);">@n</MudText>
+            }
+        </div>
+    }
 
+    @if (_widok != "historia")
+    {
+        <div style="margin-left:auto;min-width:210px;">
+            <MudTextField @bind-Value="_searchText" Placeholder="Szukaj klocka..." Immediate="true"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        </div>
+    }
+</div>
+
+@if (_widok == "historia")
+{
     <!-- HISTORIA TRANSAKCJI -->
-    <MudTabPanel Text="Historia transakcji">
-        <MudTable Items="_transakcje" Dense="true" Hover="true" Striped="true">
+    <div style="@Karta padding:0;overflow:hidden;">
+        <MudTable Items="_transakcje" Dense="true" Hover="true" Elevation="0" Style="background:transparent;">
             <HeaderContent>
                 <MudTh>Czas</MudTh>
                 <MudTh>Komponent</MudTh>
@@ -125,15 +77,11 @@
                 <MudTh>Notatka</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd><MudText Typo="Typo.caption">@context.Timestamp.ToString("dd.MM HH:mm:ss")</MudText></MudTd>
+                <MudTd><MudText Typo="Typo.caption" Style="color:var(--text-muted);">@context.Timestamp.ToString("dd.MM HH:mm:ss")</MudText></MudTd>
                 <MudTd>@context.Materiał</MudTd>
+                <MudTd><span style="@PigulkaTransakcji(context.Typ)">@context.Typ</span></MudTd>
                 <MudTd>
-                    <MudChip T="string" Size="Size.Small" Color="@TransakcjaColor(context.Typ)">
-                        @context.Typ
-                    </MudChip>
-                </MudTd>
-                <MudTd>
-                    <MudText Style=@($"font-weight:700;color:{(context.Ilosc >= 0 ? "#66bb6a" : "#ef5350")}")>
+                    <MudText Style="@($"font-weight:800;color:{(context.Ilosc >= 0 ? "var(--success)" : "var(--danger)")};")">
                         @(context.Ilosc >= 0 ? "+" : "")@context.Ilosc
                     </MudText>
                 </MudTd>
@@ -141,11 +89,76 @@
                 <MudTd><MudText Typo="Typo.caption" Style="color:var(--text-muted);">@(context.Notatka ?? "—")</MudText></MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Style="padding:20px;color:var(--text-muted);">Brak transakcji.</MudText>
+                <MudText Typo="Typo.body2" Style="padding:18px;color:var(--text-muted);">Brak transakcji.</MudText>
             </NoRecordsContent>
         </MudTable>
-    </MudTabPanel>
-</MudTabs>
+    </div>
+}
+else if (!WidoczneItemy.Any())
+{
+    <div style="@Karta padding:52px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;">
+        <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="color:var(--accent);font-size:40px;" />
+        <MudText Typo="Typo.h6" Style="font-weight:700;color:var(--text);">Brak komponentów</MudText>
+        <MudText Typo="Typo.body2" Style="color:var(--text-muted);">Zmień filtr lub wyczyść wyszukiwanie.</MudText>
+    </div>
+}
+else
+{
+    <!-- KARTY KOMPONENTÓW -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+        @foreach (var m in WidoczneItemy)
+        {
+            <div style="@Karta display:flex;flex-direction:column;gap:10px;">
+
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:9px;min-width:0;">
+                        <div style="@($"width:22px;height:22px;border-radius:6px;flex-shrink:0;background:{LegoColor(m.Kolor)};border:1px solid rgba(255,255,255,0.14);")"></div>
+                        <div style="min-width:0;">
+                            <MudText Typo="Typo.body1" Style="font-weight:800;color:var(--text);font-family:monospace;line-height:1.2;">@m.Wymiary</MudText>
+                            <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @m.Kolor · @m.TypWysokosci
+                            </MudText>
+                        </div>
+                    </div>
+                    @if (m.NiskiStan)
+                    {
+                        <span style="padding:3px 9px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap;color:#EF4444;background:#EF44441F;">niski stan</span>
+                    }
+                </div>
+
+                <div>
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+                        <MudText Style="@($"font-size:1.3rem;font-weight:800;line-height:1;color:{(m.NiskiStan ? "var(--danger)" : "var(--text)")};")">
+                            @m.StanBiezacy<span style="color:var(--text-muted);font-size:.95rem;font-weight:700;"> szt</span>
+                        </MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--accent);">@m.ProcentPelny.ToString("F0")%</MudText>
+                    </div>
+                    <div class="@($"pasek-stanu {(m.NiskiStan ? "niski" : "")}")">
+                        <i style="@($"width:{Procent(m.ProcentPelny)}%;")"></i>
+                    </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:12px;padding-top:8px;border-top:1px solid var(--border);">
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Zarezerw.</MudText>
+                        <MudText Typo="Typo.body2" Style="@($"font-weight:800;color:{(m.IloscZarezerwowana > 0 ? "var(--warning)" : "var(--text-muted)")};")">@m.IloscZarezerwowana</MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;">Dostępne</MudText>
+                        <MudText Typo="Typo.body2" Style="@($"font-weight:800;color:{StanColor(m.ProcentDostepny)};")">@m.Dostepny</MudText>
+                    </div>
+                    <div style="margin-left:auto;">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Tune"
+                                   OnClick="@(() => OpenKorekta(m))">
+                            Uzupełnij
+                        </MudButton>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
 
 <!-- MODAL KOREKTY STANU -->
 @if (_korektaOpen && _korektaItem != null)
@@ -237,6 +250,58 @@
         item.NazwaMaterialu.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
         item.Wymiary.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
         item.Kolor.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+
+    // ── Widok i filtry (styl jak w zakladce Zlecenia) ────────────────
+    /// <summary>Kafelek w tym samym stylu co bloki na pulpicie i karty zlecen.</summary>
+    const string Karta = "background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:15px;";
+
+    string _widok = "wszystkie";
+
+    record WidokPozycja(string Klucz, string Etykieta, string Ikona, int? Licznik);
+
+    IEnumerable<WidokPozycja> Widoki => new[]
+    {
+        new WidokPozycja("wszystkie", "Wszystkie",   Icons.Material.Outlined.Inventory2, _mainItems.Count),
+        new WidokPozycja("niskie",    "Niski stan",  Icons.Material.Outlined.Warning,    _mainItems.Count(i => i.NiskiStan)),
+        new WidokPozycja("historia",  "Historia",    Icons.Material.Outlined.History,    null),
+    };
+
+    IEnumerable<InventoryItem> WidoczneItemy =>
+        _mainItems.Where(FilterItem)
+                  .Where(i => _widok != "niskie" || i.NiskiStan)
+                  .OrderBy(i => i.ProcentPelny);
+
+    int SumaSztuk    => _mainItems.Sum(i => i.StanBiezacy);
+    int Zadluzonych  => _mainItems.Count(i => i.Dostepny < 0);
+
+    /// <summary>Szerokosc paska w procentach, zawsze z kropka dziesietna (CSS nie zna przecinka).</summary>
+    static string Procent(double v) =>
+        Math.Clamp(v, 0, 100).ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>Polska odmiana przez liczbe: 1 pozycja, 2 pozycje, 5 pozycji.</summary>
+    static string Odmiana(int n, string poj, string mnogaMala, string mnogaDuza)
+    {
+        if (n == 1) return poj;
+        int dziesiatki = n % 100, jednosci = n % 10;
+        bool mala = jednosci is >= 2 and <= 4 && dziesiatki is < 12 or > 14;
+        return mala ? mnogaMala : mnogaDuza;
+    }
+
+    /// <summary>Pigulka typu transakcji - ten sam jezyk co pigulki statusu zlecen.</summary>
+    static string PigulkaTransakcji(string typ)
+    {
+        var c = typ switch
+        {
+            "Rezerwacja"    => "#F59E0B",
+            "Zuzycie"       => "#EF4444",
+            "ZwrotPoNOK"    => "#22C55E",
+            "ZwrotRezerwy"  => "#38BDF8",
+            "ResetMagazynu" => "#8B8B93",
+            _               => "#FF6A3D"
+        };
+        return $"display:inline-block;padding:3px 9px;border-radius:8px;font-size:11px;" +
+               $"font-weight:800;white-space:nowrap;color:{c};background:{c}1F;";
+    }
 
     // ── Reczna korekta pojedynczego komponentu ───────────────────────
     bool           _korektaOpen;

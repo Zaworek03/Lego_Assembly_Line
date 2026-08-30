@@ -70,12 +70,40 @@
     {
         /// <summary>Laczna produkcja od zawsze (suma DoneAllTime[0..3]).</summary>
         public int Ogolem  { get; set; }
-        /// <summary>Produkcja od ostatniego resetu zajec.</summary>
-        public int Dzisiaj { get; set; }
+        /// <summary>
+        /// Produkcja od resetu wyliczona z licznika PLC (DoneAllTime - baseline).
+        /// UWAGA: PLC nie zlicza sztuk odrzuconych na QC, wiec ta liczba to tylko
+        /// dolna granica - patrz <see cref="Dzisiaj"/>.
+        /// </summary>
+        public int DzisiajZPlc { get; set; }
+
+        /// <summary>
+        /// Sztuki wykonane w tej sesji. Bierzemy wieksza z dwoch wartosci:
+        ///   - licznika PLC (nie liczy odrzutow),
+        ///   - sumy werdyktow QC z zlecen (dobre + wadliwe).
+        /// Bez tego zlecenie z jedyna sztuka odrzucona dawalo "1 wadliwa z 0 sztuk",
+        /// a zabezpieczenie przed dzieleniem przez zero pokazywalo 0% defektow
+        /// zamiast prawdziwych 100%.
+        /// </summary>
+        public int Dzisiaj => Math.Max(DzisiajZPlc, Dobre + Wadliwe);
         /// <summary>Sztuki odrzucone na QC (kasowane przy resecie zajec).</summary>
         public int Wadliwe { get; set; }
+        /// <summary>Sztuki, ktore przeszly QC pozytywnie.</summary>
+        public int Dobre { get; set; }
+        /// <summary>Sztuki przerwane Abortem na stanowisku 1-3 - nigdy nie dojechaly do QC.</summary>
+        public int Przerwane { get; set; }
+
         /// <summary>Udzial wadliwych w produkcji "dzisiaj". Brak produkcji = 0%, nie 100%.</summary>
         public double ProcentWadliwych => Dzisiaj > 0 ? Math.Clamp(Wadliwe * 100.0 / Dzisiaj, 0, 100) : 0;
+
+        /// <summary>
+        /// First Pass Yield: sztuki, ktore przeszly CALA linie za pierwszym razem,
+        /// podzielone przez wszystkie rozpoczete. Rozni sie od Jakosci o sztuki
+        /// przerwane Abortem - te nie docieraja do QC, wiec Jakosc ich nie widzi.
+        /// Linia nie ma poprawek, wiec bez tego skladnika FPY = Jakosc.
+        /// </summary>
+        public int    Rozpoczete => Dobre + Wadliwe + Przerwane;
+        public double FPY        => Rozpoczete > 0 ? (double)Dobre / Rozpoczete : 1.0;
     }
 
     // ── Wydajnosc cyklu per wyrob ──────────────────────────────────────
@@ -111,6 +139,13 @@
         public double AvgCyklMs       { get; set; }
         public int    Wyprodukowano   { get; set; }
         public int    LiczbaWadliwych { get; set; }
+
+        /// <summary>
+        /// Ile wierszy Wskazniki weszlo do sredniej. Tabela zeruje sie przy
+        /// "Rozpocznij nowe zajecia", wiec bez tego nie da sie odroznic
+        /// "OEE wynosi 0%" od "nie ma jeszcze zadnych pomiarow".
+        /// </summary>
+        public int    LiczbaPomiarow  { get; set; }
     }
 
     // ── Status stanowiska ─────────────────────────────────────────────
@@ -150,14 +185,27 @@
         /// przy wlasnym oszacowaniu. Zamrozona wartosc sluzy juz tylko za pomost na te
         /// ulamki sekundy, zanim pomiar dojedzie do bazy.
         /// </summary>
+        /// <summary>Kiedy zarejestrowano OstatniCyklMs - sluzy do odsiania cyklu z POPRZEDNIEJ sztuki.</summary>
+        public DateTime? OstatniCyklCzas { get; set; }
+
         public double? CzasRzeczywistySek
         {
             get
             {
                 if (Pracuje && StanOd.HasValue)
                     return Math.Max(0, (DateTime.Now - StanOd.Value).TotalSeconds);
-                if (OstatniCyklMs.HasValue) return OstatniCyklMs.Value / 1000.0;
-                return CzasZamrozonySek;
+
+                // Pomiar uznajemy za "ten wlasnie skonczony" tylko wtedy, gdy jest mlodszy
+                // niz ostatnia zmiana stanu. Bez tego zaraz po zejsciu z pracy karta na chwile
+                // pokazywala czas POPRZEDNIEJ sztuki (stad przeskok np. na 60 s), zanim swiezy
+                // pomiar zdazyl dojechac z Middleware do bazy.
+                bool pomiarZTegoCyklu = OstatniCyklMs.HasValue
+                    && (!StanOd.HasValue || !OstatniCyklCzas.HasValue
+                        || OstatniCyklCzas.Value >= StanOd.Value.AddSeconds(-1));
+
+                if (pomiarZTegoCyklu) return OstatniCyklMs!.Value / 1000.0;
+                if (CzasZamrozonySek.HasValue) return CzasZamrozonySek;
+                return OstatniCyklMs.HasValue ? OstatniCyklMs.Value / 1000.0 : null;
             }
         }
 
@@ -256,9 +304,15 @@
         public int?      IDWyrobu          { get; set; }
         public string    Priorytet         { get; set; } = Priorytety.P3;
         public DateTime? NajpozniejszyStart { get; set; }
+        /// <summary>Moment nacisniecia Start na stanowisku 1 (ustawia Middleware).</summary>
+        public DateTime? StartedAt         { get; set; }
         public DateTime? CompletedAt       { get; set; }
         public int       SztukOK           { get; set; }
         public int       SztukNOK          { get; set; }
+
+        /// <summary>Godzina rozpoczecia/zakonczenia w skrocie - "—" gdy jeszcze nie nastapilo.</summary>
+        public string StartGodzina => StartedAt?.ToString("HH:mm") ?? "—";
+        public string KoniecGodzina => CompletedAt?.ToString("HH:mm") ?? "—";
 
         public double PostepProcent => IloscSztuk > 0
             ? Math.Min(100.0, SztukOK * 100.0 / IloscSztuk)

@@ -80,5 +80,5 @@ C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\LiniaProdukcyjnaDashboard.genruntimeconfig.cache
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\ref\LiniaProdukcyjnaDashboard.dll
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\21jo48oreo-{0}-3qc1llg4ju-3qc1llg4ju.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\qvxoyqxed3-{0}-k6znsjxvlb-k6znsjxvlb.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\lri6rdy0cp-{0}-qo76e047rs-qo76e047rs.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\qvxoyqxed3-{0}-opn9hszpvw-opn9hszpvw.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\lri6rdy0cp-{0}-z1bwcfxu9s-z1bwcfxu9s.gz

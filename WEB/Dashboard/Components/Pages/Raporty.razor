@@ -3,6 +3,7 @@
 @inject OrderService Orders
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Raporty — Linia Montażowa</PageTitle>
 
@@ -31,7 +32,7 @@ else
     <div style="display:flex;flex-direction:column;gap:16px;">
         @foreach (var r in _raporty)
         {
-            <div style="@Karta">
+            <div id="@($"raport-{r.ID}")" style="@Karta">
                 <!-- Nagłówek raportu -->
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
                     <div>
@@ -159,10 +160,32 @@ else
     List<Raport>  _raporty    = new();
     HashSet<int>  _rozwiniete = new();
 
+    /// <summary>Raport wskazany w adresie (?id=N) - przyjscie z kart na pulpicie.</summary>
+    [SupplyParameterFromQuery(Name = "id")]
+    public int? IdZQueryString { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         try { _raporty = await Orders.GetRaportyAsync(); }
         catch (Exception ex) { Console.WriteLine($"[Raporty] blad ladowania: {ex.Message}"); }
+
+        // Wejscie z karty w "Przegladzie raportow" od razu rozwija wskazany raport.
+        if (IdZQueryString is int id && _raporty.Any(r => r.ID == id))
+            _rozwiniete.Add(id);
+    }
+
+    /// <summary>
+    /// Wejscie z kafla na pulpicie ma dojechac do wskazanego raportu, a nie
+    /// zostawiac uzytkownika na gorze listy. Dopiero po renderze - wczesniej
+    /// element z tym id jeszcze nie istnieje.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool pierwszyRender)
+    {
+        if (!pierwszyRender) return;
+        if (IdZQueryString is not int id || !_raporty.Any(r => r.ID == id)) return;
+
+        try { await JS.InvokeVoidAsync("przewinDoElementu", $"raport-{id}"); }
+        catch (Exception ex) { Console.WriteLine($"[Raporty] przewijanie: {ex.Message}"); }
     }
 
     void Przelacz(int id)

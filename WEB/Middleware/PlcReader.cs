@@ -199,16 +199,19 @@ namespace PlcToDbMiddleware
                 return -1;
             }
 
+            // Zlecenie na kilka sztuk zajmuje KILKA slotow z tym samym ID - czyscimy
+            // wszystkie. Wczesniej funkcja konczyla na pierwszym trafieniu i przy zleceniu
+            // wielosztukowym reszta rekordow zostawala w PLC.
+            int wyczyszczone = 0;
             for (int i = 0; i < ZLECENIE_COUNT; i++)
             {
                 int b = i * ZLECENIE_ELEMENT_SIZE;
-                short id = (short)((buf[b] << 8) | buf[b + 1]);
-                if (id != idZlecenia) continue;
+                if (((buf[b] << 8) | buf[b + 1]) != idZlecenia) continue;
 
                 _plc.WriteBytes(DataType.DataBlock, 3, b, new byte[ZLECENIE_ELEMENT_SIZE]);
-                return i;
+                wyczyszczone++;
             }
-            return -1;
+            return wyczyszczone > 0 ? wyczyszczone : -1;
         }
 
         /// <summary>Czy w NastepneZlecenie wisi wskazane ID - wtedy tez trzeba je zdjac.</summary>
@@ -364,35 +367,88 @@ namespace PlcToDbMiddleware
         private const int REL_TIME_TARGET     = 24;
         private const int REL_TIME_ACTUAL     = 26;
 
-        /// <summary>Czasy zadany i rzeczywisty zmierzone PRZEZ PLC dla danego zlecenia i stanowiska (sekundy).</summary>
-        public record CzasyStanowiska(int TargetSek, int ActualSek);
+        private const int REL_TIME_START = 0;    // DTL, 12 B
+        private const int REL_TIME_END   = 12;   // DTL, 12 B
 
         /// <summary>
-        /// Odczytuje TargetTime/ActualTime z rekordu zlecenia w DB3. To liczby, ktore
-        /// PLC mierzy u siebie - dokladniejsze niz stoper Middleware, ktory po obu stronach
-        /// ma niepewnosc rzedu okresu odpytywania.
+        /// Przeplyw JEDNEJ sztuki: czasy z PLC dla stanowiska, ktore wlasnie skonczylo,
+        /// plus sumy potrzebne do dostepnosci liczone w obrebie tego samego rekordu.
         /// </summary>
-        public CzasyStanowiska? ReadCzasyStanowiska(int idZlecenia, int stanowiskoNr)
-        {
-            if (_plc == null || !_plc.IsConnected) return null;
-            if (idZlecenia <= 0 || stanowiskoNr < 1 || stanowiskoNr > 4) return null;
+        public record PrzeplywSztuki(int TargetSek, int ActualSek, double PracaMs, double TransportMs);
 
-            byte[] buf;
-            try { buf = _plc.ReadBytes(DataType.DataBlock, 3, 0, ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE); }
-            catch { return null; }
+        /// <summary>
+        /// Odczytuje czasy z rekordu sztuki w DB3.
+        ///
+        /// UWAGA na rownoleglosc: zlecenie na kilka sztuk zajmuje KILKA slotow Zlecenie[]
+        /// z tym samym ID (PLC kopiuje NastepneZlecenie do wolnego slotu po kazdej sztuce,
+        /// zmniejszajac tylko PartNo). Dlatego nie wolno brac "pierwszego slotu z tym ID" -
+        /// wybieramy ten, ktory NAJPOZNIEJ skonczyl prace na danym stanowisku, czyli sztuke,
+        /// ktora wlasnie z niego zjechala.
+        ///
+        /// Dostepnosc liczymy w obrebie tego jednego rekordu: praca to suma ActualTime
+        /// stanowisk juz zrobionych, transport to sumy luk StartTime(k+1) - EndTime(k).
+        /// Dzieki temu dwie sztuki jadace rownolegle nie mieszaja sie ze soba.
+        /// </summary>
+        public PrzeplywSztuki? ReadPrzeplywSztuki(int idZlecenia, int stanowiskoNr, byte[]? bufor = null)
+        {
+            if (idZlecenia <= 0 || stanowiskoNr < 1 || stanowiskoNr > 4) return null;
+            byte[]? buf = bufor ?? ReadTablicaZlecen();
+            if (buf == null) return null;
+
+            int najlepszy = -1;
+            DateTime najpozniej = DateTime.MinValue;
 
             for (int i = 0; i < ZLECENIE_COUNT; i++)
             {
                 int b = i * ZLECENIE_ELEMENT_SIZE;
-                short id = (short)((buf[b] << 8) | buf[b + 1]);
-                if (id != idZlecenia) continue;
+                if (((buf[b] << 8) | buf[b + 1]) != idZlecenia) continue;
 
-                int t = b + REL_TIME_BAZA + (stanowiskoNr - 1) * TIME_STANOWISKO_LEN;
-                short target = (short)((buf[t + REL_TIME_TARGET] << 8) | buf[t + REL_TIME_TARGET + 1]);
-                short actual = (short)((buf[t + REL_TIME_ACTUAL] << 8) | buf[t + REL_TIME_ACTUAL + 1]);
-                return new CzasyStanowiska(target, actual);
+                var koniec = CzasStanowiska(buf, b, stanowiskoNr, REL_TIME_END);
+                if (koniec is null) continue;              // sztuka jeszcze tu nie skonczyla
+                if (koniec.Value <= najpozniej) continue;
+
+                najpozniej = koniec.Value;
+                najlepszy  = b;
             }
-            return null;
+            if (najlepszy < 0) return null;
+
+            int t = najlepszy + REL_TIME_BAZA + (stanowiskoNr - 1) * TIME_STANOWISKO_LEN;
+            short target = (short)((buf[t + REL_TIME_TARGET] << 8) | buf[t + REL_TIME_TARGET + 1]);
+            short actual = (short)((buf[t + REL_TIME_ACTUAL] << 8) | buf[t + REL_TIME_ACTUAL + 1]);
+
+            // Praca i transport w obrebie tej jednej sztuki, po stanowiska juz zrobione.
+            double pracaMs = 0, transportMs = 0;
+            DateTime? poprzedniKoniec = null;
+            for (int st = 1; st <= stanowiskoNr; st++)
+            {
+                int ts = najlepszy + REL_TIME_BAZA + (st - 1) * TIME_STANOWISKO_LEN;
+                short a = (short)((buf[ts + REL_TIME_ACTUAL] << 8) | buf[ts + REL_TIME_ACTUAL + 1]);
+                if (a > 0) pracaMs += a * 1000.0;
+
+                var start  = CzasStanowiska(buf, najlepszy, st, REL_TIME_START);
+                var koniec = CzasStanowiska(buf, najlepszy, st, REL_TIME_END);
+
+                if (poprzedniKoniec is DateTime pk && start is DateTime s)
+                {
+                    double luka = (s - pk).TotalMilliseconds;
+                    if (luka > 0 && luka <= MAX_TRANSPORT_MS) transportMs += luka;
+                }
+                if (koniec is not null) poprzedniKoniec = koniec;
+            }
+
+            return new PrzeplywSztuki(target, actual, pracaMs, transportMs);
+        }
+
+        /// <summary>Luka dluzsza niz to nie jest transportem, tylko przerwa w zajeciach.</summary>
+        private const double MAX_TRANSPORT_MS = 5 * 60 * 1000;
+
+        private DateTime? CzasStanowiska(byte[] buf, int bazaRekordu, int stanowiskoNr, int ktoryCzas)
+        {
+            int off = bazaRekordu + REL_TIME_BAZA + (stanowiskoNr - 1) * TIME_STANOWISKO_LEN + ktoryCzas;
+            if (off + 12 > buf.Length) return null;
+            var dtl = new byte[12];
+            Buffer.BlockCopy(buf, off, dtl, 0, 12);
+            return ParseDTL(dtl);
         }
 
         public record SztukaQC(int SlotIndex, int IdZlecenia, int PartNo, bool WynikOK);
@@ -403,27 +459,20 @@ namespace PlcToDbMiddleware
         /// NastepneZlecenie (co PLC robi po ostatniej sztuce) nie wpisac zlecenia
         /// ponownie i nie wyprodukowac go drugi raz.
         /// </summary>
-        public Dictionary<int, int> LiczSztukiWszystkichZlecen()
+        public Dictionary<int, int> LiczSztukiWszystkichZlecen(byte[]? bufor = null)
         {
             var wynik = new Dictionary<int, int>();
-            if (_plc == null || !_plc.IsConnected) return wynik;
-            try
+            byte[]? buf = bufor ?? ReadTablicaZlecen();
+            if (buf == null) return null!;
+
+            for (int i = 0; i < ZLECENIE_COUNT; i++)
             {
-                var buf = _plc.ReadBytes(DataType.DataBlock, 3, 0, ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE);
-                for (int i = 0; i < ZLECENIE_COUNT; i++)
-                {
-                    int b = i * ZLECENIE_ELEMENT_SIZE;
-                    short id = (short)((buf[b] << 8) | buf[b + 1]);
-                    if (id == 0) continue;
-                    wynik[id] = wynik.TryGetValue(id, out var n) ? n + 1 : 1;
-                }
-                return wynik;
+                int b = i * ZLECENIE_ELEMENT_SIZE;
+                short id = (short)((buf[b] << 8) | buf[b + 1]);
+                if (id == 0) continue;
+                wynik[id] = wynik.TryGetValue(id, out var n) ? n + 1 : 1;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WARN] Nie udalo sie policzyc sztuk w tablicy: {ex.Message}");
-                return null!;
-            }
+            return wynik;
         }
 
         /// <summary>
@@ -431,21 +480,53 @@ namespace PlcToDbMiddleware
         /// To jedyne wiarygodne zrodlo - stary mechanizm oparty na wyzwalaczu z DB5 nigdy
         /// nie wypelnial danych, przez co QC, postep zlecen i wskaznik defektow stały puste.
         /// </summary>
-        public List<SztukaQC> ReadSztukiPoQC()
-        {
-            var wynik = new List<SztukaQC>();
-            if (_plc == null || !_plc.IsConnected) return wynik;
+        /// <summary>
+        /// Jeden odczyt calej tablicy Zlecenie[] (28 kB). To NAJDROZSZA operacja w calym
+        /// Middleware - S7.Net tnie ja na ok. 126 telegramow, co na tym laczu daje ~4 s.
+        /// Dlatego robimy ja RAZ i karmimy tym samym buforem wszystkich odbiorcow
+        /// (QC, aborty, licznik sztuk), zamiast czytac to samo po kilka razy.
+        /// </summary>
+        /// <summary>
+        /// Ile poczatkowych slotow czytamy w zwyklym cyklu. PLC wypelnia tablice od
+        /// indeksu 0 (szuka pierwszego wolnego), a Middleware zeruje sloty zamknietych
+        /// zlecen, wiec uzywany zakres jest maly. Pelne 200 slotow to 28 kB i ~4 s,
+        /// 32 sloty to 4,5 kB i ok. 0,6 s.
+        /// </summary>
+        public const int SLOTY_SKROCONE = 32;
 
-            byte[] buf;
+        public byte[]? ReadTablicaZlecen(int sloty = ZLECENIE_COUNT)
+        {
+            if (_plc == null || !_plc.IsConnected) return null;
+            sloty = Math.Clamp(sloty, 1, ZLECENIE_COUNT);
             try
             {
-                buf = _plc.ReadBytes(DataType.DataBlock, 3, 0, ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE);
+                var buf = _plc.ReadBytes(DataType.DataBlock, 3, 0, sloty * ZLECENIE_ELEMENT_SIZE);
+                // Odbiorcy indeksuja po ZLECENIE_COUNT, wiec krotszy odczyt dopelniamy zerami
+                // (pusty slot = ID 0 = pomijany).
+                if (sloty == ZLECENIE_COUNT) return buf;
+                var pelny = new byte[ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE];
+                Buffer.BlockCopy(buf, 0, pelny, 0, buf.Length);
+                return pelny;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARN] Nie udalo sie odczytac tablicy Zlecenie[] (QC): {ex.Message}");
-                return wynik;
+                Console.WriteLine($"[WARN] Nie udalo sie odczytac tablicy Zlecenie[]: {ex.Message}");
+                return null;
             }
+        }
+
+        /// <summary>Czy ostatni slot skroconego okna jest zajety - wtedy okno jest za male.</summary>
+        public static bool OknoZaMale(byte[] buf)
+        {
+            int b = (SLOTY_SKROCONE - 1) * ZLECENIE_ELEMENT_SIZE;
+            return ((buf[b] << 8) | buf[b + 1]) != 0;
+        }
+
+        public List<SztukaQC> ReadSztukiPoQC(byte[]? bufor = null)
+        {
+            var wynik = new List<SztukaQC>();
+            byte[]? buf = bufor ?? ReadTablicaZlecen();
+            if (buf == null) return wynik;
 
             for (int i = 0; i < ZLECENIE_COUNT; i++)
             {
@@ -532,21 +613,11 @@ namespace PlcToDbMiddleware
         /// nie calego zlecenia). SlotIndex identyfikuje konkretny wpis w tablicy,
         /// do deduplikacji powiadomien po stronie wywolujacego.
         /// </summary>
-        public List<(int slotIndex, int idZlecenia, int stanowiskoNr)> ReadAbortEvents()
+        public List<(int slotIndex, int idZlecenia, int stanowiskoNr)> ReadAbortEvents(byte[]? bufor = null)
         {
             var result = new List<(int, int, int)>();
-            if (_plc == null || !_plc.IsConnected) return result;
-
-            byte[] buffer;
-            try
-            {
-                buffer = _plc.ReadBytes(DataType.DataBlock, 3, 0, ZLECENIE_COUNT * ZLECENIE_ELEMENT_SIZE);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[WARN] Nie udalo sie odczytac tablicy Zlecenie[] (Abort scan): {ex.Message}");
-                return result;
-            }
+            byte[]? buffer = bufor ?? ReadTablicaZlecen();
+            if (buffer == null) return result;
 
             for (int i = 0; i < ZLECENIE_COUNT; i++)
             {

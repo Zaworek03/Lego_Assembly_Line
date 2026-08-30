@@ -223,8 +223,88 @@ namespace PlcToDbMiddleware
             using var cmd = new SqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@ID", idZlecenia);
             cmd.ExecuteNonQuery();
+
+            // Sztuka ruszyla na linii, wiec jej klocki fizycznie schodza z polki
+            // juz teraz - a nie dopiero przy zamknieciu calego zlecenia.
+            ZuzyjMaterialyNaSztuke(idZlecenia);
         }
 
+
+        /// <summary>
+        /// Zdejmuje z magazynu material na JEDNA sztuke - wolane w chwili, gdy sztuka
+        /// faktycznie rusza na linii. Wczesniej caly material schodzil ze stanu dopiero
+        /// przy zamknieciu zlecenia, wiec przez cala produkcje magazyn pokazywal stan
+        /// sprzed rozpoczecia.
+        ///
+        /// Zdejmujemy trzy rzeczy naraz:
+        ///   Material.StanBiezacy            - klocki fizycznie zeszly z polki,
+        ///   Material.IloscZarezerwowana     - rezerwacja ma pokazywac to, co dopiero czeka,
+        ///   ZlecenieMaterialy.IloscZarezerwowana - reszta zlecenia.
+        ///
+        /// Ostatnia pozycja jest tu kluczowa: rozliczenie koncowe
+        /// (RozliczMaterialyZlecenia) liczy sie wlasnie z niej, wiec sztuki juz
+        /// rozliczone nie zostana odjete po raz drugi, a te, ktore nigdy nie ruszyly,
+        /// rozliczy zamkniecie zlecenia.
+        ///
+        /// Porcja na sztuke jest zaokraglana w gore, ale nigdy nie przekracza tego,
+        /// co zlecenie ma jeszcze zarezerwowane - inaczej przy 19 klockach na 2 sztuki
+        /// zeszloby ze stanu 20.
+        /// </summary>
+        public void ZuzyjMaterialyNaSztuke(int idZlecenia)
+        {
+            const string sql = @"
+                ;WITH NaSztuke AS (
+                    SELECT zm.ID_Materialu,
+                           CASE WHEN zm.IloscZarezerwowana
+                                     < CEILING(zm.IloscWymagana * 1.0 / NULLIF(z.Ilosc_Sztuk, 0))
+                                THEN zm.IloscZarezerwowana
+                                ELSE CAST(CEILING(zm.IloscWymagana * 1.0
+                                                  / NULLIF(z.Ilosc_Sztuk, 0)) AS int) END AS Ile
+                    FROM ZlecenieMaterialy zm
+                    JOIN Zlecenie_Produkcyjne z ON z.ID_Zlecenia = zm.ID_Zlecenia
+                    WHERE zm.ID_Zlecenia = @Z AND zm.IloscWymagana > 0
+                )
+                UPDATE m
+                   SET m.StanBiezacy        = CASE WHEN m.StanBiezacy - n.Ile < 0
+                                                   THEN 0 ELSE m.StanBiezacy - n.Ile END,
+                       m.IloscZarezerwowana = CASE WHEN m.IloscZarezerwowana - n.Ile < 0
+                                                   THEN 0 ELSE m.IloscZarezerwowana - n.Ile END,
+                       m.AktualizacjaAt     = GETDATE()
+                  FROM Material m
+                  JOIN NaSztuke n ON n.ID_Materialu = m.ID_Materialu;
+
+                ;WITH NaSztuke AS (
+                    SELECT zm.ID, 
+                           CASE WHEN zm.IloscZarezerwowana
+                                     < CEILING(zm.IloscWymagana * 1.0 / NULLIF(z.Ilosc_Sztuk, 0))
+                                THEN zm.IloscZarezerwowana
+                                ELSE CAST(CEILING(zm.IloscWymagana * 1.0
+                                                  / NULLIF(z.Ilosc_Sztuk, 0)) AS int) END AS Ile
+                    FROM ZlecenieMaterialy zm
+                    JOIN Zlecenie_Produkcyjne z ON z.ID_Zlecenia = zm.ID_Zlecenia
+                    WHERE zm.ID_Zlecenia = @Z AND zm.IloscWymagana > 0
+                )
+                UPDATE zm
+                   SET zm.IloscZarezerwowana = CASE WHEN zm.IloscZarezerwowana - n.Ile < 0
+                                                    THEN 0 ELSE zm.IloscZarezerwowana - n.Ile END
+                  FROM ZlecenieMaterialy zm
+                  JOIN NaSztuke n ON n.ID = zm.ID;";
+
+            try
+            {
+                using var conn = OpenConnection();
+                using var cmd = new SqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@Z", idZlecenia);
+                int n = cmd.ExecuteNonQuery();
+                if (n > 0)
+                    Console.WriteLine($"[INFO] Zlecenie {idZlecenia}: zuzyto material na 1 sztuke ({n} pozycji)");
+            }
+            catch (Exception ex)
+            {
+                // Blad magazynu nie moze zatrzymac produkcji - sztuka i tak juz ruszyla.
+                Console.WriteLine($"[WARN] Zlecenie {idZlecenia}: nie udalo sie zdjac materialu ze stanu: {ex.Message}");
+            }
+        }
         public void InsertWskazniki(PlcData d, int realizacjaId)
         {
             double dostepnosc = d.CzasSplywuMs > 0
@@ -299,6 +379,18 @@ namespace PlcToDbMiddleware
                 mark.Parameters.AddWithValue("@Slot", slotIndex);
                 mark.Parameters.AddWithValue("@IDSt", idStanowiska);
                 mark.ExecuteNonQuery();
+            }
+
+            // Sztuka przerwana na stanowisku montazowym (1-3) nie dojedzie do QC,
+            // wiec nie trafi ani do SztukOK, ani do SztukNOK - dla Jakosci jest
+            // niewidzialna. Liczymy ja osobno, zeby FPY mial co pokazac.
+            // Abort na QC (4) pomijamy: tam sztuka i tak dostaje werdykt.
+            if (idStanowiska >= 1 && idStanowiska <= 3)
+            {
+                using var abort = new SqlCommand(
+                    "UPDATE Zlecenie_Produkcyjne SET SztukAbort = SztukAbort + 1 WHERE ID_Zlecenia = @ID", conn);
+                abort.Parameters.AddWithValue("@ID", idZlecenia);
+                abort.ExecuteNonQuery();
             }
 
             string nazwaZlecenia = "?", nazwaStanowiska = $"Stanowisko {idStanowiska}";
@@ -377,6 +469,7 @@ namespace PlcToDbMiddleware
             }
 
             IncrementQcWynik(idZlecenia, ok);
+            UzupelnijJakoscWskaznikow(idZlecenia);
             Console.WriteLine($"[INFO] QC: zlecenie {idZlecenia}, sztuka {partNo} -> {(ok ? "OK" : "NOK")}");
             return true;
         }
@@ -416,14 +509,23 @@ namespace PlcToDbMiddleware
         /// 2=konczenie, 3=awaria). Wczesniej aktywnosc byla zgadywana z czasu ostatniego
         /// zapisu do bazy, co przy dlugich cyklach dawalo falszywy obraz.
         /// </summary>
-        public void ZapiszStanStanowiska(int idStanowiska, int stan)
+        /// <summary>
+        /// Zapisuje stan stanowiska ORAZ numer zlecenia, ktore ma u siebie
+        /// (Production.OrderNo). Bez tego drugiego pulpit pokazywal na wszystkich
+        /// stanowiskach jedno, globalnie wybrane zlecenie - przy dwoch sztukach
+        /// jadacych rownolegle byla to informacja nieprawdziwa.
+        /// </summary>
+        public void ZapiszStanStanowiska(int idStanowiska, int stan, int nrZlecenia = 0)
         {
             using var conn = OpenConnection();
             using var cmd = new SqlCommand(@"
                 UPDATE Stanowisko
-                SET Stan_Produkcji = @Stan, Stan_Aktualizacja = GETDATE()
+                SET Stan_Produkcji    = @Stan,
+                    Nr_Zlecenia       = @Zl,
+                    Stan_Aktualizacja = GETDATE()
                 WHERE ID_Stanowiska = @ID", conn);
             cmd.Parameters.AddWithValue("@Stan", stan);
+            cmd.Parameters.AddWithValue("@Zl", nrZlecenia > 0 ? nrZlecenia : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@ID", idStanowiska);
             cmd.ExecuteNonQuery();
         }
@@ -528,17 +630,56 @@ namespace PlcToDbMiddleware
         /// Zlecenia zamkniete na stronie (Zakonczone/Anulowane), ktorych rekord
         /// w DB3 nie zostal jeszcze wyzerowany.
         /// </summary>
-        public List<int> GetZleceniaDoWyczyszczeniaWPlc()
+        public List<(int id, string status)> GetZleceniaDoWyczyszczeniaWPlc()
         {
-            var lista = new List<int>();
+            var lista = new List<(int, string)>();
             using var conn = OpenConnection();
             using var cmd = new SqlCommand(@"
-                SELECT ID_Zlecenia FROM Zlecenie_Produkcyjne
+                SELECT ID_Zlecenia, Status_Zlecenia FROM Zlecenie_Produkcyjne
                 WHERE Status_Zlecenia IN ('Zakonczone', 'Anulowane')
                   AND ISNULL(PlcWyczyszczone, 0) = 0", conn);
             using var rdr = cmd.ExecuteReader();
-            while (rdr.Read()) lista.Add(rdr.GetInt32(0));
+            while (rdr.Read()) lista.Add((rdr.GetInt32(0), rdr.GetString(1)));
             return lista;
+        }
+
+        /// <summary>
+        /// Zamyka gospodarke materialowa zlecenia.
+        ///
+        /// Do tej pory rezerwacja zakladana przy tworzeniu zlecenia wisiala w nieskonczonosc,
+        /// a StanBiezacy nigdy sie nie ruszal - zuzycie wolal tylko wylaczony symulator.
+        /// Teraz przy zamknieciu zlecenia:
+        ///   Zakonczone -> rezerwacja zamienia sie w faktyczne zuzycie (spada tez StanBiezacy),
+        ///   Anulowane  -> rezerwacja wraca do puli, stan magazynu bez zmian.
+        /// Wywolywane raz na zlecenie, w tym samym przebiegu co PlcWyczyszczone.
+        /// </summary>
+        public void RozliczMaterialyZlecenia(int idZlecenia, bool zuzyte)
+        {
+            using var conn = OpenConnection();
+            string sql = zuzyte
+                ? @"UPDATE m
+                       SET m.StanBiezacy        = CASE WHEN m.StanBiezacy - zm.IloscZarezerwowana < 0
+                                                       THEN 0 ELSE m.StanBiezacy - zm.IloscZarezerwowana END,
+                           m.IloscZarezerwowana = CASE WHEN m.IloscZarezerwowana - zm.IloscZarezerwowana < 0
+                                                       THEN 0 ELSE m.IloscZarezerwowana - zm.IloscZarezerwowana END,
+                           m.AktualizacjaAt     = GETDATE()
+                     FROM Material m
+                     JOIN ZlecenieMaterialy zm ON zm.ID_Materialu = m.ID_Materialu
+                    WHERE zm.ID_Zlecenia = @Z"
+                : @"UPDATE m
+                       SET m.IloscZarezerwowana = CASE WHEN m.IloscZarezerwowana - zm.IloscZarezerwowana < 0
+                                                       THEN 0 ELSE m.IloscZarezerwowana - zm.IloscZarezerwowana END,
+                           m.AktualizacjaAt     = GETDATE()
+                     FROM Material m
+                     JOIN ZlecenieMaterialy zm ON zm.ID_Materialu = m.ID_Materialu
+                    WHERE zm.ID_Zlecenia = @Z";
+
+            using var cmd = new SqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@Z", idZlecenia);
+            int n = cmd.ExecuteNonQuery();
+            if (n > 0)
+                Console.WriteLine($"[INFO] Zlecenie {idZlecenia}: rozliczono {n} pozycji magazynowych "
+                                + (zuzyte ? "(zuzycie)" : "(zwrot rezerwacji)"));
         }
 
         public void OznaczPlcWyczyszczone(int idZlecenia)
@@ -566,7 +707,8 @@ namespace PlcToDbMiddleware
         /// bo Realizacja_Produkcji nie dostaje rekordow (martwy wyzwalacz z DB5) - bez tego
         /// wydajnosc stanowiska nie mialaby zadnego zrodla danych.
         /// </summary>
-        public int? ZapiszCyklStanowiska(int idStanowiska, int nrZlecenia, int czasCykluMs)
+        public int? ZapiszCyklStanowiska(int idStanowiska, int nrZlecenia, int czasCykluMs,
+                                         PlcReader.PrzeplywSztuki? przeplyw = null)
         {
             using var conn = OpenConnection();
 
@@ -592,17 +734,18 @@ namespace PlcToDbMiddleware
             }
 
             using (var cmd = new SqlCommand(@"
-                INSERT INTO HistoriaCykli (ID_Wyrobu, ID_Stanowiska, Czas_Cyklu_ms, Czas_Zadany_ms)
-                VALUES (@W, @S, @C, @Z)", conn))
+                INSERT INTO HistoriaCykli (ID_Wyrobu, ID_Stanowiska, Czas_Cyklu_ms, Czas_Zadany_ms, ID_Zlecenia)
+                VALUES (@W, @S, @C, @Z, @Zl)", conn))
             {
-                cmd.Parameters.AddWithValue("@W", idWyrobu);
-                cmd.Parameters.AddWithValue("@S", idStanowiska);
-                cmd.Parameters.AddWithValue("@C", czasCykluMs);
-                cmd.Parameters.AddWithValue("@Z", czasZadanyMs);
+                cmd.Parameters.AddWithValue("@W",  idWyrobu);
+                cmd.Parameters.AddWithValue("@S",  idStanowiska);
+                cmd.Parameters.AddWithValue("@C",  czasCykluMs);
+                cmd.Parameters.AddWithValue("@Z",  czasZadanyMs);
+                cmd.Parameters.AddWithValue("@Zl", nrZlecenia);
                 cmd.ExecuteNonQuery();
             }
 
-            ZapiszWskaznikiCyklu(conn, idStanowiska, nrZlecenia, czasCykluMs, czasZadanyMs);
+            ZapiszWskaznikiCyklu(conn, idStanowiska, nrZlecenia, czasCykluMs, czasZadanyMs, przeplyw);
 
             if (czasZadanyMs <= 0) return null;   // brak normy - nie ma z czym porownac
 
@@ -634,8 +777,6 @@ namespace PlcToDbMiddleware
         /// </summary>
         private const int MAX_LUKA_MS = 5 * 60 * 1000;
 
-        /// <summary>Ile ostatnich cykli stanowiska wchodzi do liczenia dostepnosci.</summary>
-        private const int OKNO_DOSTEPNOSCI = 10;
 
         /// <summary>
         /// Dopisuje wiersz do Wskazniki po zamknietym cyklu stanowiska. Bez tego caly blok
@@ -650,30 +791,16 @@ namespace PlcToDbMiddleware
         ///   OEE = A x P x Q
         /// </summary>
         private void ZapiszWskaznikiCyklu(SqlConnection conn, int idStanowiska, int nrZlecenia,
-                                          int czasCykluMs, int czasZadanyMs)
+                                          int czasCykluMs, int czasZadanyMs,
+                                          PlcReader.PrzeplywSztuki? przeplyw)
         {
-            // ── Dostepnosc: czas pracy kontra luki miedzy sztukami ──────────
-            var cykle = new List<(int cyklMs, DateTime koniec)>();
-            using (var cmd = new SqlCommand($@"
-                SELECT TOP ({OKNO_DOSTEPNOSCI}) Czas_Cyklu_ms, Czas_Zakonczenia
-                FROM HistoriaCykli
-                WHERE ID_Stanowiska = @S AND Czas_Cyklu_ms > 0
-                ORDER BY ID DESC", conn))
-            {
-                cmd.Parameters.AddWithValue("@S", idStanowiska);
-                using var rdr = cmd.ExecuteReader();
-                while (rdr.Read()) cykle.Add((rdr.GetInt32(0), rdr.GetDateTime(1)));
-            }
-
-            double pracaMs = cykle.Sum(c => (double)c.cyklMs);
-            double lukiMs  = 0;
-            // Lista jest od najnowszego: para (i, i+1) to nowszy i starszy cykl.
-            for (int i = 0; i + 1 < cykle.Count; i++)
-            {
-                DateTime startNowszego = cykle[i].koniec.AddMilliseconds(-cykle[i].cyklMs);
-                double luka = (startNowszego - cykle[i + 1].koniec).TotalMilliseconds;
-                if (luka > 0 && luka <= MAX_LUKA_MS) lukiMs += luka;
-            }
+            // ── Dostepnosc: praca kontra TRANSPORT PALETY miedzy stanowiskami ──
+            // Sumy liczy PlcReader w obrebie JEDNEGO rekordu sztuki (StartTime/EndTime
+            // z DB3), bo zlecenie wielosztukowe zajmuje kilka slotow z tym samym ID
+            // i korelowanie po numerze zlecenia mieszaloby ze soba rozne sztuki jadace
+            // rownolegle. Gdy PLC nie ma jeszcze tych czasow - zostaje sam biezacy cykl.
+            double pracaMs = przeplyw?.PracaMs > 0 ? przeplyw.PracaMs : czasCykluMs;
+            double lukiMs  = przeplyw?.TransportMs ?? 0;
             double dostepnosc = (pracaMs + lukiMs) > 0 ? pracaMs / (pracaMs + lukiMs) : 1.0;
 
             // ── Wydajnosc: norma kontra rzeczywistosc, przycieta do 100% ────
@@ -717,6 +844,37 @@ namespace PlcToDbMiddleware
 
             Console.WriteLine($"[INFO] Wskazniki st.{idStanowiska}: A={dostepnosc:P0} P={wydajnosc:P0} "
                             + $"Q={jakosc:P0} -> OEE={oee:P0}");
+        }
+
+        /// <summary>
+        /// Uzupelnia Jakosc i OEE we wskaznikach zlecenia po werdykcie QC.
+        ///
+        /// Wskazniki powstaja przy zamknieciu cyklu STANOWISKA, a wtedy nie wiadomo jeszcze,
+        /// czy sztuka przejdzie kontrole - licznik zlecenia jest 0/0, wiec Jakosc ladowala
+        /// jako 100%. Efekt byl taki, ze zlecenie z jedyna sztuka odrzucona na QC i tak
+        /// pokazywalo Jakosc 100%. Tutaj przeliczamy te wiersze na podstawie faktycznego
+        /// wyniku. Dostepnosc i Wydajnosc zostaja - to realne pomiary z cyklu.
+        /// </summary>
+        private void UzupelnijJakoscWskaznikow(int idZlecenia)
+        {
+            using var conn = OpenConnection();
+            using var cmd = new SqlCommand(@"
+                UPDATE w
+                   SET Jakosc       = q.Q,
+                       Wskaznik_FTY = q.Q,
+                       Wskaznik_OEE = w.Dostepnosc * w.Wydajnosc * q.Q
+                  FROM Wskazniki w
+                 CROSS APPLY (
+                        SELECT CASE WHEN ISNULL(zp.SztukOK,0) + ISNULL(zp.SztukNOK,0) > 0
+                                    THEN CAST(ISNULL(zp.SztukOK,0) AS float)
+                                         / (ISNULL(zp.SztukOK,0) + ISNULL(zp.SztukNOK,0))
+                                    ELSE 1 END AS Q
+                        FROM Zlecenie_Produkcyjne zp
+                        WHERE zp.ID_Zlecenia = w.ID_Zlecenia
+                 ) q
+                 WHERE w.ID_Zlecenia = @Z", conn);
+            cmd.Parameters.AddWithValue("@Z", idZlecenia);
+            cmd.ExecuteNonQuery();
         }
 
         private SqlConnection OpenConnection()

@@ -4,7 +4,8 @@
 ╚══════════════════════════════════════════════════╝
 Polaczono z PLC!
 [INFO] Uklad DB_Zlecenia OK (rekord=140B, NastepneZlecenie=28000, ResetZlecen=28280.0)
-[INFO] Kolejka pusta - brak zlecen do wyslania.
+[INFO] Zlecenie 1: rozliczono 9 pozycji magazynowych (zuzycie)
+[INFO] Zlecenie 1 zamkniete na stronie -> wyzerowano Zlecenie[1] w DB3.
 [INFO] Stanowisko 1: stan -1 -> 0 (zlecenie 0)
 [INFO] Stanowisko 2: stan -1 -> 0 (zlecenie 0)
 [INFO] Stanowisko 3: stan -1 -> 0 (zlecenie 0)
@@ -12,23 +13,205 @@ Polaczono z PLC!
 
 [INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...
 
-[INFO] Zlecenie -> PLC: ID=1 PartNo=1
-[INFO] Stanowisko 1: stan 0 -> 1 (zlecenie 1)
-[INFO] Stanowisko 1: stan 1 -> 0 (zlecenie 0)
-[INFO] Wskazniki st.1: A=100% P=29% Q=100% -> OEE=29%
-[INFO] Stanowisko 1: cykl 187,0 s (PLC, zlecenie 1), wydajnosc 40%
-[INFO] Wszystkie aktywne zlecenia sa juz na linii - czekam na QC.
-[INFO] Stanowisko 2: stan 0 -> 1 (zlecenie 1)
-[INFO] Stanowisko 2: stan 1 -> 0 (zlecenie 0)
-[INFO] Wskazniki st.2: A=100% P=100% Q=100% -> OEE=100%
-[INFO] Stanowisko 2: cykl 60,0 s (PLC, zlecenie 1), wydajnosc 100%
-[INFO] Stanowisko 3: stan 0 -> 1 (zlecenie 1)
-[INFO] Stanowisko 3: stan 1 -> 0 (zlecenie 0)
-[INFO] Wskazniki st.3: A=100% P=100% Q=100% -> OEE=100%
-[INFO] Stanowisko 3: cykl 34,0 s (PLC, zlecenie 1), wydajnosc 153%
-[INFO] Stanowisko 4: stan 0 -> 1 (zlecenie 1)
-[INFO] QC: zlecenie 1, sztuka 1 -> OK
-[INFO] Zlecenie 1 zamkniete na stronie -> wyzerowano Zlecenie[0] w DB3.
-[INFO] Stanowisko 4: stan 1 -> 0 (zlecenie 0)
-[INFO] Wskazniki st.4: A=100% P=43% Q=100% -> OEE=43%
-[INFO] Stanowisko 4: cykl 34,9 s (stoper, zlecenie 1), wydajnosc 43%
+Polaczono z PLC!
+[INFO] Skaner tablicy Zlecenie[] wystartowal (osobne polaczenie).
+[PROFIL] stany: odstep=271 ms, migawka=82 ms, zlecenie=15 ms, razem=335 ms
+[INFO] Kolejka pusta - brak zlecen do wyslania.
+[PROFIL] stany: odstep=214 ms, migawka=19 ms, zlecenie=15 ms, razem=2573 ms
+[PROFIL] stany: odstep=216 ms, migawka=19 ms, zlecenie=10 ms, razem=2081 ms
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=216 ms, migawka=63 ms, zlecenie=11 ms, razem=33133 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=225 ms, migawka=18 ms, zlecenie=13 ms, razem=26386 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=224 ms, migawka=18 ms, zlecenie=12 ms, razem=61676 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=224 ms, migawka=19 ms, zlecenie=10 ms, razem=61773 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=210 ms, migawka=21 ms, zlecenie=10 ms, razem=61751 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=225 ms, migawka=20 ms, zlecenie=13 ms, razem=61757 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=223 ms, migawka=20 ms, zlecenie=11 ms, razem=60248 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=224 ms, migawka=18 ms, zlecenie=10 ms, razem=3075 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=222 ms, migawka=19 ms, zlecenie=10 ms, razem=62129 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=226 ms, migawka=17 ms, zlecenie=10 ms, razem=61695 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=227 ms, migawka=19 ms, zlecenie=15 ms, razem=61787 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=223 ms, migawka=18 ms, zlecenie=12 ms, razem=61531 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=227 ms, migawka=18 ms, zlecenie=13 ms, razem=61626 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=224 ms, migawka=21 ms, zlecenie=9 ms, razem=61733 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=225 ms, migawka=19 ms, zlecenie=10 ms, razem=61777 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=243 ms, migawka=19 ms, zlecenie=10 ms, razem=61614 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=225 ms, migawka=18 ms, zlecenie=11 ms, razem=61852 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=210 ms, migawka=19 ms, zlecenie=11 ms, razem=61658 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=224 ms, migawka=19 ms, zlecenie=11 ms, razem=61607 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=223 ms, migawka=20 ms, zlecenie=9 ms, razem=61926 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=227 ms, migawka=21 ms, zlecenie=11 ms, razem=61836 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=208 ms, migawka=19 ms, zlecenie=10 ms, razem=60719 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=225 ms, migawka=19 ms, zlecenie=11 ms, razem=3074 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=233 ms, migawka=18 ms, zlecenie=14 ms, razem=61712 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=228 ms, migawka=19 ms, zlecenie=10 ms, razem=61733 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=210 ms, migawka=20 ms, zlecenie=10 ms, razem=61233 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=235 ms, migawka=34 ms, zlecenie=22 ms, razem=61711 ms
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=262 ms, migawka=32 ms, zlecenie=18 ms, razem=61231 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=223 ms, migawka=31 ms, zlecenie=18 ms, razem=61162 ms
+[WARN] Nie udalo sie zsynchronizowac: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie wyslac ResetZlecen do PLC: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[WARN] Nie udalo sie sprawdzic zlecen do wyczyszczenia: Wystąpił błąd związany z siecią lub wystąpieniem podczas nawiązywania połączenia z programem SQL Server. Nie znaleziono serwera lub był on niedostępny. Sprawdź, czy nazwa wystąpienia jest poprawna i czy program SQL Server jest skonfigurowany do zezwalania na połączenia zdalne. (provider: Interfejsy sieciowe SQL, error: 50 - Wystąpił błąd programu Local Database Runtime. Error occurred during LocalDB instance startup: SQL Server process failed to start.
+)
+[PROFIL] stany: odstep=254 ms, migawka=61 ms, zlecenie=13 ms, razem=61126 ms

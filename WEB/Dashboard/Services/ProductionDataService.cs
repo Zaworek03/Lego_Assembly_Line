@@ -22,6 +22,16 @@ namespace LiniaProdukcyjnaDashboard.Services
         /// </summary>
         private const int OKNO_KPI = 50;
 
+        /// <summary>
+        /// Ostatnio wczytane wartosci dla pulpitu. Serwis jest scoped, czyli zyje
+        /// tyle co obwod Blazora i przetrwa przejscia miedzy zakladkami.
+        /// Pulpit zaczyna od nich zamiast renderowac zera i podmieniac je sekunde
+        /// pozniej - liczniki widzialy taki skok jako wzrost i rozpedzaly sie od zera
+        /// przy kazdym powrocie na strone glowna.
+        /// </summary>
+        public DailyKpi?         OstatnieKpi    { get; set; }
+        public ProdukcjaLicznik? OstatniLicznik { get; set; }
+
         public async Task<DailyKpi> GetDailyKpiAsync(int oknoSztuk = OKNO_KPI)
         {
             var sql = $@"
@@ -45,7 +55,8 @@ namespace LiniaProdukcyjnaDashboard.Services
                     ISNULL(AVG(CAST(Wskaznik_FTY    AS FLOAT)), 0) AS FTY,
                     ISNULL(AVG(CAST(Czas_Cyklu_ms   AS FLOAT)), 0) AS AvgCykl,
                     ISNULL(SUM(CASE WHEN ID_Stanowiska = 4 THEN Ilosc_Wyprodukowanych - Liczba_Wadliwych ELSE 0 END), 0) AS Wyprod,
-                    ISNULL(SUM(CASE WHEN ID_Stanowiska = 4 THEN Liczba_Wadliwych ELSE 0 END), 0) AS Wadliwe
+                    ISNULL(SUM(CASE WHEN ID_Stanowiska = 4 THEN Liczba_Wadliwych ELSE 0 END), 0) AS Wadliwe,
+                    COUNT(*) AS LiczbaPomiarow
                 FROM Ostatnie";
 
             await using var conn = new SqlConnection(_cs);
@@ -63,7 +74,8 @@ namespace LiniaProdukcyjnaDashboard.Services
                 FTY              = rdr.GetDouble(4),
                 AvgCyklMs        = rdr.GetDouble(5),
                 Wyprodukowano    = rdr.GetInt32(6),
-                LiczbaWadliwych  = rdr.GetInt32(7)
+                LiczbaWadliwych  = rdr.GetInt32(7),
+                LiczbaPomiarow   = rdr.GetInt32(8)
             };
         }
 
@@ -106,7 +118,9 @@ namespace LiniaProdukcyjnaDashboard.Services
                 SELECT TOP 1
                     ISNULL(Wyprodukowano_Ogolem, 0),
                     ISNULL(Baseline_Dzisiaj, 0),
-                    ISNULL((SELECT SUM(SztukNOK) FROM Zlecenie_Produkcyjne WHERE IsDeleted = 0), 0)
+                    ISNULL((SELECT SUM(SztukNOK)   FROM Zlecenie_Produkcyjne WHERE IsDeleted = 0), 0),
+                    ISNULL((SELECT SUM(SztukOK)    FROM Zlecenie_Produkcyjne WHERE IsDeleted = 0), 0),
+                    ISNULL((SELECT SUM(SztukAbort) FROM Zlecenie_Produkcyjne WHERE IsDeleted = 0), 0)
                 FROM Ustawienia_Maszyny";
 
             await using var conn = new SqlConnection(_cs);
@@ -119,12 +133,16 @@ namespace LiniaProdukcyjnaDashboard.Services
             int ogolem   = Convert.ToInt32(rdr[0]);
             int baseline = Convert.ToInt32(rdr[1]);
             int wadliwe  = Convert.ToInt32(rdr[2]);
+            int dobre    = Convert.ToInt32(rdr[3]);
+            int aborty   = Convert.ToInt32(rdr[4]);
 
             return new ProdukcjaLicznik
             {
-                Ogolem  = ogolem,
-                Dzisiaj = Math.Max(0, ogolem - baseline),
-                Wadliwe = wadliwe
+                Ogolem      = ogolem,
+                DzisiajZPlc = Math.Max(0, ogolem - baseline),
+                Wadliwe     = wadliwe,
+                Dobre       = dobre,
+                Przerwane   = aborty
             };
         }
 
@@ -224,11 +242,13 @@ namespace LiniaProdukcyjnaDashboard.Services
                     FROM Sztuki
                     ORDER BY Czas_Zakonczenia DESC
                 )
-                SELECT w.Nazwa_Wyrobu, COUNT(*) AS Ilosc
-                FROM Okno o
-                JOIN [dbo].[Wyrob] w ON w.ID_Wyrobu = o.ID_Wyrobu
-                GROUP BY w.Nazwa_Wyrobu
-                ORDER BY COUNT(*) DESC";
+                -- LEFT JOIN od strony Wyrob: blok ma wypisywac KOMPLET wyrobow,
+                -- a te bez produkcji maja pokazac 0%, nie znikac z listy.
+                SELECT w.Nazwa_Wyrobu, COUNT(o.ID_Wyrobu) AS Ilosc
+                FROM [dbo].[Wyrob] w
+                LEFT JOIN Okno o ON o.ID_Wyrobu = w.ID_Wyrobu
+                GROUP BY w.ID_Wyrobu, w.Nazwa_Wyrobu
+                ORDER BY COUNT(o.ID_Wyrobu) DESC, w.ID_Wyrobu";
 
             var raw = new List<(string nazwa, int ilosc)>();
             await using var conn = new SqlConnection(_cs);
@@ -282,12 +302,13 @@ namespace LiniaProdukcyjnaDashboard.Services
                     -- bo tam trafia pomiar z Middleware (przejscia Production.State),
                     -- a nie oszacowanie liczone zegarem przegladarki.
                     ISNULL(ost.Czas_Cyklu_ms, ISNULL(r.Czas_Cyklu_ms, so.Czas_Cyklu_ms)) AS CyklZPamiecia,
+                    ost.Czas_Zakonczenia AS CyklZarejestrowano,
                     so.Wydajnosc                                     AS WydajnoscZPamieci
                 FROM [dbo].[Stanowisko] s
                 LEFT JOIN [dbo].[StanowiskoOstatnie] so ON so.ID_Stanowiska = s.ID_Stanowiska
                 -- Ostatni FAKTYCZNIE zmierzony cykl tego stanowiska.
                 OUTER APPLY (
-                    SELECT TOP 1 hc.Czas_Cyklu_ms
+                    SELECT TOP 1 hc.Czas_Cyklu_ms, hc.Czas_Zakonczenia
                     FROM [dbo].[HistoriaCykli] hc
                     WHERE hc.ID_Stanowiska = s.ID_Stanowiska AND hc.Czas_Cyklu_ms > 0
                     ORDER BY hc.ID DESC
@@ -303,14 +324,19 @@ namespace LiniaProdukcyjnaDashboard.Services
                          AND r1.Czas_Zakonczenia = r2.Maks
                 ) r ON s.ID_Stanowiska = r.ID_Stanowiska
                 LEFT JOIN [dbo].[Wskazniki] w ON r.ID = w.ID_Realizacji
-                -- Zlecenie i wyrob bierzemy z AKTYWNEGO zlecenia, nie z ostatniego zapisu
-                -- realizacji: tamten mechanizm (wyzwalacz z DB5) nie tworzy zadnych rekordow,
-                -- wiec karta stanowiska zostawala pusta przez cala prace.
+                -- Zlecenie bierzemy z pola Nr_Zlecenia TEGO stanowiska (Production.OrderNo
+                -- z PLC). Wczesniej bylo tu pierwsze aktywne zlecenie z brzegu, wiec przy
+                -- dwoch sztukach jadacych rownolegle wszystkie cztery karty pokazywaly to
+                -- samo zlecenie - takze na stanowiskach, ktore mialy u siebie zupelnie inna.
+                -- Fallback na ostatnie aktywne tylko wtedy, gdy PLC nie podal numeru.
                 OUTER APPLY (
                     SELECT TOP 1 z.Nazwa_Zlecenia, z.ID_Wyrobu
                     FROM [dbo].[Zlecenie_Produkcyjne] z
-                    WHERE z.IsDeleted = 0 AND z.Status_Zlecenia IN ('W toku','Nowe')
-                    ORDER BY CASE WHEN z.Status_Zlecenia = 'W toku' THEN 0 ELSE 1 END,
+                    WHERE z.IsDeleted = 0
+                      AND (z.ID_Zlecenia = s.Nr_Zlecenia
+                           OR (s.Nr_Zlecenia IS NULL AND z.Status_Zlecenia IN ('W toku','Nowe')))
+                    ORDER BY CASE WHEN z.ID_Zlecenia = s.Nr_Zlecenia THEN 0 ELSE 1 END,
+                             CASE WHEN z.Status_Zlecenia = 'W toku' THEN 0 ELSE 1 END,
                              z.PriorytetNum DESC, z.ID_Zlecenia DESC
                 ) zp
                 LEFT JOIN [dbo].[Wyrob] wy ON zp.ID_Wyrobu = wy.ID_Wyrobu
@@ -356,9 +382,10 @@ namespace LiniaProdukcyjnaDashboard.Services
                     NazwaZlecenia  = rdr.IsDBNull(8) ? null : rdr.GetString(8),
                     NazwaWyrobu    = rdr.IsDBNull(9) ? null : rdr.GetString(9),
                     OstatniCzasZadanyMs = rdr.IsDBNull(10) ? null : (int?)Convert.ToInt32(rdr[10]),
+                    OstatniCyklCzas = rdr.IsDBNull(14) ? null : rdr.GetDateTime(14),
                     Wydajnosc      = (sumaZadana.HasValue && sumaRzeczywista is > 0)
                                         ? sumaZadana.Value / sumaRzeczywista.Value
-                                        : (rdr.IsDBNull(14) ? null : Convert.ToDouble(rdr[14]))
+                                        : (rdr.IsDBNull(15) ? null : Convert.ToDouble(rdr[15]))
                 });
             }
             return result;
@@ -542,19 +569,21 @@ namespace LiniaProdukcyjnaDashboard.Services
         // ─────────────────────────────────────────────────────────────
         public async Task<List<ZlecenieVM>> GetZleceniaAsync()
         {
+            // Liczniki bierzemy PROSTO ze zlecenia (SztukOK/SztukNOK), a nie z
+            // Realizacja_Produkcji - tamta tabela nie dostaje rekordow, wiec pulpit
+            // pokazywal zawsze 0 wyprodukowanych. Dochodzi tez filtr IsDeleted,
+            // ktorego tu brakowalo: skasowane zlecenia wisialy na liscie.
             const string sql = @"
                 SELECT zp.ID_Zlecenia, zp.Nazwa_Zlecenia, zp.Ilosc_Sztuk,
-                       (SELECT ISNULL(SUM(Ilosc_Wyprodukowanych - Liczba_Wadliwych), 0) 
-                     FROM [dbo].[Realizacja_Produkcji] 
-                     WHERE ID_Zlecenia = zp.ID_Zlecenia AND ID_Stanowiska = 4) AS Wyprodukowano,
+                       ISNULL(zp.SztukOK, 0), ISNULL(zp.SztukNOK, 0),
                        zp.Data_Realizacji, zp.Status_Zlecenia,
                        ISNULL(zp.Czas_Planowany_ms, 0),
-                       w.Nazwa_Wyrobu
+                       w.Nazwa_Wyrobu,
+                       ISNULL(zp.Priorytet, 'Standardowy'),
+                       zp.StartedAt, zp.CompletedAt
                 FROM [dbo].[Zlecenie_Produkcyjne] zp
                 LEFT JOIN [dbo].[Wyrob] w ON zp.ID_Wyrobu = w.ID_Wyrobu
-                GROUP BY zp.ID_Zlecenia, zp.Nazwa_Zlecenia, zp.Ilosc_Sztuk,
-                         zp.Data_Realizacji, zp.Status_Zlecenia,
-                         zp.Czas_Planowany_ms, w.Nazwa_Wyrobu
+                WHERE zp.IsDeleted = 0
                 ORDER BY zp.ID_Zlecenia DESC";
 
             var result = new List<ZlecenieVM>();
@@ -568,11 +597,16 @@ namespace LiniaProdukcyjnaDashboard.Services
                     IDZlecenia      = rdr.GetInt32(0),
                     NazwaZlecenia   = rdr.GetString(1),
                     IloscSztuk      = rdr.GetInt32(2),
+                    SztukOK         = rdr.GetInt32(3),
                     Wyprodukowano   = rdr.GetInt32(3),
-                    DataRealizacji  = rdr.IsDBNull(4) ? null : rdr.GetDateTime(4),
-                    StatusZlecenia  = rdr.GetString(5),
-                    CzasPlanowanyMs = rdr.GetInt32(6),
-                    NazwaWyrobu     = rdr.IsDBNull(7) ? null : rdr.GetString(7)
+                    SztukNOK        = rdr.GetInt32(4),
+                    DataRealizacji  = rdr.IsDBNull(5) ? null : rdr.GetDateTime(5),
+                    StatusZlecenia  = rdr.GetString(6),
+                    CzasPlanowanyMs = rdr.GetInt32(7),
+                    NazwaWyrobu     = rdr.IsDBNull(8) ? null : rdr.GetString(8),
+                    Priorytet       = rdr.GetString(9),
+                    StartedAt       = rdr.IsDBNull(10) ? null : rdr.GetDateTime(10),
+                    CompletedAt     = rdr.IsDBNull(11) ? null : rdr.GetDateTime(11)
                 });
             return result;
         }
