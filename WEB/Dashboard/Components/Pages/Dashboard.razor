@@ -39,10 +39,10 @@ else
                         <div style="min-width:0;">
                             <MudText Class="licznik" Style="font-size:2rem;font-weight:800;color:var(--text);line-height:1.15;">@_licznik.Ogolem.ToString("N0")</MudText>
                             <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
-                                Dzisiaj: <span style="font-weight:800;color:var(--accent);">@(MaProdukcje ? _licznik.Dzisiaj.ToString("N0") : "b/d")</span>
+                                Dzisiaj: <span style="font-weight:800;color:var(--accent);">@_licznik.Dzisiaj.ToString("N0")</span>
                             </MudText>
                             <MudText Typo="Typo.caption" Style="color:var(--text-muted);display:block;white-space:nowrap;">
-                                w tym <span style="@($"font-weight:800;color:{(_licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")};")">@(MaProdukcje ? _licznik.Wadliwe.ToString("N0") : "b/d")</span> wadliwych
+                                w tym <span style="@($"font-weight:800;color:{(_licznik.Wadliwe > 0 ? "var(--danger)" : "var(--text-muted)")};")">@_licznik.Wadliwe.ToString("N0")</span> wadliwych
                             </MudText>
                         </div>
                     </div>
@@ -94,6 +94,29 @@ else
                                     display:flex;align-items:center;justify-content:center;">
                             <div style="position:relative;width:100%;height:100%;aspect-ratio:1;">
                             <svg viewBox="0 0 42 42" style="width:100%;height:100%;transform:rotate(-90deg);">
+                                <defs>
+                                    @* Gradient biegnie WZDLUZ koncowki luku - od punktu, w ktorym
+                                       sie zaczyna, do samego czubka. Staly kierunek (np. po skosie
+                                       ramki) nie dzialal: przy roznych procentach czubek wypada
+                                       w innym miejscu okregu, wiec przejscie bylo widoczne jako
+                                       ostra granica zamiast plynnego rozjasnienia. *@
+                                    <linearGradient id="koniecWeza" gradientUnits="userSpaceOnUse"
+                                                    x1="@Kropka(PunktLukuX(ProcentWadliwych - DlugoscKonca))"
+                                                    y1="@Kropka(PunktLukuY(ProcentWadliwych - DlugoscKonca))"
+                                                    x2="@Kropka(PunktLukuX(ProcentWadliwych))"
+                                                    y2="@Kropka(PunktLukuY(ProcentWadliwych))">
+                                        @* Trzy przystanki, nie dwa. Przy dwoch rozjasnienie
+                                           narastalo liniowo i granica miedzy nim a reszta luku
+                                           czytala sie jako prosta kreska w poprzek paska -
+                                           linie jednakowego koloru w gradiencie liniowym sa
+                                           prostopadle do jego osi, wiec nie da sie tego obejsc
+                                           inaczej niz lagodnym narastaniem. Docelowa krycie
+                                           0.45 zamiast 0.9: ma byc akcent, nie druga barwa. *@
+                                        <stop offset="0%"   stop-color="#EF4444" stop-opacity="0" />
+                                        <stop offset="55%"  stop-color="#F87171" stop-opacity="0.16" />
+                                        <stop offset="100%" stop-color="#FCA5A5" stop-opacity="0.45" />
+                                    </linearGradient>
+                                </defs>
                                 <circle cx="21" cy="21" r="15.9155" fill="none"
                                         stroke="var(--track)" stroke-width="4.2" />
                                 @if (ProcentWadliwych > 0)
@@ -104,10 +127,14 @@ else
                                     <circle cx="21" cy="21" r="15.9155" fill="none"
                                             stroke="#EF4444" stroke-width="4.2" stroke-linecap="round"
                                             stroke-dasharray="@Kropka(ProcentWadliwych) @Kropka(100 - ProcentWadliwych)" />
-                                    @* Rozjasniona "glowa" wskaznika - bez niej przy 100% konce
-                                       luku schodza sie w jedno i nie widac, gdzie sie konczy. *@
-                                    <circle cx="@Kropka(KoniecLukuX)" cy="@Kropka(KoniecLukuY)" r="3.1"
-                                            fill="#FF8A8A" stroke="var(--surface)" stroke-width="1.1" />
+                                    @* Ostatni odcinek luku w gradiencie - subtelne zaakcentowanie
+                                       konca. Przesuwamy go dashoffsetem tak, by konczyl sie
+                                       dokladnie tam, gdzie luk. *@
+                                    <circle cx="21" cy="21" r="15.9155" fill="none"
+                                            stroke="url(#koniecWeza)" stroke-width="4.2" stroke-linecap="round"
+                                            stroke-dasharray="@Kropka(DlugoscKonca) @Kropka(100 - DlugoscKonca)"
+                                            stroke-dashoffset="@Kropka(-(ProcentWadliwych - DlugoscKonca))" />
+                                }
                                 }
                             </svg>
                             <div style="position:absolute;inset:0;display:flex;flex-direction:column;
@@ -557,11 +584,16 @@ else
         </div>;
     };
 
-    // Koniec luku na kole defektow. Kolo jest obrocone o -90 stopni, wiec liczymy
-    // od gory zegarowo; promien 15.9155 daje obwod rowny 100 (procent = dlugosc luku).
-    double KoniecLukuKat => ProcentWadliwych / 100.0 * 2 * Math.PI;
-    double KoniecLukuX   => 21 + 15.9155 * Math.Cos(KoniecLukuKat);
-    double KoniecLukuY   => 21 + 15.9155 * Math.Sin(KoniecLukuKat);
+    // Dlugosc gradientowej koncowki luku defektow (w procentach obwodu).
+    // Krotka, zeby byla akcentem na czubku, a nie druga barwa polowy wykresu.
+    // Nigdy dluzsza niz sam luk, inaczej wystawalaby poza jego poczatek.
+    double DlugoscKonca => Math.Min(2.6, ProcentWadliwych);
+
+    // Punkt na okregu wykresu dla zadanego procenta obwodu. Promien 15.9155 daje
+    // obwod rowny 100, wiec procent przeklada sie wprost na kat. Uzywane do
+    // ustawienia gradientu wzdluz koncowki luku.
+    static double PunktLukuX(double p) => 21 + 15.9155 * Math.Cos(p / 100.0 * 2 * Math.PI);
+    static double PunktLukuY(double p) => 21 + 15.9155 * Math.Sin(p / 100.0 * 2 * Math.PI);
 
     /// <summary>Najpopularniejszy wyrob albo null, gdy nie ma jeszcze zadnej produkcji.</summary>
     WyrobPopularnosc? Lider => _popularnosc.Count > 0 ? _popularnosc[0] : null;

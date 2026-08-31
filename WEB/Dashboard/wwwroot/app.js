@@ -63,6 +63,15 @@
         s.czas = teraz;
 
         const biezaca = poziomo ? el.scrollLeft : el.scrollTop;
+
+        // Ktos przesunal element poza nami - najczesciej przeciagnieciem suwaka
+        // myszka. Bez tego dalej dociagalibysmy go do celu sprzed chwili, wiec
+        // po puszczeniu suwak wracal tam, gdzie byl.
+        if (s.nasza !== undefined && Math.abs(biezaca - s.nasza) > 1) {
+            stan.delete(el);
+            return;
+        }
+
         const roznica = s.cel - biezaca;
 
         if (Math.abs(roznica) < PROG_KONCA) {
@@ -77,11 +86,24 @@
         const nowa = biezaca + roznica * k;
         if (poziomo) el.scrollLeft = nowa; else el.scrollTop = nowa;
 
+        // Zapamietujemy to, co sami ustawilismy - przegladarka zaokragla wartosc,
+        // wiec czytamy ja z powrotem, a nie zapisujemy `nowa`.
+        s.nasza = poziomo ? el.scrollLeft : el.scrollTop;
+
         // Element mogl sie skurczyc/zniknac miedzy klatkami.
         if (!el.isConnected) { stan.delete(el); return; }
 
         s.raf = requestAnimationFrame(() => animuj(el, poziomo));
     }
+
+    // Chwycenie suwaka (albo cokolwiek innego myszka) natychmiast konczy poslizg.
+    // Sam warunek w petli wystarczylby, ale wtedy jedna klatka zdazylaby jeszcze
+    // szarpnac elementem, zanim zauwazymy cudza zmiane pozycji.
+    document.addEventListener('pointerdown', function (e) {
+        if (!e.target || !e.target.closest) return;
+        const el = e.target.closest('.przewijanie-poziome, .subtelny-scroll');
+        if (el) stan.delete(el);
+    }, true);
 
     document.addEventListener('wheel', function (e) {
         if (e.ctrlKey) return;                 // ctrl+kolko to zoom przegladarki
@@ -272,6 +294,6 @@ window.przewinDoElementu = function (id) {
         el.classList.remove("raport-wskazany");
         void el.offsetWidth;                      // wymuszenie przeliczenia stylu
         el.classList.add("raport-wskazany");
-        setTimeout(() => el.classList.remove("raport-wskazany"), 1600);
+        setTimeout(() => el.classList.remove("raport-wskazany"), 2000);
     }, 80);
 };

@@ -37,7 +37,7 @@
                 <div style="margin-bottom:14px;">
                     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
                         <MudText Style="font-size:1.4rem;font-weight:800;color:var(--text);line-height:1;">
-                            @Detail.SztukOK<span style="color:var(--text-muted);font-size:.95rem;font-weight:700;"> / @Detail.IloscSztuk szt</span>
+                            @Detail.Rozliczone<span style="color:var(--text-muted);font-size:.95rem;font-weight:700;"> / @Detail.IloscSztuk szt</span>
                         </MudText>
                         <MudText Typo="Typo.body2" Style="font-weight:800;color:var(--accent);">@Detail.PostepProcent.ToString("F0")%</MudText>
                     </div>
@@ -61,6 +61,30 @@
                     @Fakt("Sztuk NOK", Detail.SztukNOK.ToString(), Detail.SztukNOK > 0 ? "var(--danger)" : "var(--text-muted)")
                     @Fakt("Priorytet", Detail.Priorytet, "var(--text)")
                 </div>
+
+                @* Powody odrzutu - tylko tutaj, w szczegolach. Na kartach i listach
+                   zlecen ta informacja sie nie pojawia. *@
+                @if (Detail.OdrzuconeSztuki.Any())
+                {
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:700;margin-top:20px;margin-bottom:8px;color:var(--text);">
+                        Odrzucone sztuki
+                    </MudText>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        @foreach (var s in Detail.OdrzuconeSztuki)
+                        {
+                            <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;
+                                        background:var(--surface-alt);border-radius:9px;
+                                        border-left:3px solid var(--danger);">
+                                <span style="font-weight:800;color:var(--text);white-space:nowrap;">
+                                    szt. @s.PartNo
+                                </span>
+                                <span style="color:@(s.Powod is null ? "var(--text-muted)" : "var(--text)");">
+                                    @(s.Powod ?? "nie podano powodu")
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
 
                 @if (Detail.Materialy.Any())
                 {

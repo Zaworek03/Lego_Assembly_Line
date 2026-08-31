@@ -9,7 +9,7 @@ HMI QC          - 192.168.1.13
 Balluff Master  - 192.168.1.20   (BNI XG3-508-0B5-R067)
 Banner DXM700   - 192.168.1.30   (zmienione z 192.168.1.20 - konflikt!)
 
-Balluff Camera Config - 169.254.43.28
+Balluff Camera Config - 192.168.1.40
 
 Balluff:
 

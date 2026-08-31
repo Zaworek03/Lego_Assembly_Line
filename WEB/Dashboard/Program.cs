@@ -16,7 +16,17 @@ if (!pierwszy)
     return;
 }
 
-var builder = WebApplication.CreateBuilder(args);
+// ContentRoot przypiety do katalogu z plikiem .exe, a nie do biezacego katalogu
+// procesu. Bez tego uruchomienie aplikacji z innego miejsca (dwuklik w bin\,
+// skrot, stary skrypt startowy ustawiajacy WorkingDirectory na bin\) sprawialo,
+// ze manifest zasobow statycznych nie mial jak sie odnalezc: /app.css i /app.js
+// odpowiadaly 404, strona ladowala sie bez wlasnych stylow i skryptow i wygladala
+// jak stara wersja sprzed calego frontendu.
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args            = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 // Aplikacja startuje jako goly .exe z katalogu bin, czyli w srodowisku Production -
 // a tam ASP.NET domyslnie NIE laduje manifestu static web assets. Efekt byl taki, ze
@@ -50,9 +60,6 @@ builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddSingleton<ThemeService>();
-// WYLACZONE: symulator dopisywal sztuczne cykle do Realizacja_Produkcji i zmienial statusy
-// zlecen rownolegle z prawdziwymi danymi z PLC (falszowal wskazniki i kolidowal z Middleware).
-// builder.Services.AddHostedService<ProductionSimulatorService>();
 
 var app = builder.Build();
 

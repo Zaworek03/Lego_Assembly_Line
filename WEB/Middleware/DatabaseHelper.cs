@@ -107,83 +107,7 @@ namespace PlcToDbMiddleware
             };
         }
 
-        // ============================================================
-        // INSERT — Realizacja_Produkcji
-        // ============================================================
-
-        public int InsertRealizacja(PlcData d)
-        {
-            const string sql = @"
-                INSERT INTO [dbo].[Realizacja_Produkcji]
-                    (ID_Zlecenia, ID_Stanowiska, ID_Operatora,
-                     Czas_Rozpoczecia, Czas_Zakonczenia,
-                     Czas_Splywu_ms, Czas_Cyklu_ms, Czas_Postoju_ms,
-                     Kod_Postoju, Ilosc_Wyprodukowanych, Liczba_Wadliwych, Wynik_QC)
-                VALUES
-                      (@Zlecenie, @Stanowisko, @Operator,
-                       @Rozp, @Zak,
-                       @Splyw, @Cykl, @Postoj,
-                       @KodPostoju, @Wyprod, @Wadliwe, @QC);
-                  SELECT SCOPE_IDENTITY();";
-
-            using var conn = OpenConnection();
-            using var cmd  = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Zlecenie",   d.IDZlecenia);
-            cmd.Parameters.AddWithValue("@Stanowisko", d.IDStanowiska);
-            cmd.Parameters.AddWithValue("@Operator",   d.IDOperatora);
-            cmd.Parameters.AddWithValue("@Rozp",       d.CzasRozpoczecia);
-            cmd.Parameters.AddWithValue("@Zak",        d.CzasZakonczenia);
-            cmd.Parameters.AddWithValue("@Splyw",      d.CzasSplywuMs);
-            cmd.Parameters.AddWithValue("@Cykl",       d.CzasCykluMs);
-            cmd.Parameters.AddWithValue("@Postoj",     d.CzasPostojuMs);
-            cmd.Parameters.AddWithValue("@KodPostoju", string.IsNullOrWhiteSpace(d.KodPostoju)
-                                                           ? (object)DBNull.Value
-                                                           : d.KodPostoju);
-            cmd.Parameters.AddWithValue("@Wyprod",     d.IloscWyprodukowanych);
-            cmd.Parameters.AddWithValue("@Wadliwe",    d.LiczbaWadliwych);
-            cmd.Parameters.AddWithValue("@QC",         d.WynikQC ? 1 : 0);
-
-            return Convert.ToInt32(cmd.ExecuteScalar());
-        }
-
-        // ============================================================
-        // INSERT — Koszty (obliczane per cykl)
-        // ============================================================
-
-        public void InsertKoszty(PlcData d, int realizacjaId,
-                                 OperatorData op, StanowiskoData stan)
-        {
-            double h = d.CzasCykluMs / 3_600_000.0;
-
-            decimal kosztOp   = (decimal)(h * (double)op.StawkaGodzinowa);
-            decimal kosztStan = (decimal)(h * (double)stan.StawkaAmortyzacyjna);
-            decimal kosztMat  = 0m;
-            decimal kosztCal  = kosztOp + kosztStan + kosztMat;
-
-            const string sql = @"
-                INSERT INTO [dbo].[Koszty]
-                    (ID_Zlecenia, ID_Realizacji,
-                     Koszt_Materialow, Koszt_Operatorow, Koszt_Pracy_Stanowisk, Koszt_Calkowity)
-                VALUES
-                    (@Zlecenie, @Realizacja,
-                     @KosztMat, @KosztOp, @KosztStan, @KosztCal)";
-
-            using var conn = OpenConnection();
-            using var cmd  = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Zlecenie",   d.IDZlecenia);
-            cmd.Parameters.AddWithValue("@Realizacja",  realizacjaId);
-            cmd.Parameters.AddWithValue("@KosztMat",   kosztMat);
-            cmd.Parameters.AddWithValue("@KosztOp",    kosztOp);
-            cmd.Parameters.AddWithValue("@KosztStan",  kosztStan);
-            cmd.Parameters.AddWithValue("@KosztCal",   kosztCal);
-            cmd.ExecuteNonQuery();
-        }
-
-        // ============================================================
-        // INSERT — Wskazniki OEE / FTY per cykl
-        // ============================================================
-
-                public List<(int id, int idWyrobu, int iloscSztuk, int priority, int rozpoczetoSztuk)> GetActiveOrders()
+        public List<(int id, int idWyrobu, int iloscSztuk, int priority, int rozpoczetoSztuk)> GetActiveOrders()
         {
             const string sql = @"
                 SELECT TOP 500 ID_Zlecenia, ID_Wyrobu, Ilosc_Sztuk, PriorytetNum, ISNULL(Rozpoczeto_Sztuk, 0)
@@ -216,7 +140,10 @@ namespace PlcToDbMiddleware
             const string sql = @"
                 UPDATE [dbo].[Zlecenie_Produkcyjne]
                 SET Rozpoczeto_Sztuk = ISNULL(Rozpoczeto_Sztuk, 0) + 1,
-                    Status_Zlecenia = 'W toku'
+                    Status_Zlecenia  = 'W toku',
+                    -- Godzina startu tylko przy pierwszej sztuce - kolejne nie maja
+                    -- przesuwac poczatku zlecenia.
+                    StartedAt        = ISNULL(StartedAt, GETDATE())
                 WHERE ID_Zlecenia = @ID;
                 ";
             using var conn = OpenConnection();
@@ -305,51 +232,6 @@ namespace PlcToDbMiddleware
                 Console.WriteLine($"[WARN] Zlecenie {idZlecenia}: nie udalo sie zdjac materialu ze stanu: {ex.Message}");
             }
         }
-        public void InsertWskazniki(PlcData d, int realizacjaId)
-        {
-            double dostepnosc = d.CzasSplywuMs > 0
-                ? Math.Clamp((double)(d.CzasSplywuMs - d.CzasPostojuMs) / d.CzasSplywuMs, 0.0, 1.0)
-                : 1.0;
-
-            double wydajnosc = (d.CzasPlanowanyMs > 0 && d.CzasCykluMs > 0)
-                ? Math.Clamp((double)d.CzasPlanowanyMs / d.CzasCykluMs, 0.0, 1.5)
-                : 1.0;
-
-            double jakosc = d.IloscWyprodukowanych > 0
-                ? Math.Clamp((double)(d.IloscWyprodukowanych - d.LiczbaWadliwych)
-                             / d.IloscWyprodukowanych, 0.0, 1.0)
-                : 1.0;
-
-            double oee     = dostepnosc * wydajnosc * jakosc;
-            double fty     = jakosc;
-            double h       = d.CzasCykluMs / 3_600_000.0;
-            double wydPracy = h > 0 ? Math.Min(d.IloscWyprodukowanych / h, 999999.0) : 0.0;
-
-            const string sql = @"
-                INSERT INTO [dbo].[Wskazniki]
-                    (ID_Zlecenia, ID_Realizacji, ID_Stanowiska,
-                     Wydajnosc, Dostepnosc, Jakosc, Wskaznik_OEE,
-                     Czas_Realizacji_ms, Wydajnosc_Pracy_Operatora, Czas_Cyklu_ms, Wskaznik_FTY)
-                VALUES
-                    (@Zlecenie, @Realizacja, @Stanowisko,
-                     @P, @A, @Q, @OEE,
-                     @CzasReal, @WydPracy, @CzasCyklu, @FTY)";
-
-            using var conn = OpenConnection();
-            using var cmd  = new SqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@Zlecenie",   d.IDZlecenia);
-            cmd.Parameters.AddWithValue("@Realizacja",  realizacjaId);
-            cmd.Parameters.AddWithValue("@Stanowisko",  d.IDStanowiska);
-            cmd.Parameters.AddWithValue("@P",           (decimal)wydajnosc);
-            cmd.Parameters.AddWithValue("@A",           (decimal)dostepnosc);
-            cmd.Parameters.AddWithValue("@Q",           (decimal)jakosc);
-            cmd.Parameters.AddWithValue("@OEE",         (decimal)oee);
-            cmd.Parameters.AddWithValue("@CzasReal",    d.CzasSplywuMs);
-            cmd.Parameters.AddWithValue("@WydPracy",    (decimal)wydPracy);
-            cmd.Parameters.AddWithValue("@CzasCyklu",   d.CzasCykluMs);
-            cmd.Parameters.AddWithValue("@FTY",         (decimal)fty);
-            cmd.ExecuteNonQuery();
-        }
 
         // ============================================================
         // POWIADOMIENIA — Abort dotyczy TYLKO jednej sztuki, nie calego zlecenia,
@@ -364,6 +246,25 @@ namespace PlcToDbMiddleware
         public void ZapiszPowiadomienieAbortu(int slotIndex, int idZlecenia, int idStanowiska)
         {
             using var conn = OpenConnection();
+
+            // Numer zlecenia musi istniec w bazie. Bez tego sprawdzenia kazdy blednie
+            // odczytany bajt z DB3 stawal sie "porzuceniem sztuki": po zmianie rozmiaru
+            // udtZlecenia (140 -> 142 B) Middleware czytal jeszcze stara mapa i wygenerowal
+            // 165 powiadomien dla nieistniejacego zlecenia 1970. Gorzej - kazde z nich
+            // zostawilo wpis w tabeli deduplikacji, ktory blokowalby PRAWDZIWY abort
+            // na tym slocie. Smieci odrzucamy przed zapisaniem czegokolwiek.
+            using (var istnieje = new SqlCommand(
+                "SELECT 1 FROM Zlecenie_Produkcyjne WHERE ID_Zlecenia = @ID", conn))
+            {
+                istnieje.Parameters.AddWithValue("@ID", idZlecenia);
+                if (istnieje.ExecuteScalar() == null)
+                {
+                    Console.WriteLine($"[WARN] Abort dla nieistniejacego zlecenia {idZlecenia} "
+                                    + $"(slot {slotIndex}, stanowisko {idStanowiska}) - pomijam. "
+                                    + "Sprawdz, czy uklad DB_Zlecenia zgadza sie z mapa w PlcReader.");
+                    return;
+                }
+            }
 
             // Sprawdz czy to zdarzenie juz zostalo przetworzone (dowolna wczesniejsza sesja Middleware)
             using (var check = new SqlCommand(
@@ -447,7 +348,7 @@ namespace PlcToDbMiddleware
         /// ta sama sztuka nie policzy sie dwa razy mimo cyklicznego skanowania tablicy PLC.
         /// Zwraca true, jesli sztuka byla nowa i zostala doliczona.
         /// </summary>
-        public bool ZarejestrujSztukePoQC(int idZlecenia, int partNo, bool ok)
+        public bool ZarejestrujSztukePoQC(int idZlecenia, int partNo, bool ok, string? powodNOK = null)
         {
             using var conn = OpenConnection();
 
@@ -460,17 +361,19 @@ namespace PlcToDbMiddleware
             }
 
             using (var ins = new SqlCommand(
-                "INSERT INTO SztukiPrzetworzone (ID_Zlecenia, PartNo, WynikOK) VALUES (@ID, @P, @OK)", conn))
+                "INSERT INTO SztukiPrzetworzone (ID_Zlecenia, PartNo, WynikOK, PowodNOK) VALUES (@ID, @P, @OK, @Pow)", conn))
             {
                 ins.Parameters.AddWithValue("@ID", idZlecenia);
                 ins.Parameters.AddWithValue("@P", partNo);
                 ins.Parameters.AddWithValue("@OK", ok);
+                ins.Parameters.AddWithValue("@Pow", (object?)powodNOK ?? DBNull.Value);
                 ins.ExecuteNonQuery();
             }
 
             IncrementQcWynik(idZlecenia, ok);
             UzupelnijJakoscWskaznikow(idZlecenia);
-            Console.WriteLine($"[INFO] QC: zlecenie {idZlecenia}, sztuka {partNo} -> {(ok ? "OK" : "NOK")}");
+            Console.WriteLine($"[INFO] QC: zlecenie {idZlecenia}, sztuka {partNo} -> {(ok ? "OK" : "NOK")}"
+                            + (powodNOK is null ? "" : $" ({powodNOK})"));
             return true;
         }
 
@@ -745,7 +648,12 @@ namespace PlcToDbMiddleware
                 cmd.ExecuteNonQuery();
             }
 
-            ZapiszWskaznikiCyklu(conn, idStanowiska, nrZlecenia, czasCykluMs, czasZadanyMs, przeplyw);
+            // Wskazniki OEE dopiero po CALYM cyklu, czyli gdy sztuka zejdzie z QC.
+            // Wczesniej wpis powstawal po kazdym stanowisku i OEE na pulpicie
+            // podskakiwalo juz po zakonczeniu pracy na stanowisku 1, zanim sztuka
+            // w ogole przejechala linie.
+            if (idStanowiska == STANOWISKO_QC)
+                ZapiszWskaznikiPelnegoCyklu(conn, nrZlecenia, przeplyw);
 
             if (czasZadanyMs <= 0) return null;   // brak normy - nie ma z czym porownac
 
@@ -778,37 +686,90 @@ namespace PlcToDbMiddleware
         private const int MAX_LUKA_MS = 5 * 60 * 1000;
 
 
+        /// <summary>Numer stanowiska kontroli jakosci - ostatni etap linii.</summary>
+        private const int STANOWISKO_QC = 4;
+
+
         /// <summary>
-        /// Dopisuje wiersz do Wskazniki po zamknietym cyklu stanowiska. Bez tego caly blok
-        /// OEE na pulpicie stal na zerach - stary wyzwalacz liczyl wskazniki przy INSERT do
-        /// Realizacja_Produkcji, a ta tabela nie dostaje rekordow.
+        /// Jeden wpis OEE na PRZEJECHANA SZTUKE - zakladany dopiero po zejsciu z QC.
+        /// Wczesniej powstawal po kazdym stanowisku z osobna, przez co wskaznik
+        /// na pulpicie ruszal juz po stanowisku 1.
         ///
-        /// Metodyka (wariant uzgodniony - dostepnosc z luk miedzy sztukami):
-        ///   A = czas pracy / (czas pracy + zmierzone luki miedzy kolejnymi sztukami)
-        ///       luki dluzsze niz MAX_LUKA_MS pomijamy - to przerwa w zajeciach, nie przestoj
-        ///   P = czas zadany / czas rzeczywisty, przyciety do 100% (tak jak w metodyce OEE)
-        ///   Q = SztukOK / (SztukOK + SztukNOK) biezacego zlecenia
-        ///   OEE = A x P x Q
+        /// Skladowe licza sie z ostatnich cykli wszystkich stanowisk tego zlecenia:
+        ///   Wydajnosc  - suma czasow zadanych / suma czasow rzeczywistych,
+        ///   Dostepnosc - praca / (praca + transport palety), gdzie transport to
+        ///                czas od konca pierwszego stanowiska do konca QC pomniejszony
+        ///                o prace stanowisk posrednich,
+        ///   Jakosc     - biezacy bilans OK/NOK zlecenia.
         /// </summary>
-        private void ZapiszWskaznikiCyklu(SqlConnection conn, int idStanowiska, int nrZlecenia,
-                                          int czasCykluMs, int czasZadanyMs,
-                                          PlcReader.PrzeplywSztuki? przeplyw)
+        private void ZapiszWskaznikiPelnegoCyklu(SqlConnection conn, int nrZlecenia,
+                                                 PlcReader.PrzeplywSztuki? przeplyw)
         {
-            // ── Dostepnosc: praca kontra TRANSPORT PALETY miedzy stanowiskami ──
-            // Sumy liczy PlcReader w obrebie JEDNEGO rekordu sztuki (StartTime/EndTime
-            // z DB3), bo zlecenie wielosztukowe zajmuje kilka slotow z tym samym ID
-            // i korelowanie po numerze zlecenia mieszaloby ze soba rozne sztuki jadace
-            // rownolegle. Gdy PLC nie ma jeszcze tych czasow - zostaje sam biezacy cykl.
-            double pracaMs = przeplyw?.PracaMs > 0 ? przeplyw.PracaMs : czasCykluMs;
-            double lukiMs  = przeplyw?.TransportMs ?? 0;
+            var etapy = new List<(int stanowisko, double cyklMs, double zadanyMs, DateTime koniec)>();
+
+            using (var cmd = new SqlCommand(@"
+                ;WITH Ost AS (
+                    SELECT ID_Stanowiska, Czas_Cyklu_ms, Czas_Zadany_ms, Czas_Zakonczenia,
+                           ROW_NUMBER() OVER (PARTITION BY ID_Stanowiska ORDER BY ID DESC) AS rn
+                    FROM HistoriaCykli
+                    WHERE ID_Zlecenia = @Z
+                )
+                SELECT ID_Stanowiska, Czas_Cyklu_ms, ISNULL(Czas_Zadany_ms, 0), Czas_Zakonczenia
+                FROM Ost WHERE rn = 1
+                ORDER BY ID_Stanowiska", conn))
+            {
+                cmd.Parameters.AddWithValue("@Z", nrZlecenia);
+                using var rdr = cmd.ExecuteReader();
+                while (rdr.Read())
+                    etapy.Add((rdr.GetInt32(0), Convert.ToDouble(rdr[1]),
+                               Convert.ToDouble(rdr[2]), Convert.ToDateTime(rdr[3])));
+            }
+
+            if (etapy.Count == 0) return;
+
+            double pracaMs  = etapy.Sum(e => e.cyklMs);
+
+            // Transport bierzemy WPROST z PLC: czasy StartTime/EndTime tej sztuki na
+            // kazdym stanowisku (DTL w DB3), czyli luka miedzy zejsciem z jednego
+            // stanowiska a wejsciem na kolejne.
+            //
+            // Wczesniej liczylem go przez odejmowanie: rozpietosc od stanowiska 1 do QC
+            // minus praca stanowisk posrednich. To zalozenie - ze stanowiska pracuja
+            // po kolei - jest tu falszywe: linia prowadzi kilka sztuk rownolegle, wiec
+            // czasy pracy sie nakladaja i ich suma bywa WIEKSZA niz cala rozpietosc.
+            // Roznica wychodzila ujemna, przycinala sie do zera i dostepnosc siadala
+            // na sztywnym 100% niezaleznie od tego, jak dlugo paletka jechala.
+            double lukiMs;
+            if (przeplyw is { TransportMs: > 0 })
+            {
+                lukiMs = Math.Min(przeplyw.TransportMs, MAX_LUKA_MS);
+            }
+            else if (etapy.Count > 1)
+            {
+                // Zapas na wypadek, gdyby PLC nie mial jeszcze kompletu czasow.
+                // Ujemny wynik oznacza nakladajace sie cykle - wtedy nie mamy czego
+                // policzyc i zostawiamy zero.
+                double rozpietosc = (etapy[^1].koniec - etapy[0].koniec).TotalMilliseconds;
+                lukiMs = Math.Clamp(rozpietosc - etapy.Skip(1).Sum(e => e.cyklMs), 0, MAX_LUKA_MS);
+            }
+            else lukiMs = 0;
+
+            // Praca tej konkretnej sztuki, jesli PLC ja zna - suma z HistoriaCykli
+            // moze obejmowac cykle innych sztuk tego samego zlecenia.
+            if (przeplyw is { PracaMs: > 0 }) pracaMs = przeplyw.PracaMs;
+
             double dostepnosc = (pracaMs + lukiMs) > 0 ? pracaMs / (pracaMs + lukiMs) : 1.0;
 
-            // ── Wydajnosc: norma kontra rzeczywistosc, przycieta do 100% ────
-            double wydajnosc = (czasZadanyMs > 0 && czasCykluMs > 0)
-                ? Math.Min(1.0, (double)czasZadanyMs / czasCykluMs)
+            // Wydajnosc: srednia z PRZYCIETYCH wynikow poszczegolnych stanowisk,
+            // a nie iloraz sum. Przy ilorazie sum jedno stanowisko robiace grubo
+            // ponizej normy (np. 220% przy zawyzonej normie) zasypywalo pozostale
+            // i calosc siadala na sztywnym 100%, mimo ze stanowiska pokazywaly
+            // 77% i 54%. Przyciecie kazdego etapu z osobna na to nie pozwala.
+            var etapyZNorma = etapy.Where(e => e.zadanyMs > 0 && e.cyklMs > 0).ToList();
+            double wydajnosc = etapyZNorma.Count > 0
+                ? etapyZNorma.Average(e => Math.Min(1.0, e.zadanyMs / e.cyklMs))
                 : 1.0;
 
-            // ── Jakosc: stan zlecenia na ten moment ─────────────────────────
             double jakosc = 1.0;
             using (var cmd = new SqlCommand(
                 "SELECT ISNULL(SztukOK,0), ISNULL(SztukNOK,0) FROM Zlecenie_Produkcyjne WHERE ID_Zlecenia = @Z", conn))
@@ -831,19 +792,19 @@ namespace PlcToDbMiddleware
                 VALUES (@Z, @S, @P, @A, @Q, @OEE, @Real, @Cykl, @FTY)", conn))
             {
                 cmd.Parameters.AddWithValue("@Z",    nrZlecenia);
-                cmd.Parameters.AddWithValue("@S",    idStanowiska);
+                cmd.Parameters.AddWithValue("@S",    STANOWISKO_QC);
                 cmd.Parameters.AddWithValue("@P",    Math.Round(wydajnosc,  4));
                 cmd.Parameters.AddWithValue("@A",    Math.Round(dostepnosc, 4));
                 cmd.Parameters.AddWithValue("@Q",    Math.Round(jakosc,     4));
                 cmd.Parameters.AddWithValue("@OEE",  Math.Round(oee,        4));
-                cmd.Parameters.AddWithValue("@Real", czasCykluMs);
-                cmd.Parameters.AddWithValue("@Cykl", czasCykluMs);
+                cmd.Parameters.AddWithValue("@Real", (int)(pracaMs + lukiMs));
+                cmd.Parameters.AddWithValue("@Cykl", (int)pracaMs);
                 cmd.Parameters.AddWithValue("@FTY",  Math.Round(jakosc,     4));
                 cmd.ExecuteNonQuery();
             }
 
-            Console.WriteLine($"[INFO] Wskazniki st.{idStanowiska}: A={dostepnosc:P0} P={wydajnosc:P0} "
-                            + $"Q={jakosc:P0} -> OEE={oee:P0}");
+            Console.WriteLine($"[INFO] Wskazniki calego cyklu (zlecenie {nrZlecenia}, {etapy.Count} stanowisk): "
+                            + $"A={dostepnosc:P0} P={wydajnosc:P0} Q={jakosc:P0} -> OEE={oee:P0}");
         }
 
         /// <summary>

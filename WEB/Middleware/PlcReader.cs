@@ -14,7 +14,6 @@ namespace PlcToDbMiddleware
         private const int DB = 5;
 
         // �� Istniejace pola (nie zmieniac) ������������������������������
-        private const int OFF_TRIGGER          = 0;   // DBX0.0   Bool
         private const int OFF_NUMER_ZLECENIA   = 2;   // String[50]
         private const int OFF_NUMER_OPERACJI   = 54;  // DInt  (uzywany do logow)
         private const int OFF_NUMER_PALETKI    = 58;  // String[50]
@@ -43,46 +42,13 @@ namespace PlcToDbMiddleware
             Console.WriteLine("Polaczono z PLC!");
         }
 
-        public bool ReadTrigger()
-        {
-            return _plc.Read($"DB{DB}.DBX{OFF_TRIGGER}.0") is true;
-        }
-
-        public RawPlcData ReadProductionData()
-        {
-            string ReadStr(int offset, int maxLen)
-            {
-                var obj = _plc.Read(DataType.DataBlock, DB, offset, VarType.S7String, maxLen);
-                return obj as string ?? string.Empty;
-            }
-
-            int ReadDInt(int offset)
-            {
-                var obj = _plc.Read($"DB{DB}.DBD{offset}");
-                return obj is uint u ? (int)u : 0;
-            }
-
-            return new RawPlcData
-            {
-                NumerZlecenia        = ReadStr(OFF_NUMER_ZLECENIA, 50),
-                NazwaStanowiska      = ReadStr(OFF_STANOWISKO, 50),
-                NazwaOperatora       = ReadStr(OFF_OPERATOR, 50),
-                CzasCykluMs          = ReadDInt(OFF_CZAS_CYKLU),
-                WynikQC              = _plc.Read($"DB{DB}.DBX{OFF_WYNIK_QC}.0") is true,
-                // Nowe pola � wymagaja dodania w TIA Portal
-                IloscWyprodukowanych = ReadDInt(OFF_ILOSC_WYPROD),
-                LiczbaWadliwych      = ReadDInt(OFF_LICZBA_WAD),
-                KodPostoju           = ReadStr(OFF_KOD_POSTOJU, 20)
-            };
-        }
-
-                        // DB_Zlecenia.NastepneZlecenie.Zlecenie — DB3, offsety wg struktury w TIA:
-        // ID=27600, Model=27602, PartNo=27604, Priority=27736
-        // UWAGA: te offsety zaleza od rozmiaru udtZlecenia w TIA. Rekord urosl kiedys
-        // ze 138 na 140 bajtow (dodano Status Array[0..3] of Bool na koncu), co przesunelo
-        // cala mape o 400 bajtow. Przy kazdej zmianie UDT trzeba je zaktualizowac -
-        // startowa walidacja ponizej wykryje rozjazd i zglosi go w logu.
-        private const int OFF_NASTEPNE_BAZA     = 28000;   // NastepneZlecenie.Zlecenie
+        // DB_Zlecenia.NastepneZlecenie.Zlecenie - DB3: ID=28400, Model=28402, PartNo=28404, Priority=28536
+        // UWAGA: te offsety zaleza od rozmiaru udtZlecenia w TIA. Rekord rosl juz dwa razy:
+        // 138 -> 140 (doszedl Status Array[0..3] of Bool), a potem 140 -> 142 (doszedl
+        // NOK Struct z powodami odrzutu). Kazdy taki wzrost przesuwa cala mape o 200 x delta.
+        // Przy kolejnej zmianie UDT trzeba je zaktualizowac - startowa walidacja ponizej
+        // wykryje rozjazd i zglosi go w logu.
+        private const int OFF_NASTEPNE_BAZA     = 28400;   // NastepneZlecenie.Zlecenie (200 x 142)
         private const int OFF_NASTEPNE_ID       = OFF_NASTEPNE_BAZA + 0;
         private const int OFF_NASTEPNE_MODEL    = OFF_NASTEPNE_BAZA + 2;
         private const int OFF_NASTEPNE_PARTNO   = OFF_NASTEPNE_BAZA + 4;
@@ -169,7 +135,7 @@ namespace PlcToDbMiddleware
 
         // DB_Zlecenia.ResetZlecen. Zapisujemy tylko TRUE (trigger);
         // PLC ma wlasna logike zerujaca ten bit po wykonaniu resetu.
-        private const int OFF_RESET_ZLECEN = 28280;   // za PusteZlecenie (28140 + 140)
+        private const int OFF_RESET_ZLECEN = 28684;   // za PusteZlecenie (28542 + 142)
 
         /// <summary>Adres bitu ResetZlecen do logow - zeby komunikat nie rozjechal sie z offsetem.</summary>
         public static string AdresResetZlecen => $"DB3.DBX{OFF_RESET_ZLECEN}.0";
@@ -356,6 +322,34 @@ namespace PlcToDbMiddleware
         private const int REL_PARTNO     = 4;
         private const int REL_RETURN_QC  = 134;   // Bool: true = wyrob poprawny
         private const int REL_STATUS     = 138;   // Array[0..3] of Bool w jednym bajcie (bity 0-3)
+        private const int REL_NOK        = 140;   // NOK Struct - powody odrzutu, bity 0-5 w jednym bajcie
+
+        /// <summary>
+        /// Powody odrzutu z DB_Zlecenia.Zlecenie[x].NOK - operator zaznacza je na HMI
+        /// przy werdykcie NOK. Kolejnosc odpowiada bitom 140.0-140.5 w TIA.
+        /// </summary>
+        private static readonly string[] POWODY_NOK =
+        {
+            "Brak klocka",      // 140.0 NoBrick
+            "Zly kolor",        // 140.1 WrongColour
+            "Przesuniecie",     // 140.2 Offset
+            "Uszkodzenie",      // 140.3 Damage
+            "Zla liczba",       // 140.4 WrongNumber
+            "Inny"              // 140.5 Other
+        };
+
+        /// <summary>
+        /// Skleja zaznaczone powody odrzutu w jeden opis. Operator moze zaznaczyc kilka,
+        /// wiec zwracamy wszystkie po przecinku. Brak zaznaczenia = null (nie podano powodu).
+        /// </summary>
+        private static string? PowodyNOK(byte bajt)
+        {
+            var powody = new List<string>();
+            for (int bit = 0; bit < POWODY_NOK.Length; bit++)
+                if ((bajt & (1 << bit)) != 0) powody.Add(POWODY_NOK[bit]);
+
+            return powody.Count > 0 ? string.Join(", ", powody) : null;
+        }
         private const int BIT_STATUS_QC  = 3;     // Status[3] = stanowisko QC (kolejnosc jak w strukturze Time)
 
         // udtZlecenia.Time - podstruktura na kazde stanowisko, krok 30 B:
@@ -451,7 +445,7 @@ namespace PlcToDbMiddleware
             return ParseDTL(dtl);
         }
 
-        public record SztukaQC(int SlotIndex, int IdZlecenia, int PartNo, bool WynikOK);
+        public record SztukaQC(int SlotIndex, int IdZlecenia, int PartNo, bool WynikOK, string? PowodNOK = null);
 
         /// <summary>
         /// Liczy sztuki danego zlecenia juz obecne w tablicy Zlecenie[] - czyli takie,
@@ -540,7 +534,11 @@ namespace PlcToDbMiddleware
                 short partNo = (short)((buf[b + REL_PARTNO] << 8) | buf[b + REL_PARTNO + 1]);
                 bool  ok     = (buf[b + REL_RETURN_QC] & 0x01) != 0;
 
-                wynik.Add(new SztukaQC(i, id, partNo, ok));
+                // Powod odrzutu ma sens tylko przy NOK - przy OK bity i tak sa wyzerowane,
+                // ale nie chcemy przypadkiem pokazac resztki po poprzedniej sztuce w slocie.
+                string? powod = ok ? null : PowodyNOK(buf[b + REL_NOK]);
+
+                wynik.Add(new SztukaQC(i, id, partNo, ok, powod));
             }
             return wynik;
         }
@@ -591,15 +589,10 @@ namespace PlcToDbMiddleware
             }
         }
 
-        public void ResetTrigger()
-        {
-            _plc.Write($"DB{DB}.DBX{OFF_TRIGGER}.0", false);
-        }
-
         // DB_Zlecenia.Zlecenie[0..199] - archiwum zlecen ktore przeszly przez stanowiska.
         // Rozmiar 1 elementu = 138 bajtow (potwierdzone: Zlecenie[1] zaczyna sie na offset 138.0).
         // Abort jest osobnym bitem (bajt) w bloku Time kazdego stanowiska.
-        private const int ZLECENIE_ELEMENT_SIZE = 140;   // udtZlecenia: 138 -> 140 (doszedl Status)
+        private const int ZLECENIE_ELEMENT_SIZE = 142;   // udtZlecenia: 138 -> 140 (Status) -> 142 (NOK)
         private const int ZLECENIE_COUNT        = 200;
         private const int OFF_ID                = 0;
         private const int OFF_ABORT_ST1         = 34;

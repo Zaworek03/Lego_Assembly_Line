@@ -332,12 +332,15 @@ namespace LiniaProdukcyjnaDashboard.Services
                 OUTER APPLY (
                     SELECT TOP 1 z.Nazwa_Zlecenia, z.ID_Wyrobu
                     FROM [dbo].[Zlecenie_Produkcyjne] z
+                    -- WYLACZNIE zlecenie, ktorego numer PLC podal dla TEGO stanowiska.
+                    -- Wczesniej byl tu fallback na dowolne aktywne zlecenie, gdy stanowisko
+                    -- nie mialo swojego numeru - przez to wystarczylo wystartowac jedno
+                    -- zlecenie, by wszystkie cztery karty od razu pokazywaly ten sam wyrob,
+                    -- mimo ze paletka nigdy tam nie dojechala. Numer pojawia sie dopiero
+                    -- po zczytaniu tagu na stanowisku; do tego czasu karta pokazuje to,
+                    -- co naprawde bylo tam ostatnio (StanowiskoOstatnie).
                     WHERE z.IsDeleted = 0
-                      AND (z.ID_Zlecenia = s.Nr_Zlecenia
-                           OR (s.Nr_Zlecenia IS NULL AND z.Status_Zlecenia IN ('W toku','Nowe')))
-                    ORDER BY CASE WHEN z.ID_Zlecenia = s.Nr_Zlecenia THEN 0 ELSE 1 END,
-                             CASE WHEN z.Status_Zlecenia = 'W toku' THEN 0 ELSE 1 END,
-                             z.PriorytetNum DESC, z.ID_Zlecenia DESC
+                      AND z.ID_Zlecenia = s.Nr_Zlecenia
                 ) zp
                 LEFT JOIN [dbo].[Wyrob] wy ON zp.ID_Wyrobu = wy.ID_Wyrobu
                 LEFT JOIN [dbo].[Proces_Montazu] pmLast ON pmLast.ID_Wyrobu = zp.ID_Wyrobu

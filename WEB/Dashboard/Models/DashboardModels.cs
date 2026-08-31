@@ -57,6 +57,13 @@
         public int    IloscSztuk { get; set; }
         public int    SztukOK    { get; set; }
         public int    SztukNOK   { get; set; }
+
+        /// <summary>
+        /// Powody odrzutu sztuk NOK, sklejone w chwili tworzenia raportu.
+        /// Reset zajec czysci SztukiPrzetworzone, wiec raport musi miec wlasna kopie.
+        /// null = nie podano zadnego powodu.
+        /// </summary>
+        public string? PowodyNOK { get; set; }
     }
 
     public class RaportMaterial
@@ -314,11 +321,18 @@
         public string StartGodzina => StartedAt?.ToString("HH:mm") ?? "—";
         public string KoniecGodzina => CompletedAt?.ToString("HH:mm") ?? "—";
 
+        /// <summary>
+        /// Sztuki, ktore zeszly juz z linii - z werdyktem QC, obojetnie jakim.
+        /// Odrzut tez jest zamknietym etapem produkcji: paletka pojechala dalej,
+        /// materialu nie da sie cofnac i zlecenie nie bedzie jej powtarzac.
+        /// </summary>
+        public int Rozliczone => SztukOK + SztukNOK;
+
         public double PostepProcent => IloscSztuk > 0
-            ? Math.Min(100.0, SztukOK * 100.0 / IloscSztuk)
+            ? Math.Min(100.0, Rozliczone * 100.0 / IloscSztuk)
             : 0;
 
-        public int Pozostalo => Math.Max(0, IloscSztuk - SztukOK);
+        public int Pozostalo => Math.Max(0, IloscSztuk - Rozliczone);
 
         public bool MoznaRozpoczac => StatusZlecenia == "Nowe" || StatusZlecenia == "Wstrzymane";
         public bool WToku          => StatusZlecenia == "W toku";
@@ -331,6 +345,16 @@
     {
         public List<ZlecenieMaterialVM> Materialy    { get; set; } = new();
         public int                      CalkowityCzasMs { get; set; }
+
+        /// <summary>Odrzucone sztuki wraz z powodem zaznaczonym przez operatora na HMI.</summary>
+        public List<SztukaNOK>          OdrzuconeSztuki { get; set; } = new();
+    }
+
+    /// <summary>Pojedyncza sztuka odrzucona na QC - numer sztuki i powod z HMI.</summary>
+    public class SztukaNOK
+    {
+        public int     PartNo { get; set; }
+        public string? Powod  { get; set; }
     }
 
     // ── Materiał zlecenia (wynik eksplozji BOM) ───────────────────────

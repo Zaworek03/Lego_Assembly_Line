@@ -46,10 +46,6 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xNYWdhenluLnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
 
-[C:/Users/Rizz & Bricks inc/Documents/Lego_Assembly_Line/WEB/Dashboard/Components/Pages/NotFound.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xOb3RGb3VuZC5yYXpvcg==
-build_metadata.AdditionalFiles.CssScope = 
-
 [C:/Users/Rizz & Bricks inc/Documents/Lego_Assembly_Line/WEB/Dashboard/Components/Pages/Raporty.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSYXBvcnR5LnJhem9y
 build_metadata.AdditionalFiles.CssScope = 
@@ -73,11 +69,3 @@ build_metadata.AdditionalFiles.CssScope =
 [C:/Users/Rizz & Bricks inc/Documents/Lego_Assembly_Line/WEB/Dashboard/Components/Layout/MainLayout.razor]
 build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
 build_metadata.AdditionalFiles.CssScope = b-jbk4p8m03b
-
-[C:/Users/Rizz & Bricks inc/Documents/Lego_Assembly_Line/WEB/Dashboard/Components/Layout/NavMenu.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTmF2TWVudS5yYXpvcg==
-build_metadata.AdditionalFiles.CssScope = b-ydim53h0sq
-
-[C:/Users/Rizz & Bricks inc/Documents/Lego_Assembly_Line/WEB/Dashboard/Components/Layout/ReconnectModal.razor]
-build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcUmVjb25uZWN0TW9kYWwucmF6b3I=
-build_metadata.AdditionalFiles.CssScope = b-3933oebh9a

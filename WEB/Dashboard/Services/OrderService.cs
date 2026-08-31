@@ -224,6 +224,25 @@ namespace LiniaProdukcyjnaDashboard.Services
             czasCmd.Parameters.AddWithValue("@Ilosc", detail.IloscSztuk);
             detail.CalkowityCzasMs = Convert.ToInt32(await czasCmd.ExecuteScalarAsync() ?? 0);
 
+            // Odrzucone sztuki z powodem zaznaczonym przez operatora na HMI.
+            // Tylko do szczegolow - na kartach i listach zlecen ta informacja
+            // nie ma sie pojawiac.
+            await using (var nokCmd = new SqlCommand(@"
+                SELECT PartNo, PowodNOK
+                FROM SztukiPrzetworzone
+                WHERE ID_Zlecenia = @ID AND WynikOK = 0
+                ORDER BY PartNo", conn))
+            {
+                nokCmd.Parameters.AddWithValue("@ID", id);
+                await using var nokRdr = await nokCmd.ExecuteReaderAsync();
+                while (await nokRdr.ReadAsync())
+                    detail.OdrzuconeSztuki.Add(new SztukaNOK
+                    {
+                        PartNo = nokRdr.GetInt32(0),
+                        Powod  = nokRdr.IsDBNull(1) ? null : nokRdr.GetString(1)
+                    });
+            }
+
             return detail;
         }
 
@@ -602,9 +621,17 @@ namespace LiniaProdukcyjnaDashboard.Services
 
             // Historia zlecen - wszystkie, razem ze statusami
             await using (var cmd = new SqlCommand(@"
-                INSERT INTO RaportZlecenia (ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK)
+                INSERT INTO RaportZlecenia (ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK, PowodyNOK)
                 SELECT @R, zp.Nazwa_Zlecenia, w.Nazwa_Wyrobu, zp.Status_Zlecenia,
-                       zp.Ilosc_Sztuk, ISNULL(zp.SztukOK,0), ISNULL(zp.SztukNOK,0)
+                       zp.Ilosc_Sztuk, ISNULL(zp.SztukOK,0), ISNULL(zp.SztukNOK,0),
+                       -- Powody odrzutu z odrzuconych sztuk tego zlecenia. Reset zajec
+                       -- czysci SztukiPrzetworzone, wiec przepisujemy je tu na trwale.
+                       STUFF((SELECT N', ' + CONCAT(N'szt. ', sp.PartNo, N' - ', sp.PowodNOK)
+                              FROM SztukiPrzetworzone sp
+                              WHERE sp.ID_Zlecenia = zp.ID_Zlecenia
+                                AND sp.WynikOK = 0 AND sp.PowodNOK IS NOT NULL
+                              ORDER BY sp.PartNo
+                              FOR XML PATH(''), TYPE).value('.', 'nvarchar(400)'), 1, 2, N'')
                 FROM Zlecenie_Produkcyjne zp
                 LEFT JOIN Wyrob w ON zp.ID_Wyrobu = w.ID_Wyrobu
                 ORDER BY zp.ID_Zlecenia", conn, tx))
@@ -685,7 +712,7 @@ namespace LiniaProdukcyjnaDashboard.Services
             if (!zeSzczegolami || raporty.Count == 0) return raporty;
 
             await using (var cmd = new SqlCommand(
-                "SELECT ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK FROM RaportZlecenia ORDER BY ID", conn))
+                "SELECT ID_Raportu, Nazwa, Wyrob, Status, IloscSztuk, SztukOK, SztukNOK, PowodyNOK FROM RaportZlecenia ORDER BY ID", conn))
             await using (var rdr = await cmd.ExecuteReaderAsync())
             {
                 while (await rdr.ReadAsync())
@@ -694,7 +721,8 @@ namespace LiniaProdukcyjnaDashboard.Services
                         Nazwa = rdr.GetString(1),
                         Wyrob = rdr.IsDBNull(2) ? null : rdr.GetString(2),
                         Status = rdr.GetString(3), IloscSztuk = rdr.GetInt32(4),
-                        SztukOK = rdr.GetInt32(5), SztukNOK = rdr.GetInt32(6)
+                        SztukOK = rdr.GetInt32(5), SztukNOK = rdr.GetInt32(6),
+                        PowodyNOK = rdr.IsDBNull(7) ? null : rdr.GetString(7)
                     });
             }
 

@@ -57,17 +57,12 @@ C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\rjsmcshtml.dswa.cache.json
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\scopedcss\Components\Layout\MainLayout.razor.rz.scp.css
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\scopedcss\Components\Layout\NavMenu.razor.rz.scp.css
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\scopedcss\Components\Layout\ReconnectModal.razor.rz.scp.css
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\scopedcss\bundle\LiniaProdukcyjnaDashboard.styles.css
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\scopedcss\projectbundle\LiniaProdukcyjnaDashboard.bundle.scp.css
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\tzxjg6is5z-{0}-qmvjbof2tn-qmvjbof2tn.gz
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\0wz98yz2xy-{0}-jrqzp895hu-jrqzp895hu.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\6uzi0ben4a-{0}-abdmv1u4y3-abdmv1u4y3.gz
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\km110hz45e-{0}-ne14ti1q68-ne14ti1q68.gz
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\8vpbjehiky-{0}-ig5xotzpx5-ig5xotzpx5.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\5pfznduk3t-{0}-8dtypqcaf3-8dtypqcaf3.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\5jfm9ppl3i-{0}-8dtypqcaf3-8dtypqcaf3.gz
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\staticwebassets.build.json
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\staticwebassets.build.json.cache
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\staticwebassets.development.json
@@ -80,5 +75,7 @@ C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\LiniaProdukcyjnaDashboard.genruntimeconfig.cache
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\ref\LiniaProdukcyjnaDashboard.dll
 C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\21jo48oreo-{0}-3qc1llg4ju-3qc1llg4ju.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\qvxoyqxed3-{0}-opn9hszpvw-opn9hszpvw.gz
-C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\lri6rdy0cp-{0}-z1bwcfxu9s-z1bwcfxu9s.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\qvxoyqxed3-{0}-ss7i93v6uy-ss7i93v6uy.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\lri6rdy0cp-{0}-o4yz5k3w30-o4yz5k3w30.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\5pfznduk3t-{0}-g00u0utx76-g00u0utx76.gz
+C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\obj\Debug\net10.0\compressed\5jfm9ppl3i-{0}-g00u0utx76-g00u0utx76.gz

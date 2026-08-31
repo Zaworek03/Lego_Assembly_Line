@@ -8,14 +8,6 @@ namespace PlcToDbMiddleware
         //  KONFIGURACJA
         // ================================================================
 
-        /// <summary>
-        ///  TRUE  = tryb symulacji (bez PLC, dane losowe) — do testowania bazy
-        ///  FALSE = tryb produkcyjny (wymaga polaczenia z PLC)
-        /// </summary>
-        const bool SIMULATION_MODE = false;
-
-        const int SIMULATION_INTERVAL_MS = 4000;
-
         static readonly string PlcIpAddress = "192.168.1.1";
 
         static readonly string ConnectionString =
@@ -51,84 +43,24 @@ namespace PlcToDbMiddleware
 
             var db = new DatabaseHelper(ConnectionString);
 
-            if (SIMULATION_MODE)
-                RunSimulation(db);
-            else
-                RunWithPlc(db);
-        }
+            // Tryb symulacji usuniety - linia pracuje na prawdziwym sterowniku,
+            // a symulator dopisywal do bazy sztuczne cykle obok danych z PLC.
 
-        // ================================================================
-        //  TRYB SYMULACJI — bez PLC
-        // ================================================================
-        static void RunSimulation(DatabaseHelper db)
-        {
-            var rng = new Random();
-
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("╔══════════════════════════════════════════════════╗");
-            Console.WriteLine("║  TRYB SYMULACJI — dane losowe, bez PLC           ║");
-            Console.WriteLine($"║  Nowy cykl co {SIMULATION_INTERVAL_MS / 1000} sekundy. Ctrl+C = stop.          ║");
-            Console.WriteLine("╚══════════════════════════════════════════════════╝");
-            Console.ResetColor();
-
-            // Nazwy musza istniec w bazie danych!
-            string[] stanowiska = {
-                "Stanowisko Montaz 1",
-                "Stanowisko Montaz 2",
-                "Stanowisko Montaz 3",
-                "Stanowisko QC"
-            };
-
-            Console.Write("[SIM] Podaj nazwe zlecenia (musi istniec w tabeli Zlecenie_Produkcyjne): ");
-            string simZlecenie = Console.ReadLine() ?? "ZL-001";
-            if (string.IsNullOrWhiteSpace(simZlecenie)) simZlecenie = "ZL-001";
-
-            Console.WriteLine($"\n[SIM] Start. Zlecenie='{simZlecenie}'\n");
-
-            DateTime lastTrigger = DateTime.Now;
-
+            // Zerwane polaczenie z PLC nie moze konczyc pracy Middleware. Wczesniej
+            // wyjatek z sesji S7 wypadal az tutaj i program zostawal na "nacisnij
+            // dowolny klawisz" - z zewnatrz wygladalo to tak, jakby caly system nagle
+            // przestal dzialac. Teraz po kazdym zerwaniu wstajemy od nowa.
             while (true)
             {
-                Thread.Sleep(SIMULATION_INTERVAL_MS);
+                RunWithPlc(db);
 
-                DateTime now  = DateTime.Now;
-                int splywMs   = (int)(now - lastTrigger).TotalMilliseconds;
-
-                string stanowisko    = stanowiska[rng.Next(stanowiska.Length)];
-                int czasCykluMs      = rng.Next(2500, Math.Max(2600, splywMs - 100));
-                int czasPlanowyMs    = 3500;
-                int iloscWyprod      = 1;
-                int liczbaWad        = rng.Next(100) < 10 ? 1 : 0;
-                int postoiMs         = Math.Max(0, splywMs - czasCykluMs);
-                string? kodPostoju   = postoiMs > 600
-                                           ? (rng.Next(2) == 0 ? "AWARIA" : "PRZERWA")
-                                           : null;
-
-                try
-                {
-                    var stan = db.GetStanowiskoByName(stanowisko);
-                    var op   = db.GetSystemOperator();
-                    var zl   = db.GetZlecenieByName(simZlecenie);
-
-                    var data = BuildPlcData(zl, stan, op, czasCykluMs, czasPlanowyMs,
-                                           iloscWyprod, liczbaWad, kodPostoju,
-                                           liczbaWad == 0, lastTrigger, now, splywMs, postoiMs);
-
-                    Console.WriteLine($"┌─ [{now:HH:mm:ss}] SIM — cykl symulowany");
-                    PrintCycleSummary(data, stan, op, zl);
-                    SaveToDatabase(db, data, stan, op);
-                    db.IncrementRozpoczeteSztuki(zl.ID);
-                }
-                catch (Exception ex)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"[BLAD] {ex.Message}");
-                    Console.ResetColor();
-                }
-
-                lastTrigger = now;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"\n[INFO] Ponowne laczenie z PLC za {SEKUNDY_DO_PONOWIENIA} s...");
+                Console.ResetColor();
+                Thread.Sleep(SEKUNDY_DO_PONOWIENIA * 1000);
             }
         }
+
 
         // ================================================================
         //  TRYB PRODUKCYJNY — prawdziwy PLC
@@ -228,6 +160,12 @@ namespace PlcToDbMiddleware
         // Pomiar czasu pracy stanowiska: moment wejscia w stan 1 i numer zlecenia,
         // ktore wtedy na nim bylo. Realizacja_Produkcji nie dostaje rekordow
         // (martwy wyzwalacz z DB5), wiec to jedyne zrodlo rzeczywistych czasow cyklu.
+        /// <summary>Odstep miedzy probami wznowienia polaczenia z PLC.</summary>
+        const int SEKUNDY_DO_PONOWIENIA = 5;
+
+        /// <summary>Tyle bledow odczytu z rzedu oznacza zerwana sesje S7.</summary>
+        const int MAX_BLEDOW_Z_RZEDU = 8;
+
         static readonly DateTime[] _startPracy   = new DateTime[4];
         static readonly int[]      _zlecenieStartu = { 0, 0, 0, 0 };
 
@@ -246,9 +184,19 @@ namespace PlcToDbMiddleware
             if (stan == 1) {                       // stanowisko wlasnie ruszylo
                 _startPracy[nr - 1]     = DateTime.Now;
                 _zlecenieStartu[nr - 1] = nrZlecenia;
+
+                // Sztuka wchodzi na linie wlasnie tutaj. Wczesniej rejestrowal to
+                // tylko blok obslugi triggera ZapisDoBazy z DB1 - a ten sygnal nie
+                // przychodzi, wiec zlecenie do konca zostawalo w statusie 'Nowe',
+                // bez godziny startu i bez zdjecia materialu ze stanu.
+                if (nr == 1 && nrZlecenia != 0) {
+                    try { db.IncrementRozpoczeteSztuki(nrZlecenia); }
+                    catch (Exception ex) {
+                        Console.WriteLine($"[WARN] Nie udalo sie zarejestrowac startu sztuki: {ex.Message}");
+                    }
+                }
                 return;
             }
-
             if (poprzedni != 1) return;            // nie wychodzimy z pracy - nie ma co mierzyc
             if (_startPracy[nr - 1] == default) return;
 
@@ -362,7 +310,7 @@ namespace PlcToDbMiddleware
         static void SyncWynikiQC(PlcReader plc, DatabaseHelper db) {
             try {
                 foreach (var s in plc.ReadSztukiPoQC()) {
-                    try { db.ZarejestrujSztukePoQC(s.IdZlecenia, s.PartNo, s.WynikOK); }
+                    try { db.ZarejestrujSztukePoQC(s.IdZlecenia, s.PartNo, s.WynikOK, s.PowodNOK); }
                     catch (Exception ex) { Console.WriteLine($"[WARN] QC zlecenie {s.IdZlecenia}/{s.PartNo}: {ex.Message}"); }
                 }
             } catch (Exception ex) {
@@ -424,16 +372,36 @@ namespace PlcToDbMiddleware
         /// Watek ma WLASNE polaczenie z PLC - S7.Net nie jest bezpieczny watkowo, wiec
         /// wspoldzielenie jednego obiektu Plc konczyloby sie przeplotem telegramow.
         /// </summary>
+        /// <summary>
+        /// Watek skanera zyje przez caly czas pracy Middleware i sam sie odtwarza
+        /// po zerwaniu polaczenia - inaczej po jednym zerwaniu QC i aborty
+        /// zostawaly martwe az do recznego restartu.
+        /// </summary>
+        static void SkanerTablicyZWznawianiem(string ip, DatabaseHelper db)
+        {
+            while (true)
+            {
+                SkanerTablicy(ip, db);
+                Console.WriteLine($"[INFO] Skaner tablicy: ponowne laczenie za {SEKUNDY_DO_PONOWIENIA} s...");
+                Thread.Sleep(SEKUNDY_DO_PONOWIENIA * 1000);
+            }
+        }
+
         static void SkanerTablicy(string ip, DatabaseHelper db)
         {
             using var plc = new PlcReader(ip);
             try { plc.Connect(); }
             catch (Exception ex)
             {
-                Console.WriteLine($"[WARN] Skaner tablicy: brak polaczenia z PLC ({ex.Message}) - QC i aborty nieaktywne.");
+                Console.WriteLine($"[WARN] Skaner tablicy: brak polaczenia z PLC ({ex.Message}).");
                 return;
             }
             Console.WriteLine("[INFO] Skaner tablicy Zlecenie[] wystartowal (osobne polaczenie).");
+
+            // Po serii bledow z rzedu uznajemy polaczenie za zerwane i wychodzimy,
+            // zeby watek nadrzedny nawiazal je od nowa. Pojedyncze bledy odczytu
+            // zdarzaja sie normalnie i nie sa powodem do zrywania sesji.
+            int bledyZRzedu = 0;
 
             var lastLicznik = DateTime.MinValue;
             var lastPelny   = DateTime.MinValue;
@@ -466,7 +434,7 @@ namespace PlcToDbMiddleware
                     {
                         foreach (var s in plc.ReadSztukiPoQC(bufor))
                         {
-                            try { db.ZarejestrujSztukePoQC(s.IdZlecenia, s.PartNo, s.WynikOK); }
+                            try { db.ZarejestrujSztukePoQC(s.IdZlecenia, s.PartNo, s.WynikOK, s.PowodNOK); }
                             catch (Exception ex) { Console.WriteLine($"[WARN] QC zlecenie {s.IdZlecenia}/{s.PartNo}: {ex.Message}"); }
                         }
 
@@ -491,10 +459,16 @@ namespace PlcToDbMiddleware
                     // nie zajezdzic lacza w 100%.
                     int przerwa = Math.Max(200, 1000 - (int)zegar.ElapsedMilliseconds);
                     Thread.Sleep(przerwa);
+                    bledyZRzedu = 0;
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[WARN] Skaner tablicy: {ex.Message}");
+                    if (++bledyZRzedu >= MAX_BLEDOW_Z_RZEDU)
+                    {
+                        Console.WriteLine("[WARN] Skaner tablicy: polaczenie uznane za zerwane.");
+                        return;
+                    }
                     Thread.Sleep(2000);
                 }
             }
@@ -532,7 +506,7 @@ namespace PlcToDbMiddleware
 
                 // Ciezkie skany tablicy Zlecenie[] ida na wlasny watek i wlasne polaczenie,
                 // zeby nie opozniac odczytu stanu stanowisk w glownej petli.
-                new Thread(() => SkanerTablicy(PlcIpAddress, db))
+                new Thread(() => SkanerTablicyZWznawianiem(PlcIpAddress, db))
                 { IsBackground = true, Name = "SkanerTablicy" }.Start();
 
                 Console.WriteLine("\n[INFO] Oczekiwanie na sygnal z PLC (DB1.DBX0.0 = ZapisDoBazy)...\n");
@@ -541,89 +515,44 @@ namespace PlcToDbMiddleware
 
                 while (true)
                 {
-                    if (!plc.ReadTrigger())
+                    // Trigger DB1.DBX0.0 (ZapisDoBazy) zostal usuniety razem z cala
+                    // sciezka, ktora na niego czekala: sterownik nigdy go nie ustawia,
+                    // wiec ten kod nie wykonal sie ani razu. Dane plyna wylacznie
+                    // ta petla - z przejsc Production.State poszczegolnych stanowisk.
+                    Thread.Sleep(POLL_INTERVAL_MS);
+
+                    // Szybki cykl (300 ms): jedna migawka DB_Data (stany + kontenery)
+                    // oraz wysylka zlecenia. To na te rzeczy czeka operator, a kosztuja
+                    // tylko dwa odczyty z PLC.
+                    if ((DateTime.Now - lastStany).TotalMilliseconds >= 200)
                     {
-                        Thread.Sleep(POLL_INTERVAL_MS);
+                        // Odstep MIEDZY kolejnymi odczytami stanu - to on decyduje,
+                        // po jakim czasie strona dowie sie, ze stanowisko ruszylo.
+                        double odstep = (DateTime.Now - lastStany).TotalMilliseconds;
+                        var zegar = System.Diagnostics.Stopwatch.StartNew();
 
-                        // Szybki cykl (300 ms): jedna migawka DB_Data (stany + kontenery)
-                        // oraz wysylka zlecenia. To na te rzeczy czeka operator, a kosztuja
-                        // tylko dwa odczyty z PLC.
-                        if ((DateTime.Now - lastStany).TotalMilliseconds >= 200)
-                        {
-                            // Odstep MIEDZY kolejnymi odczytami stanu - to on decyduje,
-                            // po jakim czasie strona dowie sie, ze stanowisko ruszylo.
-                            double odstep = (DateTime.Now - lastStany).TotalMilliseconds;
-                            var zegar = System.Diagnostics.Stopwatch.StartNew();
+                        SyncStanowiskaIKontenery(plc, db);
+                        long tMigawka = zegar.ElapsedMilliseconds;
+                        // SyncActiveOrderToPlc przeniesione do SkanerTablicy - potrzebuje bufora 28 kB.
+                        // Licznik produkcji zostaje tu: jedno slowo z PLC, a od niego zalezy
+                        // kafelek "Wyprodukowano ogolnie" i wykres.
+                        SyncLicznikProdukcji(plc, db);
+                        long tZlecenie = zegar.ElapsedMilliseconds - tMigawka;
+                        CheckResetRequest(plc, db);
+                        lastStany = DateTime.Now;
 
-                            SyncStanowiskaIKontenery(plc, db);
-                            long tMigawka = zegar.ElapsedMilliseconds;
-                            // SyncActiveOrderToPlc przeniesione do SkanerTablicy - potrzebuje bufora 28 kB.
-                            // Licznik produkcji zostaje tu: jedno slowo z PLC, a od niego zalezy
-                            // kafelek "Wyprodukowano ogolnie" i wykres.
-                            SyncLicznikProdukcji(plc, db);
-                            long tZlecenie = zegar.ElapsedMilliseconds - tMigawka;
-                            CheckResetRequest(plc, db);
-                            lastStany = DateTime.Now;
-
-                            if (odstep > 450 || zegar.ElapsedMilliseconds > 300)
-                                Console.WriteLine($"[PROFIL] stany: odstep={odstep:0} ms, "
-                                                + $"migawka={tMigawka} ms, zlecenie={tZlecenie} ms, "
-                                                + $"razem={zegar.ElapsedMilliseconds} ms");
-                        }
-
-                        // Sredni cykl (1 s): wyniki QC. To one przestawiaja zlecenie na
-                        // 'Zakonczone', wiec przy 3 s status na stronie potrafil pojawic sie
-                        // dopiero po 3 s (Middleware) + 2 s (pulpit). Skan tablicy Zlecenie[]
-                        // to 28 kB / ok. 55 ms, wiec przy 1 s to nadal ~5% obciazenia lacza.
-                        // QC, aborty i licznik przeniesione na osobny watek (SkanerTablicy).
-                        // Skan tablicy Zlecenie[] kosztuje ~4 s i blokowal tu odczyt stanowisk.
-                        continue;
+                        if (odstep > 450 || zegar.ElapsedMilliseconds > 300)
+                            Console.WriteLine($"[PROFIL] stany: odstep={odstep:0} ms, "
+                                            + $"migawka={tMigawka} ms, zlecenie={tZlecenie} ms, "
+                                            + $"razem={zegar.ElapsedMilliseconds} ms");
                     }
 
-                    DateTime now  = DateTime.Now;
-                    int splywMs   = (int)(now - lastTrigger).TotalMilliseconds;
-                    Console.WriteLine($"\n> [{now:HH:mm:ss}] TRIGGER - pobieranie danych z PLC...");
-
-                    var raw      = plc.ReadProductionData();
-                    int postoiMs = Math.Max(0, splywMs - raw.CzasCykluMs);
-
-                    // Lookup po nazwie - PLC wysyla stringi. Operator: stalt rekord systemowy
-                    // (system nie sledzi juz pojedynczych pracownikow/logowan).
-                    var stan = db.GetStanowiskoByName(raw.NazwaStanowiska);
-                    var op   = db.GetSystemOperator();
-                    var zl   = db.GetZlecenieByName(raw.NumerZlecenia);
-
-                    // Ilosc: jesli PLC nie wyslal (= 0) to przyjmij 1 szt per trigger
-                    int iloscWyprod = raw.IloscWyprodukowanych > 0 ? raw.IloscWyprodukowanych : 1;
-                    // WynikQC z PLC lub derive z liczby wadliwych
-                    bool wynikQC = raw.WynikQC && raw.LiczbaWadliwych == 0;
-
-                    var data = BuildPlcData(zl, stan, op,
-                                           raw.CzasCykluMs, zl.CzasPlanowanyMs,
-                                           iloscWyprod, raw.LiczbaWadliwych,
-                                           string.IsNullOrWhiteSpace(raw.KodPostoju) ? null : raw.KodPostoju.Trim(),
-                                           wynikQC, lastTrigger, now, splywMs, postoiMs);
-
-                    PrintCycleSummary(data, stan, op, zl);
-                    SaveToDatabase(db, data, stan, op);
-                    db.IncrementRozpoczeteSztuki(zl.ID);
-
-                    // Stanowisko QC (ID=4): dolicz sztuke OK/NOK do zlecenia (limit = Ilosc_Sztuk,
-                    // bez powtarzania az kazda bedzie OK).
-                    if (stan.ID == 4)
-                    {
-                        db.IncrementQcWynik(zl.ID, wynikQC);
-                        Console.WriteLine($"[INFO] QC: zlecenie {zl.ID} -> {(wynikQC ? "OK" : "NOK")}");
-                    }
-
-                    plc.ResetTrigger();
-                    Console.WriteLine("> Trigger PLC zresetowany");
-                    
-                    // 2. Sync zlecenia na wypadek zmian w SQL
-                    // podanie zlecenia obsluguje SkanerTablicy (ma gotowy bufor)
-                    
-                    Console.WriteLine("\n[INFO] Oczekiwanie na kolejny sygnal...");
-                    lastTrigger = now;
+                    // Sredni cykl (1 s): wyniki QC. To one przestawiaja zlecenie na
+                    // 'Zakonczone', wiec przy 3 s status na stronie potrafil pojawic sie
+                    // dopiero po 3 s (Middleware) + 2 s (pulpit). Skan tablicy Zlecenie[]
+                    // to 28 kB / ok. 55 ms, wiec przy 1 s to nadal ~5% obciazenia lacza.
+                    // QC, aborty i licznik przeniesione na osobny watek (SkanerTablicy).
+                    // Skan tablicy Zlecenie[] kosztuje ~4 s i blokowal tu odczyt stanowisk.
                 }
             }
             catch (Exception ex)
@@ -631,49 +560,16 @@ namespace PlcToDbMiddleware
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"\n[BLAD] {ex.Message}");
                 Console.ResetColor();
-                Console.WriteLine("\nNacisnij dowolny klawisz...");
-                Console.ReadKey();
+
+                // Czekanie na klawisz tylko przy prawdziwej konsoli. Uruchomiony
+                // w tle (przekierowane wejscie) Console.ReadKey rzuca wyjatkiem
+                // i zabija proces - a to wlasnie ma nie nastapic.
+                if (!Console.IsInputRedirected)
+                {
+                    Console.WriteLine("\nNacisnij dowolny klawisz...");
+                    Console.ReadKey();
+                }
             }
-        }
-
-        // ================================================================
-        //  HELPERS
-        // ================================================================
-
-        static PlcData BuildPlcData(ZlecenieData zl, StanowiskoData stan, OperatorData op,
-                                    int czasCykluMs, int czasPlanowyMs,
-                                    int iloscWyprod, int liczbaWad, string? kodPostoju,
-                                    bool wynikQC, DateTime rozp, DateTime zak,
-                                    int splywMs, int postoiMs)
-        {
-            return new PlcData
-            {
-                IDZlecenia           = zl.ID,
-                IDStanowiska         = stan.ID,
-                IDOperatora          = op.ID,
-                CzasCykluMs          = Math.Max(1, czasCykluMs),
-                CzasPlanowanyMs      = czasPlanowyMs > 0 ? czasPlanowyMs : zl.CzasPlanowanyMs,
-                IloscWyprodukowanych = Math.Max(1, iloscWyprod),
-                LiczbaWadliwych      = liczbaWad,
-                KodPostoju           = kodPostoju,
-                WynikQC              = wynikQC,
-                CzasRozpoczecia      = rozp,
-                CzasZakonczenia      = zak,
-                CzasSplywuMs         = splywMs,
-                CzasPostojuMs        = postoiMs
-            };
-        }
-
-        static void SaveToDatabase(DatabaseHelper db, PlcData data,
-                                   StanowiskoData stan, OperatorData op)
-        {
-            int realizacjaId = db.InsertRealizacja(data);
-            Console.WriteLine($"│  Realizacja_Produkcji  [ID={realizacjaId}]");
-            db.InsertKoszty(data, realizacjaId, op, stan);
-            Console.WriteLine("│  Koszty");
-            db.InsertWskazniki(data, realizacjaId);
-            Console.WriteLine("│  Wskazniki (OEE/FTY)");
-            Console.WriteLine("└─ Zapisano\n");
         }
 
         static void PrintHeader()
@@ -685,51 +581,5 @@ namespace PlcToDbMiddleware
             Console.WriteLine("╚══════════════════════════════════════════════════╝");
             Console.ResetColor();
         }
-
-        static void PrintCycleSummary(PlcData d, StanowiskoData stan,
-                                      OperatorData op, ZlecenieData zl)
-        {
-            double A = d.CzasSplywuMs > 0
-                ? Math.Clamp((double)(d.CzasSplywuMs - d.CzasPostojuMs) / d.CzasSplywuMs, 0, 1)
-                : 1.0;
-            double P = (d.CzasPlanowanyMs > 0 && d.CzasCykluMs > 0)
-                ? Math.Clamp((double)d.CzasPlanowanyMs / d.CzasCykluMs, 0, 1.5)
-                : 1.0;
-            double Q = d.IloscWyprodukowanych > 0
-                ? Math.Clamp((double)(d.IloscWyprodukowanych - d.LiczbaWadliwych)
-                             / d.IloscWyprodukowanych, 0, 1)
-                : 1.0;
-            double oee = A * P * Q;
-
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"│  Zlecenie  : {zl.NazwaZlecenia}");
-            Console.WriteLine($"│  Stanowisko: {stan.Nazwa}");
-            Console.WriteLine($"│  Operator  : {op.ImieNazwisko}");
-            Console.ResetColor();
-            Console.WriteLine($"│  Czas cyklu : {d.CzasCykluMs,7} ms  |  " +
-                              $"Czas splywu: {d.CzasSplywuMs,7} ms  |  " +
-                              $"Postoj: {d.CzasPostojuMs,7} ms");
-            Console.WriteLine($"│  Wyprod.: {d.IloscWyprodukowanych}  Wadliwe: {d.LiczbaWadliwych}" +
-                              (d.KodPostoju != null ? $"  Kod: {d.KodPostoju}" : ""));
-
-            ConsoleColor oeeColor = oee >= 0.85 ? ConsoleColor.Green
-                                  : oee >= 0.60 ? ConsoleColor.Yellow
-                                  : ConsoleColor.Red;
-            Console.ForegroundColor = oeeColor;
-            Console.WriteLine($"│  OEE: {oee:P1}  (A={A:P1}  P={P:P1}  Q={Q:P1})");
-            Console.ResetColor();
-        }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-

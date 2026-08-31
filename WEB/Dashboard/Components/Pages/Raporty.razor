@@ -118,6 +118,21 @@ else
                                             <td style="padding:6px 8px;text-align:center;color:var(--success);font-weight:700;">@z.SztukOK</td>
                                             <td style="padding:6px 8px;text-align:center;color:var(--danger);font-weight:700;">@z.SztukNOK</td>
                                         </tr>
+                                        @* Powody odrzutu pod wierszem zlecenia - widoczne
+                                           tylko w rozwinietych szczegolach raportu. *@
+                                        @if (!string.IsNullOrWhiteSpace(z.PowodyNOK))
+                                        {
+                                            <tr>
+                                                <td colspan="6" style="padding:0 8px 8px;">
+                                                    <div style="display:flex;gap:8px;align-items:flex-start;
+                                                                padding:6px 10px;background:var(--surface-alt);
+                                                                border-left:3px solid var(--danger);border-radius:0 9px 9px 0;">
+                                                        <span style="color:var(--text-muted);white-space:nowrap;">Powód NOK:</span>
+                                                        <span style="color:var(--text);">@z.PowodyNOK</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
                                     }
                                 </tbody>
                             </table>
@@ -181,12 +196,20 @@ else
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool pierwszyRender)
     {
-        if (!pierwszyRender) return;
+        // Bez warunku na pierwszy render: Blazor potrafi wyrenderowac strone
+        // zanim OnInitializedAsync dociagnie liste raportow. Wtedy pierwszy render
+        // trafial na pusta liste, funkcja wychodzila i przewijanie juz nie wracalo -
+        // stad wrazenie, ze dziala raz na jakis czas.
+        if (_przewinieto) return;
         if (IdZQueryString is not int id || !_raporty.Any(r => r.ID == id)) return;
+        _przewinieto = true;
 
         try { await JS.InvokeVoidAsync("przewinDoElementu", $"raport-{id}"); }
         catch (Exception ex) { Console.WriteLine($"[Raporty] przewijanie: {ex.Message}"); }
     }
+
+    /// <summary>Zeby przewinac tylko raz na wejscie, a nie przy kazdym renderze.</summary>
+    bool _przewinieto;
 
     void Przelacz(int id)
     {
