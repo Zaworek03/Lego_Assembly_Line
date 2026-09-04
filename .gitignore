@@ -1,0 +1,27 @@
+# ============================================================
+#  Lego_Assembly_Line - pliki poza kontrola wersji
+# ============================================================
+
+# --- system ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- logi runtime (generowane przez Uruchom_Linie.ps1) ---
+logs/
+
+# --- .NET: wyniki kompilacji ---
+bin/
+obj/
+*.user
+
+# --- TIA Portal: kopie zapasowe i pliki robocze ---
+# Projekt (Program_PLC_LEGO/) zostaje w repo - ignorujemy tylko to,
+# co TIA odtwarza samo przy otwarciu projektu.
+*.backup/
+write.lock
+~*
+*.tmp
+
+# --- eksporty do dokumentacji (generowane skryptem) ---
+# docs/baza_csv/ jest trzymane celowo - to material do sprawozdania.
