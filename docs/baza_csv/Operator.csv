@@ -1,0 +1,4 @@
+﻿"ID_Operatora","Imie_Nazwisko","Stawka_Godzinowa","Poziom_Zaawansowania","Jednostka_Miary","Login","Haslo","Rola"
+"1","Operator 1","35,00","Senior","PLN/h","","",""
+"2","Supervisor","0,00","Supervisor","PLN/h","supervisor","admin123","Supervisor"
+"3","Jan Kowalski","35,00","Senior","PLN/h","","","Operator"
