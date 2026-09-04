@@ -1,0 +1,27 @@
+﻿DATA_BLOCK "DB_PTL"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      PTL_state : Array[0..8] of Bool;
+      Stanowisko : Array[0..2] of Struct
+         Row1 : Int;   // 0 - brak, 3 - wszytskie kontenery
+         Row2 : Int;   // 0 - brak, 3 - wszytskie kontenery
+         Row3 : Int;   // 0 - brak, 3 - wszytskie kontenery
+      END_STRUCT;
+      ConnParams {InstructionName := 'TCON_IP_v4'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TCON_IP_v4;
+      InitDone : Bool;
+      Wyzwalacz : Bool;
+      mb_done : Bool;
+      mb_busy : Bool;
+      mb_error : Bool;
+      mb_status : Word;
+      PTL_Buttons : Array[1..9] of Word;
+      PTL_State_Old : Array[0..8] of Bool;
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+

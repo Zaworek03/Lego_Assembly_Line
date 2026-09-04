@@ -1,0 +1,17 @@
+﻿DATA_BLOCK "RFID_test"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Bufor_Odczyt : Array[0..10] of Byte;
+      Bufor_Zapis : Array[0..10] of Byte;
+      Bufor_Odczyt2 : Array[0..10] of Byte;
+      Bufor_Odczyt3 : Array[0..10] of Byte;
+      Bufor_Odczyt4 : Array[0..10] of Byte;
+   END_VAR
+
+
+BEGIN
+
+END_DATA_BLOCK
+

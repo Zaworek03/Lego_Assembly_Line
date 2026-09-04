@@ -1,0 +1,83 @@
+﻿TYPE "udtStanowiskoAssembly"
+VERSION : 0.1
+   STRUCT
+      Config : Struct
+         ID : Int;
+         "Name" : String[20];
+         HorlyRate : Real;
+      END_STRUCT;
+      Production : Struct
+         State : Int;   // 0 - Gotowy. 1 - Montaż, 2 - Zakończono, 3 - Awaria 
+         OrderNo : Int;
+         ProductNo : Int;
+      END_STRUCT;
+      "Time" : Struct
+         TargetTime : Time;
+         LastSec : UInt;
+         RemainingSec : Int;
+         RemainingStr : String[6];
+         Blink : Bool;
+      END_STRUCT;
+      Commands : Struct
+         Start : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FInish : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         ReportFault : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         AbortProcess : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FaultReason : Struct
+            MissingPart : Bool;
+            DamagedPart : Bool;
+            PalletFault : Bool;
+            WrongInstruction : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      Sensors : Struct
+         PalletPresent : Bool;
+         RFID : Struct
+            TagPresent : Bool;
+            CmdRead : Bool;
+            CmdWrite : Bool;
+            Status : Bool;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+      END_STRUCT;
+      Stats : Struct
+         DoneToday : Int;
+         Efficiency : Int;
+         ActudalPart : Int;
+         Instruction : Int;
+         Loaded : Bool;
+      END_STRUCT;
+      HMI : Struct
+         Clear : Bool;   // Czyści licznik
+         Container : Array[1..3] of Struct   // Tablica kontenerów 
+            value : Int;   // Ilość kontenerów 0 - 3
+            Add : Struct   // Impuls na reczne dodanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+            Subtract : Struct   // Impuls na reczne odejmowanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+         END_STRUCT;
+      END_STRUCT;
+      MontazState : Int;
+   END_STRUCT;
+
+END_TYPE
+

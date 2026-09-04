@@ -1,0 +1,367 @@
+﻿TYPE "udtDbKomunikacja"
+VERSION : 0.1
+   STRUCT
+      Trigger : Bool;
+      NumerZlecenia : String[50];
+      NumerOperacji : DInt;
+      NumerPaletki : String[50];
+      Stanowisko : String[50];
+      Operator : String[50];
+      CzasCykluMs : DInt;
+      WynikQC : Bool;
+      IloscWyprodukowanych : DInt;
+      LiczbaWadliwych : DInt;
+      KodPostoju : String[20];
+   END_STRUCT;
+
+END_TYPE
+
+TYPE "udtStanowiskoAssembly"
+VERSION : 0.1
+   STRUCT
+      Config : Struct
+         ID : Int;
+         "Name" : String[20];
+         HorlyRate : Real;
+      END_STRUCT;
+      Production : Struct
+         State : Int;   // 0 - Gotowy. 1 - Montaż, 2 - Zakończono, 3 - Awaria 
+         OrderNo : Int;
+         ProductNo : Int;
+      END_STRUCT;
+      "Time" : Struct
+         TargetTime : Time;
+         LastSec : UInt;
+         RemainingSec : Int;
+         RemainingStr : String[6];
+         Blink : Bool;
+      END_STRUCT;
+      Commands : Struct
+         Start : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FInish : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         ReportFault : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         AbortProcess : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FaultReason : Struct
+            MissingPart : Bool;
+            DamagedPart : Bool;
+            PalletFault : Bool;
+            WrongInstruction : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      Sensors : Struct
+         PalletPresent : Bool;
+         RFID : Struct
+            TagPresent : Bool;
+            CmdRead : Bool;
+            CmdWrite : Bool;
+            Status : Bool;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+      END_STRUCT;
+      Stats : Struct
+         DoneToday : Int;
+         Efficiency : Int;
+         ActudalPart : Int;
+         Instruction : Int;
+         Loaded : Bool;
+      END_STRUCT;
+      HMI : Struct
+         Clear : Bool;   // Czyści licznik
+         Container : Array[1..3] of Struct   // Tablica kontenerów 
+            value : Int;   // Ilość kontenerów 0 - 3
+            Add : Struct   // Impuls na reczne dodanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+            Subtract : Struct   // Impuls na reczne odejmowanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+         END_STRUCT;
+      END_STRUCT;
+      MontazState : Int;
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "DB_WWW"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      Comm { S7_SetPoint := 'False'} : "udtDbKomunikacja";
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "DB_Data"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   STRUCT 
+      Stanowisko1 { S7_SetPoint := 'False'} : "udtStanowiskoAssembly";
+      Stanowisko2 : "udtStanowiskoAssembly";
+      Stanowisko3 : "udtStanowiskoAssembly";
+      StanowiskoQC : Struct
+         Config : Struct
+            ID : Int;
+            "Name" : String[20];
+            HorlyRate : Real;
+         END_STRUCT;
+         Production : Struct
+            State : Int;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+         "Time" : Struct
+            TargetTime : Time;
+            LastSec : UInt;
+            RemainingSec : Int;
+            RemainingStr : String[6];
+            Blink : Bool;
+         END_STRUCT;
+         Commands : Struct
+            Start : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            OK : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            NOK : Struct
+               Enable : Bool;
+               State : Bool;
+               NoBrick : Bool;
+               WrongColour : Bool;
+               Offset : Bool;
+               Damage : Bool;
+               WrongNumber : Bool;
+               Other : Bool;
+            END_STRUCT;
+            ReportFault : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         Sensors : Struct
+            PalletPresent : Bool;
+            RFID : Struct
+               TagPresent : Bool;
+               CmdRead : Bool;
+               CmdWrite : Bool;
+               Status : Bool;
+               OrderNo : Int;
+               ProductNo : Int;
+            END_STRUCT;
+         END_STRUCT;
+         Stats : Struct
+            DoneToday : Int;
+            Efficiency : Int;
+            ActudalPart : Int;
+            Instruction : Int;
+            Loaded : Bool;
+            PartsOK : Int;
+            PartsNOK : Int;
+            PartsPercent : Int;
+         END_STRUCT;
+         HMI : Struct
+            Clear : Bool;
+            CameraStatus : Int;
+         END_STRUCT;
+         QualityState : Int;
+         FaultReason : Struct
+            Camera : Bool;
+            NOK : Bool;
+            PalletFault : Bool;
+            RFID : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+         CameraControl : Struct
+            bInit : Bool;
+            bGetResult : Bool;
+            bResetError : Bool;
+            wynikOK : Bool;
+            bReq : Bool;
+            bTrigger : Bool;
+            bZrobInspekcje : Bool;
+            krok : Int;
+            wynikOV : Array[0..5] of Bool;
+            CameraStatus : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      ZlecenieIndex { S7_SetPoint := 'True'} : Array[0..3] of Int;
+      DoneAllTime : Array[0..3] of Int;
+   END_STRUCT;
+
+
+BEGIN
+   Stanowisko1.Production.State := 0;
+   Stanowisko1.Production.OrderNo := 0;
+
+END_DATA_BLOCK
+
+FUNCTION_BLOCK "RaportowanieDB"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      temp_CzasObecny : Int;
+      temp_DTL : Int;
+      temp_RoznicaCzasu : Time;
+   END_VAR
+
+
+BEGIN
+	// Uruchamiaj tylko, gdy C# potwierdził odebranie poprzednich danych (Trigger = 0)
+	IF NOT "DB_WWW".Comm.Trigger THEN
+	    
+	    // ============================================
+	    // STANOWISKO 1 (Montażowe)
+	    // ============================================
+	    IF "DB_Data".Stanowisko1.Commands.FInish.State THEN
+	        
+	       // #temp_CzasObecny := RD_SYS_T(OUT => #temp_DTL);
+	       // #temp_RoznicaCzasu := T_DIFF(IN1 := #temp_DTL, IN2 := "DB_Data".Stanowisko1."Time".StartStamp);
+	        "DB_WWW".Comm.CzasCykluMs := TIME_TO_DINT(#temp_RoznicaCzasu);
+	        
+	        "DB_WWW".Comm.NumerZlecenia := 'ZL-2137'; // do podmiany na aktualne zlecenie
+	        "DB_WWW".Comm.Stanowisko := 'Assembly 1';
+	        "DB_WWW".Comm.Operator := 'Operator 1';
+	        "DB_WWW".Comm.IloscWyprodukowanych := 1;
+	        
+	        IF "DB_Data".Stanowisko1.Commands.FaultReason.DamagedPart THEN
+	            "DB_WWW".Comm.KodPostoju := 'DAMAGED_PART';
+	            "DB_WWW".Comm.WynikQC := FALSE;
+	            "DB_WWW".Comm.LiczbaWadliwych := 1;
+	        ELSIF "DB_Data".Stanowisko1.Commands.FaultReason.MissingPart THEN
+	            "DB_WWW".Comm.KodPostoju := 'MISSING_PART';
+	            "DB_WWW".Comm.WynikQC := FALSE;
+	            "DB_WWW".Comm.LiczbaWadliwych := 1;
+	        ELSE
+	            "DB_WWW".Comm.KodPostoju := '';
+	            "DB_WWW".Comm.WynikQC := TRUE;
+	            "DB_WWW".Comm.LiczbaWadliwych := 0;
+	        END_IF;
+	        
+	        "DB_WWW".Comm.Trigger := TRUE;
+	        "DB_Data".Stanowisko1.Production.State := 2;
+	        "DB_Data".Stanowisko1.Commands.FInish.State := FALSE;
+	        
+	        // ============================================
+	        // STANOWISKO 2 (Montażowe)
+	        // ============================================
+	      //  ELSIF "DB_Data".Stanowisko2.Commands.FInish.State THEN
+	            
+	        //    #temp_CzasObecny := RD_SYS_T(OUT => #temp_DTL);
+	        //    #temp_RoznicaCzasu := T_DIFF(IN1 := #temp_DTL, IN2 := "DB_Data".Stanowisko2."Time".StartStamp);
+	         //   "DB_WWW".Comm.CzasCykluMs := TIME_TO_DINT(#temp_RoznicaCzasu);
+	            
+	         //   "DB_WWW".Comm.NumerZlecenia := 'ZL-2137';
+	         //   "DB_WWW".Comm.Stanowisko := 'Assembly 2';
+	         //   "DB_WWW".Comm.Operator := 'Operator 2';
+	         //   "DB_WWW".Comm.IloscWyprodukowanych := 1;
+	            
+	         //   IF "DB_Data".Stanowisko2.Commands.FaultReason.DamagedPart THEN
+	         //       "DB_WWW".Comm.KodPostoju := 'DAMAGED_PART';
+	         //       "DB_WWW".Comm.WynikQC := FALSE;
+	          //      "DB_WWW".Comm.LiczbaWadliwych := 1;
+	         //   ELSIF "DB_Data".Stanowisko2.Commands.FaultReason.MissingPart THEN
+	        //        "DB_WWW".Comm.KodPostoju := 'MISSING_PART';
+	        //        "DB_WWW".Comm.WynikQC := FALSE;
+	        //        "DB_WWW".Comm.LiczbaWadliwych := 1;
+	        //    ELSE
+	        //        "DB_WWW".Comm.KodPostoju := '';
+	        //        "DB_WWW".Comm.WynikQC := TRUE;
+	        //        "DB_WWW".Comm.LiczbaWadliwych := 0;
+	         //   END_IF;
+	            
+	         //   "DB_WWW".Comm.Trigger := TRUE;
+	         //   "DB_Data".Stanowisko2.Production.State := 2;
+	         //   "DB_Data".Stanowisko2.Commands.FInish.State := FALSE;
+	            
+	            // ============================================
+	            // STANOWISKO 3 (Montażowe)
+	            // ============================================
+	      //  ELSIF "DB_Data".Stanowisko3.Commands.FInish.State THEN
+	            
+	         //   #temp_CzasObecny := RD_SYS_T(OUT => #temp_DTL);
+	         //   #temp_RoznicaCzasu := T_DIFF(IN1 := #temp_DTL, IN2 := "DB_Data".Stanowisko3."Time".StartStamp);
+	         //   "DB_WWW".Comm.CzasCykluMs := TIME_TO_DINT(#temp_RoznicaCzasu);
+	            
+	         //   "DB_WWW".Comm.NumerZlecenia := 'ZL-2137';
+	        //    "DB_WWW".Comm.Stanowisko := 'Assembly 3';
+	         //   "DB_WWW".Comm.Operator := 'Operator 3';
+	         //   "DB_WWW".Comm.IloscWyprodukowanych := 1;
+	            
+	        //    IF "DB_Data".Stanowisko3.Commands.FaultReason.DamagedPart THEN
+	        //        "DB_WWW".Comm.KodPostoju := 'DAMAGED_PART';
+	         //       "DB_WWW".Comm.WynikQC := FALSE;
+	          //      "DB_WWW".Comm.LiczbaWadliwych := 1;
+	         //   ELSIF "DB_Data".Stanowisko3.Commands.FaultReason.MissingPart THEN
+	         //       "DB_WWW".Comm.KodPostoju := 'MISSING_PART';
+	        //        "DB_WWW".Comm.WynikQC := FALSE;
+	        ///        "DB_WWW".Comm.LiczbaWadliwych := 1;
+	        //    ELSE
+	        //        "DB_WWW".Comm.KodPostoju := '';
+	        //        "DB_WWW".Comm.WynikQC := TRUE;
+	        //        "DB_WWW".Comm.LiczbaWadliwych := 0;
+	        //    END_IF;
+	            
+	        //    "DB_WWW".Comm.Trigger := TRUE;
+	         //   "DB_Data".Stanowisko3.Production.State := 2;
+	          //  "DB_Data".Stanowisko3.Commands.FInish.State := FALSE;
+	            
+	            // ============================================
+	            // STANOWISKO 4 (QC - Kontrola Jakości)
+	            // ============================================
+	      //  ELSIF "DB_Data".StanowiskoQC.Commands.FInish.State THEN
+	            
+	          //  #temp_CzasObecny := RD_SYS_T(OUT => #temp_DTL);
+	          //  #temp_RoznicaCzasu := T_DIFF(IN1 := #temp_DTL, IN2 := "DB_Data".StanowiskoQC."Time".StartStamp);
+	         //   "DB_WWW".Comm.CzasCykluMs := TIME_TO_DINT(#temp_RoznicaCzasu);
+	            
+	          //  "DB_WWW".Comm.NumerZlecenia := 'ZL-2137';
+	          //  "DB_WWW".Comm.Stanowisko := 'QC Station';
+	          //  "DB_WWW".Comm.Operator := 'Operator QC';
+	            
+	            // Zależnie od tego, jak raportujecie odrzuty na QC
+	           // IF "DB_Data".StanowiskoQC.Commands.FaultReason.DamagedPart THEN
+	           //     "DB_WWW".Comm.IloscWyprodukowanych := 0;
+	           //     "DB_WWW".Comm.KodPostoju := 'DAMAGED_PART';
+	           //     "DB_WWW".Comm.WynikQC := FALSE;
+	           //     "DB_WWW".Comm.LiczbaWadliwych := 1;
+	           // ELSE
+	           //     "DB_WWW".Comm.IloscWyprodukowanych := 1;
+	            //    "DB_WWW".Comm.KodPostoju := '';
+	            //    "DB_WWW".Comm.WynikQC := TRUE;
+	          //      "DB_WWW".Comm.LiczbaWadliwych := 0;
+	          //  END_IF;
+	            
+	          //  "DB_WWW".Comm.Trigger := TRUE;
+	            //"DB_Data".StanowiskoQC.Production.State := 2;
+	            //"DB_Data".StanowiskoQC.Commands.FInish.State := FALSE;
+	        
+	    END_IF;
+	    
+	END_IF;
+	
+END_FUNCTION_BLOCK
+

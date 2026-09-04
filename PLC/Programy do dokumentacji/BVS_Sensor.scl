@@ -1,0 +1,668 @@
+﻿FUNCTION_BLOCK "BVS_Sensor"
+{ S7_Optimized_Access := 'TRUE' }
+AUTHOR : 'PD-ILS'
+FAMILY : Balluff
+VERSION : 1.1
+   VAR_INPUT 
+      Init : Bool;
+      CommandStart : Bool;
+      BVS_ResetError : Bool;
+      BVS_Trigger : Bool;
+      Get_Results : Bool;
+      HW_LADDR : HW_SUBMODULE;
+      Command : Int;
+      DB_Send : Int;
+      Offset_DBSend : Int;
+      DB_Receive : Int;
+      Offset_DBReceive : Int;
+      Data_Length : Int;
+      WD_Time : Time := T#120000ms;
+      PILen : UInt := 32;
+      PQLen : UInt := 32;
+   END_VAR
+
+   VAR_OUTPUT 
+      Ready : Bool;
+      BVS_WaitForTrigger : Bool;
+      BVS_ResultDataAvailable : Bool;
+      BVS_Ready : Bool;
+      BVS_DeviceLocked : Bool;
+      BVS_TriggerOverflowError : Bool;
+      BVS_ResultDataError : Bool;
+      BVS_ReportError : Bool;
+      BVS_InputDataError : Bool;
+      BVS_SystemError : Bool;
+      Error : Bool;
+      ErrorNumber : Word;
+      ReceivedLength : Int;
+   END_VAR
+
+   VAR 
+      PointerByte : Int;
+      LengthByte : Int;
+      BytePerPageIn : Int;
+      BytePerPageOut : Int;
+      TotalByte : Int;
+      LengOverhead : Int;
+      StDataOffset : Int;
+      HW_Init : Bool;
+      GetCommandActive : Bool;
+      SetCommandActive : Bool;
+      GComSend : Bool;
+      ComDatEnd : Bool;
+      ToggleOld : Bool;
+      FirstCycle : Bool;
+      IMP_Start : Bool;
+      IMP_ResetError : Bool;
+      Cam_Reset : Bool;
+      ErrorIn : Bool;
+      WD_TimerIn : Bool;
+      WD_TimerQ : Bool;
+      CO_WaitForTrigger : Bool;
+      CO_ResultDataAvailable : Bool;
+      CO_R02 : Bool;
+      CO_R03 : Bool;
+      CO_R04 : Bool;
+      CO_Ready : Bool;
+      CO_R06 : Bool;
+      CO_DeviceLocked : Bool;
+      CO_TriggerOverflow : Bool;
+      CO_ResultDataError : Bool;
+      CO_ReportError : Bool;
+      CO_R13 : Bool;
+      CO_InputDataError : Bool;
+      CO_R15 : Bool;
+      CO_R16 : Bool;
+      CO_SystemError : Bool;
+      CO_R20 : Bool;
+      CO_JobStartAA : Bool;
+      CO_JobEndAE : Bool;
+      CO_JobErrorAF : Bool;
+      CO_R24 : Bool;
+      CO_ToggleOut : Bool;
+      CO_OutArea : Array[0..#OutBuSi] of Byte;
+      CI_AV_JobStart : Bool;
+      CI_Trigger : Bool;
+      CI_ResetError : Bool;
+      CI_R03 : Bool;
+      CI_R04 : Bool;
+      CI_R05 : Bool;
+      CI_ToggleIn : Bool;
+      CI_R07 : Bool;
+      CI_InLengInt : Int;
+      CI_InArea : Array[0..#InBuSi] of Byte;
+      OldCyComState : Word;
+      WD_Timer {InstructionName := 'TON_TIME'; LibVersion := '1.0'} : TON_TIME;
+      PIaddr : UDInt;
+      PIcount : UInt;
+      PQaddr : UDInt;
+      PQcount : UInt;
+      RetVal_ModulDiag : Int;
+      RetVal_RD_Addr { ExternalAccessible := 'False'; ExternalVisible := 'False'; ExternalWritable := 'False'} : Int;
+      RetVal_RD_DP : Int;
+      RetVal_WR_DP : Int;
+      RetVal_Get_ErrID : Word;
+      R_TRIG_ResetError {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      R_TRIG_CamTrg {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      R_TRIG_Start {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      ErrorCode : DWord;
+      CNT_Diag : UInt;
+      Diag_Out : DWord;
+   END_VAR
+
+   VAR_TEMP 
+      tError : Word;
+      tLoop : DInt;
+   END_VAR
+
+   VAR CONSTANT 
+      InBuSi : Int := 127;
+      OutBuSi : Int := 127;
+      ST_DATOFFSET : Int := 3;
+   END_VAR
+
+
+BEGIN
+	//=============================================================================
+	//Balluff GmbH
+	//(c)Copyright (2024) All Rights Reserved
+	//-----------------------------------------------------------------------------
+	//Library: BalluffVision
+	//Tested with: CPU 1214C V4.1
+	//Engineering: TIA Portal V13 SP1 
+	//Restrictions: -
+	//Requirements: PLC (S7-1200 / S7-1500)
+	//Functionality: Boolean BVS functions, BVS Commandos
+	//-----------------------------------------------------------------------------
+	//Change log table:
+	//Version  Date       Expert in charge      Changes applied
+	//00.01.00 30.11.2022 Balluff GmbH PD-ILS   First created with TIA V13 SP1
+	//00.01.10 30.01.2024 Balluff GmbH PD-ILS   FB name changed, buffer enlarged
+	//=============================================================================
+	//
+	(*
+	Disclaimer of Liability
+	**********************
+	The demo function block is free of charge and is a universal application 
+	example.
+	This demo function block shall help program and configure PLC applications and 
+	shall provide possible solutions.
+	The user is not entitled to claim for warranty, error correction and updates. 
+	In 
+	particular there is excluded any claims against Balluff GmbH for damages that 
+	might result from the use of this demo program. Excluded from this limitation 
+	of 
+	liability shall be (a) those damages that are based on injury to life, limb or 
+	health, (b) a liability according to the Produkthaftungsgesetz (German Product 
+	Liability Law) and (c) cases of willful intent.
+	Please check if the function block is intended for your application before 
+	adapting it in plants and machineries.
+	By using the S7 sample, made available free of charge you accept the limitation 
+	of 
+	warranty and liability!
+	
+	Haftungsausschluss:
+	*********************
+	Der hier kostenlos verfügbare DEMO-Baustein ist ein allgemeingültiges 
+	Anwendungsbeispiel. Dieser DEMO-Baustein soll bei der Programmierung und 
+	Projektierung von SPS-Anwendungen unterstützen und Lösungsansätze aufzeigen. 
+	Ein Anspruch auf Gewährleistung, Fehlerbeseitigung und Update besteht für den 
+	Anwender nicht. Die BALLUFF GmbH schließt insbesondere jegliche Haftung für 
+	Schäden, die durch den Einsatz dieses DEMO-Bausteins entstehen, ausdrücklich 
+	aus! Diese Haftungsbeschränkung gilt nicht bei Verletzungen des Lebens, des 
+	Körpers oder der Gesundheit, bei der Haftung nach dem Produkthaftungsgesetz und 
+	bei vorsätzlichen Pflichtverletzungen. 
+	Prüfen Sie vor dem Einsatz in Anlagen und Maschinen, ob der hier 
+	bereitgestellte 
+	DEMO Baustein für Ihre Anwendung nutzbar ist!
+	Mit dem Einsatz des hier kostenlos vorgelegten S7-Beispiel erkennen Sie die 
+	Gewährleistungs- und Haftungsbegrenzung an!
+	*)
+	//-----------------------------------------------------------------------------
+	//FB Init
+	//-----------------------------------------------------------------------------
+	IF #Init THEN
+	    #Ready := TRUE;
+	    #HW_Init := FALSE;
+	    #GetCommandActive := FALSE;
+	    #SetCommandActive := FALSE;
+	    #GComSend := FALSE;
+	    #ToggleOld := FALSE;
+	    #FirstCycle := FALSE;
+	    #ComDatEnd := False;
+	    #Error := FALSE;
+	    #ErrorIn := FALSE;
+	    #CI_AV_JobStart := FALSE;
+	    #CI_Trigger := FALSE;
+	    #CI_ResetError := false;
+	    #PointerByte := 0;
+	    #BytePerPageIn := 0;
+	    #BytePerPageOut := 0;
+	    #TotalByte := 0;
+	    #ReceivedLength := 0;
+	    #ErrorNumber := 0;
+	    #CO_OutArea[0] := 0;
+	    #CO_OutArea[1] := 0;
+	    #CO_OutArea[2] := 0;
+	    #BVS_Ready := FALSE;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// Read modul states
+	//-----------------------------------------------------------------------------
+	#RetVal_ModulDiag := GET_DIAG(MODE := 0, LADDR := #HW_LADDR, CNT_DIAG => #CNT_Diag, DIAG := #Diag_Out);
+	
+	//-----------------------------------------------------------------------------
+	// Reading PI/PQ addr and data length
+	//-----------------------------------------------------------------------------
+	IF NOT #HW_Init THEN
+	  #RetVal_RD_Addr := RD_ADDR(LADDR := #HW_LADDR , PIADDR => #PIaddr, PICount => #PIcount,
+	                               PQADDR => #PQaddr, PQCount => #PQcount);
+	    #HW_Init := TRUE;
+	    // Overwrite PI and PO Lenght with lenth from FB input
+	    #PIcount := #PILen;
+	    #PQcount := #PQLen;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// Cyclic read cam input if HW init done
+	//----------------------------------------------------------------------------- 
+	IF #HW_Init THEN
+	  #RetVal_RD_DP := DPRD_DAT(LADDR := #HW_LADDR, RECORD => #CO_OutArea);
+	END_IF;
+	  
+	IF #RetVal_RD_DP <> 0 THEN
+	  FOR  #tLoop := 0 TO #OutBuSi DO
+	    #CO_OutArea[#tLoop] := 0;
+	  END_FOR;
+	END_IF;
+	
+	IF #Init THEN
+	  GOTO JobReset;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// Move input bytes to static bits
+	//  CO == Camera Outputs
+	//-----------------------------------------------------------------------------
+	// Byte 0 - Product Status Bits
+	#CO_WaitForTrigger := #CO_OutArea[0].%X0;
+	#CO_ResultDataAvailable := #CO_OutArea[0].%X1;
+	#CO_R02 := #CO_OutArea[0].%X2;
+	#CO_R03 := #CO_OutArea[0].%X3;
+	#CO_R04 := #CO_OutArea[0].%X4;
+	#CO_Ready := #CO_OutArea[0].%X5;
+	#CO_R06 := #CO_OutArea[0].%X6;
+	#CO_DeviceLocked := #CO_OutArea[0].%X7;
+	//Byte 1 - Error Signals
+	#CO_TriggerOverflow := #CO_OutArea[1].%X0;
+	#CO_ResultDataError := #CO_OutArea[1].%X1;
+	#CO_ReportError := #CO_OutArea[1].%X2;
+	#CO_R13 := #CO_OutArea[1].%X3;
+	#CO_InputDataError := #CO_OutArea[1].%X4;
+	#CO_R15 := #CO_OutArea[1].%X5;
+	#CO_R16 := #CO_OutArea[1].%X6;
+	#CO_SystemError := #CO_OutArea[1].%X7;
+	
+	//-----------------------------------------------------------------------------
+	// Move status-/warnbits to FB output 
+	//-----------------------------------------------------------------------------
+	#BVS_ResultDataAvailable := #CO_ResultDataAvailable;
+	#BVS_WaitForTrigger := #CO_WaitForTrigger;
+	#BVS_Ready := #CO_Ready;
+	#BVS_DeviceLocked := #CO_DeviceLocked;
+	#BVS_TriggerOverflowError := #CO_TriggerOverflow;
+	#BVS_ResultDataError := #CO_ResultDataError;
+	#BVS_ReportError := #CO_ReportError;
+	#BVS_InputDataError := #CO_InputDataError;
+	#BVS_SystemError := #CO_SystemError;
+	
+	//-----------------------------------------------------------------------------
+	// Comapre bitheader
+	//-----------------------------------------------------------------------------
+	IF #CO_OutArea[2] <> #CO_OutArea[#PIcount - 1] THEN
+	  RETURN;
+	END_IF;
+	//Byte 2 - Bit Header
+	#CO_R20 := #CO_OutArea[2].%X0;
+	#CO_JobStartAA := #CO_OutArea[2].%X1;
+	#CO_JobEndAE := #CO_OutArea[2].%X2;
+	#CO_JobErrorAF := #CO_OutArea[2].%X3;
+	#CO_ToggleOut := #CO_OutArea[2].%X5;
+	
+	//-----------------------------------------------------------------------------
+	// Check camera error bit
+	//-----------------------------------------------------------------------------
+	IF #CO_JobErrorAF AND NOT #ErrorIn THEN
+	  #tError := #CO_OutArea[3];
+	  GOTO Error;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Reset camera errors
+	//-----------------------------------------------------------------------------
+	#R_TRIG_ResetError(CLK:=#BVS_ResetError,
+	                Q=>#IMP_ResetError);
+	IF #IMP_ResetError THEN
+	    #Error := FALSE;
+	    #ErrorIn := FALSE;
+	    #ErrorNumber := 0;
+	    #CI_ResetError := TRUE;
+	END_IF;
+	
+	IF NOT #BVS_ResetError
+	  THEN
+	    #CI_ResetError := FALSE;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Control boolean camera signals
+	//-----------------------------------------------------------------------------
+	#R_TRIG_CamTrg(CLK:=#BVS_Trigger);
+	
+	IF #R_TRIG_CamTrg.Q THEN
+	  #CI_Trigger := TRUE;
+	END_IF;
+	
+	IF  NOT #BVS_Trigger THEN
+	  #CI_Trigger := FALSE;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Move  FB input to processdata output
+	//-----------------------------------------------------------------------------
+	#CI_InArea[0].%X0 := #CI_AV_JobStart;
+	#CI_InArea[0].%X1 := #CI_Trigger;
+	#CI_InArea[0].%X2 := #CI_ResetError;
+	#CI_InArea[0].%X6 := #CI_ToggleIn;
+	
+	//-----------------------------------------------------------------------------
+	// FB ready output 
+	#Ready := ( #BVS_Ready 
+	          AND NOT #GetCommandActive 
+	          AND NOT #SetCommandActive 
+	          AND NOT #CO_JobStartAA 
+	          AND NOT #CO_JobEndAE);
+	           
+	//-----------------------------------------------------------------------------
+	// Command Start
+	           #R_TRIG_Start(CLK := #CommandStart OR #Get_Results,
+	              Q => #IMP_Start);
+	
+	//-----------------------------------------------------------------------------
+	// Generate error timeout
+	//-----------------------------------------------------------------------------
+	#WD_TimerIn := #SetCommandActive OR #GetCommandActive;
+	
+	#WD_Timer(IN := #WD_TimerIn,
+	          PT := #WD_Time,
+	          Q => #WD_TimerQ);
+	
+	IF #WD_TimerQ THEN
+	    #tError := w#16#30;
+	    GOTO Error;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Check HW/Profinet Error when start is set
+	//-----------------------------------------------------------------------------
+	IF #IMP_Start THEN
+	  IF #RetVal_RD_Addr <> 0 THEN
+	    #tError := w#16#40; //Error read address
+	    GOTO Error;
+	  END_IF;
+	  
+	  IF #RetVal_RD_DP <> 0 THEN
+	    #tError := w#16#41; //Error read input data
+	    GOTO Error;
+	  END_IF;
+	  
+	  IF #RetVal_WR_DP <> 0 THEN
+	    #tError := w#16#42; //Error read output data
+	    GOTO Error;
+	  END_IF;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Generate error data length
+	//-----------------------------------------------------------------------------
+	IF #IMP_Start AND
+	    (#Data_Length < 0) THEN
+	    #tError := w#16#32;
+	    GOTO Error;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Check controll- bits change - data output
+	//-----------------------------------------------------------------------------
+	IF #CI_InArea[0] <> #OldCyComState AND NOT #IMP_Start THEN
+	  GOTO DataOutput;
+	END_IF;
+	//=============================================================================
+	//
+	// Camera commandos
+	//
+	//=============================================================================
+	
+	//-----------------------------------------------------------------------------
+	// Goto FB end if no job active
+	//-----------------------------------------------------------------------------
+	IF (NOT #GetCommandActive AND
+	    NOT #SetCommandActive AND
+	   (NOT #IMP_Start OR NOT #Ready)) THEN 
+	    RETURN;
+	END_IF;
+	
+	IF #ComDatEnd THEN  // Check Get or Set
+	  GOTO CheckHsAck; //CommandEnd;
+	ELSIF #GetCommandActive THEN
+	  GOTO GetCommand;
+	ELSIF #SetCommandActive THEN
+	  GOTO SetCommand;
+	END_IF;
+	    
+	//-----------------------------------------------------------------------------
+	// Initialize Command
+	//-----------------------------------------------------------------------------
+	#CI_InArea[2] := 0;
+	#CI_InArea[3] := 0;
+	
+	IF #Get_Results THEN
+	  #GetCommandActive := TRUE;
+	  #CI_InArea[1] := 3;
+	  #CI_InLengInt := 0;
+	  #LengOverhead := 3;
+	ELSE
+	  
+	  CASE #Command OF
+	    1: // Switch Application
+	      #SetCommandActive := TRUE;
+	      #CI_InArea[1] := 1;
+	      #TotalByte := 4;
+	      #CI_InLengInt := 4;
+	    2:  // Get Application ID
+	      #GetCommandActive := TRUE;
+	      #CI_InArea[1] := 2;
+	      #CI_InLengInt := 0;
+	      #LengOverhead := 3;
+	    3:  // Get Results
+	      #GetCommandActive := TRUE;
+	      #CI_InArea[1] := 3;
+	      #CI_InLengInt := 0;
+	      #LengOverhead := 3;
+	    4:  // Set Inputs       
+	      #SetCommandActive := TRUE;
+	      #CI_InArea[1] := 4;
+	      #TotalByte := #Data_Length;
+	      #CI_InLengInt := #Data_Length;
+	    6:  // Get Date and Time 
+	      #GetCommandActive := TRUE;
+	      #CI_InArea[1] := 6;
+	      #CI_InLengInt := 0;
+	      #LengOverhead := 3;
+	    7:  // Set Date and Time      
+	      #SetCommandActive := TRUE;
+	      #CI_InArea[1] := 7;
+	      #TotalByte := 7 + #ST_DATOFFSET;
+	      #CI_InLengInt := 7;
+	    ELSE
+	      #tError := w#16#31;
+	      GOTO Error;
+	  END_CASE;
+	END_IF;
+	    
+	//-----------------------------------------------------------------------------
+	// At 1st command step:
+	// Calculate transmission data length fix bytes + bitheader
+	// Delete output signals
+	// Notice TO Bit
+	//-----------------------------------------------------------------------------
+	#BytePerPageIn := UDINT_TO_INT(#PIcount - 4);
+	#BytePerPageOut := UDINT_TO_INT(#PQcount - 2);
+	
+	#FirstCycle := TRUE;
+	#Ready := FALSE;
+	#ErrorNumber := 0;
+	#Error := FALSE;
+	#ErrorIn := FALSE;
+	#tError := 0;
+	#GComSend := FALSE;
+	#ReceivedLength := 0;
+	#ToggleOld := #CO_ToggleOut;
+	#CI_AV_JobStart := TRUE;
+	
+	IF NOT #SetCommandActive THEN
+	    GOTO GetCommand;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Set command, move data from "DB_Send" to camera
+	//-----------------------------------------------------------------------------
+	SetCommand: ;
+	
+	IF NOT #FirstCycle  
+	    AND ((#ToggleOld AND #CO_ToggleOut)
+	    OR (NOT #ToggleOld AND NOT #CO_ToggleOut)
+	    OR  NOT #CO_JobStartAA)
+	  THEN
+	    RETURN;
+	END_IF;
+	
+	IF #FirstCycle THEN
+	  #PointerByte := #Offset_DBSend;
+	  #StDataOffset := #ST_DATOFFSET;
+	  #CI_InArea[2] := INT_TO_BYTE(SHR(IN := #CI_InLengInt, N := 8)); 
+	  #CI_InArea[3] := INT_TO_BYTE(#CI_InLengInt); 
+	END_IF;
+	
+	IF #TotalByte <= #BytePerPageOut - #StDataOffset THEN
+	  #LengthByte := #TotalByte;
+	ELSE
+	  #LengthByte := #BytePerPageOut - #StDataOffset;
+	END_IF;
+	
+	FOR #tLoop := 0 TO #LengthByte - 1 DO 
+	  #CI_InArea[1 + #tLoop + #StDataOffset] := PEEK(area := 16#84,
+	                                   dbNumber := #DB_Send,
+	                                   byteOffset := #PointerByte + #tLoop);
+	  END_FOR;
+	
+	GOTO CommandEnd;
+	   
+	GetCommand:;
+	//-----------------------------------------------------------------------------
+	// Get command
+	// Send get commando goto Data output in first cycle 
+	// 
+	//-----------------------------------------------------------------------------
+	IF #FirstCycle AND NOT #GComSend THEN
+	  #GComSend := TRUE;
+	  GOTO DataOutput;
+	END_IF;
+	
+	IF #FirstCycle AND #CI_InArea[1] <> #CO_OutArea[3] // Check result code at 1st cycl 
+	  AND NOT #CO_JobStartAA
+	  OR NOT #CO_JobEndAE 
+	THEN
+	  RETURN;
+	END_IF;
+	
+	IF NOT #FirstCycle
+	  AND ((#ToggleOld AND #CO_ToggleOut)
+	  OR (NOT #ToggleOld AND NOT #CO_ToggleOut))
+	THEN
+	  RETURN;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Read camera length byte at 1st cycle
+	// move data from camera to "DB_Receive"
+	//  
+	//----------------------------------------------------------------------------- 
+	IF #FirstCycle THEN
+	      
+	  #TotalByte := BYTE_TO_INT(#CO_OutArea[5]) +
+	  SHL(IN := BYTE_TO_INT(#CO_OutArea[4]), N := 8)+
+	  #LengOverhead;
+	  
+	  #PointerByte := #Offset_DBReceive;
+	  
+	  IF (#TotalByte < 0) THEN
+	    #tError := 16#32;
+	    GOTO Error;
+	  END_IF;
+	  
+	  #ReceivedLength := #TotalByte;
+	 
+	END_IF; // End_IF First Cycle
+	
+	IF #TotalByte <= #BytePerPageIn THEN
+	  #LengthByte := #TotalByte;
+	 ELSE
+	  #LengthByte := #BytePerPageIn;
+	END_IF;
+	    
+	FOR #tLoop := 0 TO #LengthByte - 1 DO
+	  POKE(area := 16#84,
+	       dbNumber := #DB_Receive,
+	       byteOffset := #PointerByte + #tLoop,
+	       value := #CO_OutArea[3 + #tLoop]);
+	END_FOR;
+	  
+	CommandEnd:;
+	
+	//-----------------------------------------------------------------------------
+	// Get and Set Command End
+	//----------------------------------------------------------------------------- 
+	IF NOT #ComDatEnd THEN
+	  #TotalByte := #TotalByte - #LengthByte;
+	  #PointerByte := #PointerByte + #LengthByte;
+	END_IF;
+	
+	IF #TotalByte <= 0 THEN
+	  #ComDatEnd := TRUE;
+	END_IF;
+	
+	IF (#GetCommandActive AND NOT #ComDatEnd) OR
+	  (NOT #FirstCycle AND #SetCommandActive) THEN
+	  #CI_ToggleIn := NOT #CI_ToggleIn;
+	END_IF;
+	
+	#ToggleOld := #CO_ToggleOut;
+	#FirstCycle := FALSE;
+	#StDataOffset := 0;
+	CheckHsAck:;
+	
+	IF (#CO_JobStartAA AND #CO_JobEndAE AND #ComDatEnd) THEN 
+	    #ComDatEnd := FALSE;
+	    #GetCommandActive := FALSE;
+	    #SetCommandActive := FALSE;
+	    #CI_AV_JobStart := FALSE;
+	    #CI_ToggleIn := FALSE;
+	    #ToggleOld := FALSE;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Data output fieldbus
+	//-----------------------------------------------------------------------------
+	DataOutput:;
+	// Move bits to byte
+	#CI_InArea[0].%X0 := #CI_AV_JobStart;
+	#CI_InArea[0].%X1 := #CI_Trigger;
+	#CI_InArea[0].%X2 := #CI_ResetError;
+	#CI_InArea[0].%X6 := #CI_ToggleIn ;
+	#CI_InArea[#PQcount - 1] := #CI_InArea[0];
+	#OldCyComState := #CI_InArea[0];
+	    
+	//-----------------------------------------------------------------------------
+	// cyclic write plc output to cam input
+	//-----------------------------------------------------------------------------
+	IF #HW_Init  THEN
+	  #RetVal_WR_DP := DPWR_DAT(LADDR := #HW_LADDR, RECORD := #CI_InArea);
+	END_IF;
+	#RetVal_Get_ErrID := GET_ERR_ID();
+	
+	IF #RetVal_Get_ErrID <> 0
+	  AND NOT #Init
+	  AND NOT #ErrorIn THEN
+	  #tError := 16#43;
+	  GOTO Error;
+	END_IF;
+	
+	RETURN; // FB End
+	//-----------------------------------------------------------------------------
+	// Error output
+	//-----------------------------------------------------------------------------
+	Error: ;
+	  #ErrorNumber := #tError;
+	  #Ready := FALSE;
+	  #Error := TRUE;
+	  #ErrorIn := TRUE;
+	 
+	JobReset: ;
+	  #GetCommandActive := FALSE;
+	  #SetCommandActive := FALSE;
+	  #CI_AV_JobStart := FALSE;
+	  #CI_ToggleIn := FALSE;
+	  #ComDatEnd := FALSE;
+	  #ToggleOld := FALSE;
+	  GOTO DataOutput;
+END_FUNCTION_BLOCK
+

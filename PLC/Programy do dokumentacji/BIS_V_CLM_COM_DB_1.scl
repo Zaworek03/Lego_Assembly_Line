@@ -1,0 +1,979 @@
+﻿FUNCTION_BLOCK "BIS_V_CLM_COM"
+{ S7_Optimized_Access := 'TRUE' }
+AUTHOR : BICU
+FAMILY : Ident
+VERSION : 1.0
+   VAR_INPUT 
+      Init : Bool := FALSE;
+      Start : Bool := FALSE;
+      ProcReset : Bool := FALSE;
+      HeadOff : Bool := FALSE;
+      Dynamic : Bool := FALSE;
+      HW_LADDR : HW_SUBMODULE;
+      HW_LADDR_Q : HW_SUBMODULE;
+      Command : Int := 0;
+      DB_Send : DB_ANY;
+      Offset_DBSend : DInt := 0;
+      DB_Receive : DB_ANY;
+      Offset_DBReceive : DInt := 0;
+      TAG_StartAddr : DInt := DINT#0;
+      TAG_NumbOfByte : DInt := DINT#0;
+      WatchdogTime : Time := T#3S;
+      CopTargetAddr : DInt;
+      CopRW_HeadNo : Int;
+      ProcType : Char := 'v';
+      OptIoLen : UInt := 10;
+      OptIoBuffOffs : UInt;
+   END_VAR
+
+   VAR_OUTPUT 
+      Ready : Bool := FALSE;
+      Error : Bool := FALSE;
+      ErrorCode : Word := 0;
+      MT : Bool := FALSE;
+      DatCarrPresent : Bool := FALSE;
+   END_VAR
+
+   VAR_IN_OUT 
+      DB_SendOpt : Variant;
+      DB_ReceiveOpt : Variant;
+   END_VAR
+
+   VAR 
+      PointerByte : DInt := 0;
+      LengthByte : DInt := 0;
+      BytePerPage : DInt := 0;
+      TotalByte : DInt := 0;
+      HW_Init : Bool;
+      ReadActive : Bool := FALSE;
+      WriteActive : Bool := FALSE;
+      ResetActive : Bool := FALSE;
+      ToggleOld : Bool := FALSE;
+      FirstCycle : Bool := FALSE;
+      IMP_Start : Bool := FALSE;
+      ShortCom : Bool := FALSE;
+      RdLengIn : Bool;
+      WriteCom : Bool := FALSE;
+      CopyTag : Bool := FALSE;
+      HeadOffActive : Bool := FALSE;
+      WaitOnAE : Bool;
+      IOLink_Proc : Bool;
+      IOLink_Proc401 : Bool;
+      CLM_Proc : Bool;
+      C_Cttp : Bool;
+      bHd_CP_CodePresent : Bool;
+      bHd_AA_JobStart : Bool;
+      bHd_AE_JobEnd : Bool;
+      bHd_AF_JobError : Bool;
+      bHd_MT_MultTag : Bool;
+      bHd_TO_ToggleOut : Bool;
+      bHd_HF_HeadFault : Bool;
+      bHd_BB_Ready : Bool;
+      bHd_AV_JobStart : Bool;
+      bHd_GR_Default : Bool;
+      bHd_HD_HeadSel : Bool;
+      bHd_KA_HeadOff : Bool;
+      bHd_TI_ToggleIn : Bool;
+      bHd_Cttp_TagType : Bool;
+      ProcRes_Int : Bool;
+      ErrorInt : Bool;
+      ArrayInput : Array[0..#InBuSi] of Byte;
+      ArrayOutput : Array[0..#OutBuSi] of Byte;
+      R_TRIG_Start {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      R_TRIG_Reset {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      R_TRIG_KA {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;
+      F_TRIG_KA {InstructionName := 'F_TRIG'; LibVersion := '1.0'} : F_TRIG;
+      WD_Timer {InstructionName := 'TON_TIME'; LibVersion := '1.0'} : TON_TIME;
+      HF_Timer {InstructionName := 'TON_TIME'; LibVersion := '1.0'} : TON_TIME;
+      PIaddr : UDInt;
+      PIcount : UInt;
+      PQaddr : UDInt;
+      PQcount : UInt;
+      RetVal_ModulDiag : Int;
+      RetVal_RD_Addr : Int;
+      RetVal_RD_DP : Int;
+      RetVal_WR_DP : Int;
+      RetVal_Get_ErrID : Word;
+      RetValVarMove : Int;
+      CNT_Diag : UInt;
+      Diag_Out : DWord;
+      BIS_STA : Struct
+         CP_DaCarrPres : Bool := FALSE;
+         reserved_1 : Bool := FALSE;
+         reserved_2 : Bool := FALSE;
+         reserved_3 : Bool := FALSE;
+         ChainedCom : Bool := FALSE;
+         reserved_5 : Bool := FALSE;
+         Error : Bool := FALSE;
+         Ready : Bool := FALSE;
+         ResetAct : Bool := FALSE;
+         Command_start : Bool := FALSE;
+         reserved_6 : Bool := FALSE;
+         InitAct : Bool := TRUE;
+         HF_Bit : Bool := FALSE;
+         Busy : Bool := FALSE;
+         Reserved_7 : Bool := FALSE;
+         Reserved_8 : Bool := FALSE;
+         Com : Int := 0;
+         TStartAddr : DInt := DINT#0;
+         TNumbOfByte : DInt := DINT#0;
+      END_STRUCT;
+      testdword : DWord;
+   END_VAR
+
+   VAR_TEMP 
+      tError : Word;
+      tBTimeoutIN : Bool;
+      tBTimeoutQ : Bool;
+      tLoop : DInt;
+      tempDB : DB_ANY;
+      tUdint : UDInt;
+      tLCnt : UDInt;
+      tVariant : Variant;
+      tErrorConvVar : Int;
+      tempTest : DB_ANY;
+      tWordTest : Word;
+      tempDBErr : Int;
+   END_VAR
+
+   VAR CONSTANT 
+      InBuSi : Int := 254;
+      OutBuSi : Int := 254;
+   END_VAR
+
+
+BEGIN
+	//=============================================================================
+	//Balluff GmbH
+	//(c)Copyright (2019) All Rights Reserved
+	//-----------------------------------------------------------------------------
+	//Library: BIS_V
+	//Tested with: CPU 1214C V4.1
+	//Engineering: TIA Portal V13 SP1 
+	//Restrictions: -
+	//Requirements: PLC (S7-1200 / S7-1500)
+	//Functionality: RFID commandos for BIS V, BIS C, BIS M, BIS L processor units
+	//-----------------------------------------------------------------------------
+	//Change log table:
+	//Version  Date       Expert in charge  Changes applied
+	//
+	//00.01.00 18.03.2019 Balluff GmbH PD   First created with TIA V13 SP1 with mem opt
+	//=============================================================================
+	//
+	(*
+	Disclaimer of Liability
+	**********************
+	The demo function block is free of charge and is a universal application 
+	example.
+	This demo function block shall help program and configure PLC applications and 
+	shall provide possible solutions.
+	The user is not entitled to claim for warranty, error correction and updates. 
+	In 
+	particular there is excluded any claims against Balluff GmbH for damages that 
+	might result from the use of this demo program. Excluded from this limitation 
+	of 
+	liability shall be (a) those damages that are based on injury to life, limb or 
+	health, (b) a liability according to the Produkthaftungsgesetz (German Product 
+	Liability Law) and (c) cases of willful intent.
+	Please check if the function block is intended for your application before 
+	adapting it in plants and machineries.
+	By using the S7 sample, made available free of charge you accept the limitation 
+	of 
+	warranty and liability!
+	
+	Haftungsausschluss:
+	*********************
+	Der hier kostenlos verfügbare DEMO-Baustein ist ein allgemeingültiges 
+	Anwendungsbeispiel. Dieser DEMO-Baustein soll bei der Programmierung und 
+	Projektierung von SPS-Anwendungen unterstützen und Lösungsansätze aufzeigen. 
+	Ein Anspruch auf Gewährleistung, Fehlerbeseitigung und Update besteht für den 
+	Anwender nicht. Die BALLUFF GmbH schließt insbesondere jegliche Haftung für 
+	Schäden, die durch den Einsatz dieses DEMO-Bausteins entstehen, ausdrücklich 
+	aus! Diese Haftungsbeschränkung gilt nicht bei Verletzungen des Lebens, des 
+	Körpers oder der Gesundheit, bei der Haftung nach dem Produkthaftungsgesetz und 
+	bei vorsätzlichen Pflichtverletzungen. 
+	Prüfen Sie vor dem Einsatz in Anlagen und Maschinen, ob der hier 
+	bereitgestellte 
+	DEMO Baustein für Ihre Anwendung nutzbar ist!
+	Mit dem Einsatz des hier kostenlos vorgelegten S7-Beispiel erkennen Sie die 
+	Gewährleistungs- und Haftungsbegrenzung an!
+	
+	    *)
+	
+	//-----------------------------------------------------------------------------
+	//Select Processor unit
+	//-----------------------------------------------------------------------------
+	
+	
+	// Default select BIS V
+	IF (#ProcType = 'V') OR
+	  (#ProcType = 'v') THEN
+	  #WaitOnAE := FALSE;
+	  #IOLink_Proc := FALSE;
+	  #CLM_Proc := FALSE;
+	  #IOLink_Proc401 := FALSE;
+	  
+	  // Select BIS C, L, M processor    
+	ELSIF (#ProcType = 'M') OR // M upper case
+	  (#ProcType = 'm') OR // m lower case
+	  (#ProcType = 'C') OR // C upper case
+	  (#ProcType = 'c') OR // c lower case
+	  (#ProcType = 'L') OR // L upper case
+	  (#ProcType = 'l') THEN // l lower case
+	  #WaitOnAE := TRUE;
+	  #IOLink_Proc := FALSE;
+	  #CLM_Proc := TRUE;
+	  #IOLink_Proc401 := FALSE;
+	  
+	  // Select BIS IO-Link compact processor unit    
+	ELSIF (#ProcType = 'I') OR  // I upper case
+	  (#ProcType = 'i') THEN  // i lower case
+	  #WaitOnAE := TRUE;
+	  #IOLink_Proc := TRUE;
+	  #CLM_Proc := FALSE;
+	  #IOLink_Proc401 := FALSE;
+	  
+	  // Select BIS IO-Link compact processor unit   BIS M-4xx-xxx-401 
+	ELSIF (#ProcType = 'K') OR  // I upper case
+	  (#ProcType = 'k') THEN  // i lower case
+	  #WaitOnAE := TRUE;
+	  #IOLink_Proc := TRUE;
+	  #CLM_Proc := FALSE;
+	  #IOLink_Proc401 := TRUE;
+	  
+	  // Siemens Master BIS M-4xx-xxx-001        
+	ELSIF (#ProcType = 'X') OR  // I upper case
+	  (#ProcType = 'x') THEN  // i lower case
+	  #WaitOnAE := TRUE;
+	  #IOLink_Proc := TRUE;
+	  #CLM_Proc := TRUE;
+	  #IOLink_Proc401 := FALSE;
+	  
+	  // Siemens Master BIS M-4xx-xxx-401     
+	ELSIF (#ProcType = 'Y') OR  // I upper case
+	  (#ProcType = 'y') THEN  // i lower case
+	  #WaitOnAE := TRUE;
+	  #IOLink_Proc := TRUE;
+	  #CLM_Proc := TRUE;
+	  #IOLink_Proc401 := TRUE;
+	  
+	END_IF;
+	
+	// Select tag type for C System
+	IF ((#ProcType = 'C') OR // C upper case
+	  (#ProcType = 'c')) AND // c lower case
+	  #C_Cttp THEN
+	  #bHd_Cttp_TagType := TRUE;
+	ELSE
+	  #bHd_Cttp_TagType := FALSE;
+	END_IF;
+	
+	//-------------------------------------------------
+	// HMI Out
+	//-------------------------------------------------
+	#BIS_STA.CP_DaCarrPres := #bHd_CP_CodePresent;
+	#BIS_STA.HF_Bit := #bHd_HF_HeadFault;
+	#BIS_STA.InitAct := #Init;
+	#BIS_STA.Error := #ErrorInt;
+	
+	#BIS_STA.ResetAct := #ResetActive;
+	//-----------------------------------------------------------------------------
+	//FB Init, reset static variables
+	//-----------------------------------------------------------------------------
+	IF #Init THEN
+	  #PointerByte := 0;
+	  #LengthByte := 0;
+	  #BytePerPage := 0;
+	  #TotalByte := 0;
+	  #ReadActive := FALSE;
+	  #WriteActive := FALSE;
+	  #ResetActive := FALSE;
+	  #ToggleOld := FALSE;
+	  #FirstCycle := FALSE;
+	  #ShortCom := FALSE;
+	  #WriteCom := FALSE;
+	  #Ready := TRUE;
+	  #Error := FALSE;
+	  #ErrorCode := 0;
+	  #HW_Init := FALSE;
+	  #HeadOffActive := FALSE;
+	  #ProcRes_Int := TRUE;
+	  #R_TRIG_Reset.Stat_Bit := FALSE;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// read modul states
+	//-----------------------------------------------------------------------------
+	#RetVal_ModulDiag := GET_DIAG(MODE := 0, LADDR := #HW_LADDR, CNT_DIAG => #CNT_Diag, DIAG := #Diag_Out);
+	
+	//-----------------------------------------------------------------------------
+	// reading PI/PQ addr and data length
+	//-----------------------------------------------------------------------------
+	IF NOT #HW_Init THEN
+	  #RetVal_RD_Addr := RD_ADDR(LADDR := #HW_LADDR, PIADDR => #PIaddr, PICount => #PIcount,
+	                             PQADDR => #PQaddr, PQCount => #PQcount);
+	  IF #IOLink_Proc THEN
+	    #PIcount := #OptIoLen;
+	    #PQcount := #OptIoLen;
+	  END_IF;
+	  
+	  IF #CLM_Proc THEN
+	    IF NOT #IOLink_Proc THEN
+	      #RetVal_RD_Addr := RD_ADDR(LADDR := #HW_LADDR_Q, PIADDR => #tUdint, PICount => #tUdint,
+	                                 PQADDR => #PQaddr, PQCount => #PQcount);
+	    END_IF;
+	    
+	    IF #OptIoBuffOffs = 0 THEN //1st Buffer selected
+	      #PQcount := #OptIoLen; // overwrite length
+	      #PIcount := #OptIoLen;
+	    ELSIF #OptIoBuffOffs <> 0 THEN //2nd Buffer selected
+	      #PQaddr := #PQaddr + #OptIoBuffOffs; // overwrite Address 
+	      #PQcount := #OptIoLen; // overwrite Address 
+	      #PIaddr := #PIaddr + #OptIoBuffOffs;
+	      #PIcount := #OptIoLen;
+	    END_IF;
+	  END_IF;
+	  
+	  #HW_Init := TRUE;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// cyclic read cam input if HW init done
+	//----------------------------------------------------------------------------- 
+	IF #HW_Init THEN
+	  IF #CLM_Proc THEN
+	    #tLCnt := 0;
+	    #RetVal_RD_DP := 0;
+	    #RetVal_WR_DP := 0;
+	    FOR #tLoop := UDINT_TO_DINT(#PIaddr) TO UDINT_TO_DINT(#PIaddr + #PIcount) DO
+	      #ArrayInput[#tLCnt] := PEEK(area := 16#81, dbNumber := 0, byteOffset := #tLoop);
+	      #tLCnt := #tLCnt + 1;
+	    END_FOR;
+	    
+	  ELSE
+	    #RetVal_RD_DP := DPRD_DAT(LADDR := #HW_LADDR, RECORD => #ArrayInput);
+	  END_IF;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// Comapre bitheader
+	//-----------------------------------------------------------------------------
+	IF #ArrayInput[0] <> #ArrayInput[#PIcount - 1] THEN
+	  RETURN;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Move input bytes to static bits
+	//-----------------------------------------------------------------------------
+	#bHd_CP_CodePresent := #ArrayInput[0].%X0;
+	#bHd_AA_JobStart := #ArrayInput[0].%X1;
+	#bHd_AE_JobEnd := #ArrayInput[0].%X2;
+	#bHd_AF_JobError := #ArrayInput[0].%X3;
+	#bHd_MT_MultTag := #ArrayInput[0].%X4;
+	#bHd_TO_ToggleOut := #ArrayInput[0].%X5;
+	#bHd_HF_HeadFault := #ArrayInput[0].%X6;
+	#bHd_BB_Ready := #ArrayInput[0].%X7;
+	
+	//-------------------------------------------------
+	// KA HeadOff
+	//-------------------------------------------------
+	#R_TRIG_KA(CLK := #HeadOff);
+	#F_TRIG_KA(CLK := #HeadOff);
+	IF #R_TRIG_KA.Q THEN    // Deactivate head
+	  #bHd_KA_HeadOff := TRUE;
+	  #Ready := FALSE;
+	  #DatCarrPresent := FALSE;
+	  #HeadOffActive := TRUE;
+	  GOTO DataOut;
+	END_IF;
+	
+	IF #F_TRIG_KA.Q THEN    // Activate head
+	  #bHd_KA_HeadOff := FALSE;
+	  #Ready := FALSE;
+	  #HeadOffActive := FALSE;
+	  GOTO DataOut;
+	END_IF;
+	
+	//-------------------------------------------------
+	// FB Reset
+	//-------------------------------------------------
+	#R_TRIG_Reset(CLK := #ProcReset OR #ProcRes_Int);
+	
+	IF #R_TRIG_Reset.Q THEN
+	  #ResetActive := TRUE;
+	  #PointerByte := 0;
+	  #LengthByte := 0;
+	  #BytePerPage := 0;
+	  #TotalByte := 0;
+	  #ReadActive := FALSE;
+	  #WriteActive := FALSE;
+	  #ToggleOld := FALSE;
+	  #FirstCycle := FALSE;
+	  #ShortCom := FALSE;
+	  #WriteCom := FALSE;
+	  #CopyTag := FALSE;
+	  #Ready := FALSE;
+	  #bHd_GR_Default := TRUE;
+	  IF NOT #ProcRes_Int THEN
+	    #Error := FALSE;
+	    #ErrorCode := 0;
+	  END_IF;
+	  #ProcRes_Int := FALSE;
+	  #HeadOffActive := FALSE;
+	  GOTO DataOut;
+	  
+	END_IF;
+	
+	IF #ResetActive AND NOT #bHd_BB_Ready THEN
+	  #bHd_GR_Default := false;
+	  #ResetActive := false;
+	  GOTO AV_Reset;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// MT Multiple Tags; CT Present
+	//-----------------------------------------------------------------------------
+	#MT := #bHd_MT_MultTag;
+	
+	#DatCarrPresent := #bHd_CP_CodePresent;
+	
+	//-----------------------------------------------------------------------------
+	// Command Start
+	#R_TRIG_Start(CLK := #Start,
+	              Q => #IMP_Start);
+	//-----------------------------------------------------------------------------
+	
+	//-----------------------------------------------------------------------------
+	// Check HW/Profinet Error when start is set
+	//-----------------------------------------------------------------------------
+	IF #IMP_Start THEN
+	  IF #RetVal_RD_Addr <> 0 THEN
+	    #tError := w#16#50; //Error read address
+	    GOTO Error;
+	  END_IF;
+	  
+	  IF #RetVal_RD_DP <> 0 THEN
+	    #tError := w#16#51; //Error read input data
+	    GOTO Error;
+	  END_IF;
+	  
+	  IF #RetVal_WR_DP <> 0 THEN
+	    #tError := w#16#52; //Error read output data
+	    GOTO Error;
+	  END_IF;
+	  
+	END_IF;
+	
+	IF #bHd_AF_JobError AND NOT #ProcReset THEN // Check error
+	  #tError := #ArrayInput[1];
+	  GOTO Error;
+	END_IF;
+	
+	#HF_Timer(IN := #bHd_HF_HeadFault AND (NOT #HeadOff OR (NOT #IOLink_Proc AND NOT #CLM_Proc)),
+	          PT := t#500ms);
+	
+	IF #HF_Timer.Q//Head fault timeout
+	  AND NOT #ProcReset
+	  AND (NOT #IOLink_Proc
+	  OR #IOLink_Proc
+	  AND NOT #HeadOff)
+	THEN // Check head fault
+	  #tError := 16#09;
+	  GOTO Error;
+	END_IF;
+	
+	IF #IMP_Start AND
+	  (#TAG_NumbOfByte > 65534) AND NOT
+	  (#Command = 16#B2) THEN
+	  #tError := w#16#84;
+	  GOTO Error;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// FB ready output 
+	//-----------------------------------------------------------------------------
+	#Ready :=
+	NOT #ReadActive AND
+	NOT #WriteActive AND
+	NOT #ResetActive AND
+	NOT #ShortCom AND
+	NOT #CopyTag AND
+	NOT #WriteCom AND
+	NOT #bHd_AA_JobStart AND
+	NOT #bHd_AE_JobEnd AND
+	NOT #bHd_AF_JobError AND
+	NOT #HeadOffActive AND
+	#bHd_BB_Ready;
+	
+	//-----------------------------------------------------------------------------
+	// BIS status for HMI
+	//-----------------------------------------------------------------------------
+	#BIS_STA.Ready := #Ready;
+	#BIS_STA.Command_start := #Start;
+	#BIS_STA.Com := #Command;
+	#BIS_STA.TStartAddr := #TAG_StartAddr;
+	#BIS_STA.TNumbOfByte := #TAG_NumbOfByte;
+	
+	IF #BIS_STA.Ready THEN
+	  #BIS_STA.ResetAct := FALSE;
+	  #BIS_STA.Busy := FALSE;
+	END_IF;
+	//-----------------------------------------------------------------------------
+	// Generate error timeout
+	//-----------------------------------------------------------------------------
+	#tBTimeoutIN := (NOT #Ready AND NOT #Dynamic
+	AND NOT #ResetActive
+	AND NOT #HeadOffActive
+	AND NOT #ProcRes_Int);
+	
+	#WD_Timer(IN := #tBTimeoutIN,
+	          PT := #WatchdogTime,
+	          Q => #tBTimeoutQ);
+	
+	IF #tBTimeoutQ THEN
+	  #tError := w#16#80;
+	  #ProcRes_Int := #bHd_AA_JobStart;
+	  GOTO Error;
+	END_IF;
+	
+	//=============================================================================
+	//
+	// Reader commandos
+	//
+	//=============================================================================
+	
+	//-----------------------------------------------------------------------------
+	// Goto FB end if no job active
+	//-----------------------------------------------------------------------------
+	
+	IF (NOT #ReadActive AND
+	  NOT #WriteActive AND
+	  NOT #ShortCom AND
+	  NOT #WriteCom AND
+	  NOT #CopyTag AND
+	  (NOT #IMP_Start OR
+	  NOT #Ready OR
+	  #bHd_AA_JobStart)) OR
+	  #HeadOffActive THEN
+	  RETURN;
+	END_IF;
+	
+	IF #ReadActive THEN  // Check Get or Set
+	  GOTO Read;
+	ELSIF #WriteActive THEN
+	  GOTO Write;
+	ELSIF #WriteCom OR #CopyTag THEN
+	  GOTO WriteCom;
+	END_IF;
+	
+	//-----------------------------------------------------------------------------
+	// Initialize Command output
+	//-----------------------------------------------------------------------------
+	#ArrayOutput[3] := 0;
+	#ArrayOutput[4] := 0;
+	#ArrayOutput[5] := 0;
+	#ArrayOutput[6] := 0;
+	#ArrayOutput[7] := 0;
+	#ArrayOutput[8] := 0;
+	
+	CASE #Command OF
+	    
+	  16#1: // Read user data       
+	    #ArrayOutput[1] := 16#1;
+	    #PointerByte := #Offset_DBReceive;
+	    #ReadActive := TRUE;
+	  16#2: // Write user data       
+	    #ArrayOutput[1] := 16#2;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	  16#7: // // Store Start address for Auto read
+	    #ArrayOutput[1] := 16#7;
+	    #WriteActive := TRUE;
+	    #WriteCom := TRUE;
+	  16#9: // Read Typ and Serial  
+	    #ArrayOutput[1] := 16#9;
+	    #PointerByte := #Offset_DBReceive;
+	    #RdLengIn := TRUE;
+	    #ReadActive := TRUE;
+	  16#11: // Copy data between data carriers
+	    #ArrayOutput[1] := 16#11;
+	    #PointerByte := #Offset_DBReceive;
+	    #WriteCom := TRUE;
+	    #TotalByte := 0;
+	  16#12: // Initialize CRC16       
+	    #ArrayOutput[1] := 16#12;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	  16#13: // Read DSFID
+	    #ArrayOutput[1] := 16#13;
+	    #PointerByte := #Offset_DBReceive;
+	    #TotalByte := 1;
+	    #ReadActive := TRUE;
+	  16#14: // Write DSFID
+	    #ArrayOutput[1] := 16#14;
+	    #PointerByte := #Offset_DBReceive;
+	    #TotalByte := 1;
+	    #WriteActive := TRUE;
+	  16#32: // Write constant value
+	    #ArrayOutput[1] := 16#32;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	    #ShortCom := TRUE;
+	  16#81: // Read user data       
+	    #ArrayOutput[1] := 16#81;
+	    #PointerByte := #Offset_DBReceive;
+	    #ReadActive := TRUE;
+	  16#82: // Write user data       
+	    #ArrayOutput[1] := 16#82;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	  16#87: // Store Start address for Auto read
+	    #ArrayOutput[1] := 16#87;
+	    #WriteCom := TRUE;
+	  16#91: // Copy data between data carriers
+	    #ArrayOutput[1] := 16#91;
+	    #PointerByte := #Offset_DBReceive;
+	    #WriteCom := TRUE;
+	    #TotalByte := 0;
+	  16#92: // Initialize CRC16       
+	    #ArrayOutput[1] := 16#92;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	  16#B2: // Write constant value
+	    #ArrayOutput[1] := 16#B2;
+	    #PointerByte := #Offset_DBSend;
+	    #WriteActive := TRUE;
+	    #ShortCom := TRUE;
+	  ELSE
+	    #tError := w#16#81; // Error no com selected
+	    GOTO Error;
+	END_CASE;
+	
+	// Initialization at comando start
+	#BytePerPage := UDINT_TO_INT(#PIcount - 2);
+	#FirstCycle := TRUE;
+	#Ready := FALSE;
+	#ErrorCode := 0;
+	#Error := FALSE;
+	#ErrorInt := FALSE;
+	#tError := 0;
+	#ToggleOld := #bHd_TO_ToggleOut;
+	#BIS_STA.Ready := FALSE;
+	#BIS_STA.Busy := TRUE;
+	// Adding Command trailer
+	
+	IF #WriteCom THEN
+	  #TotalByte := 0;
+	END_IF;
+	// Command send -> set AV
+	
+	CASE #Command OF
+	  16#1, 16#2, 16#12: // User Commando
+	    #TotalByte := #TAG_NumbOfByte;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[5] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	  16#7:// Auto read address
+	    #TotalByte := 0;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	  16#9: // Read Typ and Serial  
+	    #ArrayOutput[1] := 16#9;
+	    #PointerByte := #Offset_DBReceive;
+	    #RdLengIn := TRUE;
+	    #ReadActive := TRUE;
+	  16#11: // Copy 
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(#CopTargetAddr);
+	    #ArrayOutput[5] := DINT_TO_BYTE(SHR(IN := #CopTargetAddr, N := 8));
+	    #ArrayOutput[6] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[7] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	    #ArrayOutput[8] := INT_TO_BYTE(#CopRW_HeadNo);
+	  16#13, 16#14: // Read or Write DSFID overwrite unused bytes
+	    #ArrayOutput[2] := 0;
+	    #ArrayOutput[3] := 0;
+	    #ArrayOutput[4] := 0;
+	    #ArrayOutput[5] := 0;
+	  16#32: //Write constant
+	    IF (#IOLink_Proc OR #CLM_Proc) AND
+	      NOT #IOLink_Proc401 THEN // Only for IO Link
+	      #TotalByte := 0;
+	      #WriteCom := TRUE;
+	      IF IS_ARRAY(#DB_SendOpt) AND TypeOfElements(#DB_SendOpt) <> Byte THEN
+	        #tError := w#16#85; //Error read input data
+	        GOTO Error;
+	        
+	      ELSIF IS_ARRAY(#DB_SendOpt) AND TypeOfElements(#DB_SendOpt) = Byte THEN
+	        #RetValVarMove := MOVE_BLK_VARIANT(SRC := #DB_SendOpt,
+	                                           COUNT := 1,// 1 Byte for Copy
+	                                           SRC_INDEX := #PointerByte,
+	                                           DEST_INDEX := 6,
+	                                           DEST => #ArrayOutput);
+	        
+	        IF #RetValVarMove <> 0 THEN
+	          #tError := w#16#88; //Error read input data
+	          GOTO Error;
+	        END_IF;
+	        
+	      ELSE // DB Number Assigned
+	       
+	        #ArrayOutput[6] := PEEK(area := 16#84,
+	                                dbNumber := #tempDB,
+	                                byteOffset := #PointerByte);
+	      END_IF;
+	     
+	    ELSE
+	      #TotalByte := 1;
+	    END_IF;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[5] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	    
+	  16#81, 16#82, 16#92:
+	    #TotalByte := #TAG_NumbOfByte;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 16));
+	    #ArrayOutput[5] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[6] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	    #ArrayOutput[7] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 16));
+	    
+	  16#87:
+	    #TotalByte := 0;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 16));
+	  16#91:
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 16));
+	    #ArrayOutput[5] := DINT_TO_BYTE(#CopTargetAddr);
+	    #ArrayOutput[6] := DINT_TO_BYTE(SHR(IN := #CopTargetAddr, N := 8));
+	    #ArrayOutput[7] := DINT_TO_BYTE(SHR(IN := #CopTargetAddr, N := 16));
+	    #ArrayOutput[8] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[9] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	    #ArrayOutput[10] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 16));
+	    #ArrayOutput[11] := INT_TO_BYTE(#CopRW_HeadNo);
+	  16#B2: //Write constant
+	    #TotalByte := 1;
+	    #ArrayOutput[2] := DINT_TO_BYTE(#TAG_StartAddr);
+	    #ArrayOutput[3] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 8));
+	    #ArrayOutput[4] := DINT_TO_BYTE(SHR(IN := #TAG_StartAddr, N := 16));
+	    #ArrayOutput[5] := DINT_TO_BYTE(#TAG_NumbOfByte);
+	    #ArrayOutput[6] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 8));
+	    #ArrayOutput[7] := DINT_TO_BYTE(SHR(IN := #TAG_NumbOfByte, N := 16));
+	END_CASE;
+	
+	#bHd_AV_JobStart := TRUE;
+	GOTO DataOut; // wite to output
+	//-----------------------------------------------------------------------------
+	// Read userdata or multi epc comand
+	//----------------------------------------------------------------------------- 
+	Read: ;
+	
+	IF NOT #bHd_AE_JobEnd AND
+	  #WaitOnAE OR
+	  #bHd_AF_JobError OR
+	  NOT #bHd_AA_JobStart THEN
+	  RETURN;
+	END_IF;
+	
+	// Toggled?
+	IF (NOT #FirstCycle OR NOT #WaitOnAE) AND
+	  ((#ToggleOld AND #bHd_TO_ToggleOut) OR
+	  (NOT #ToggleOld AND NOT #bHd_TO_ToggleOut))
+	THEN
+	  RETURN;
+	END_IF;
+	
+	IF #RdLengIn AND #FirstCycle THEN
+	  IF #ArrayInput[1] <= 64 THEN
+	    #TotalByte := #ArrayInput[1] + 1;
+	  ELSE
+	    #TotalByte := 0;
+	  END_IF;
+	END_IF;
+	
+	#tempDB := #DB_Receive ;
+	
+	IF #TotalByte <= #BytePerPage THEN
+	  #LengthByte := #TotalByte;
+	ELSE
+	  #LengthByte := #BytePerPage;
+	END_IF;
+	
+	IF IS_ARRAY(#DB_ReceiveOpt) AND TypeOfElements(#DB_ReceiveOpt) <> Byte THEN
+	  #tError := w#16#85; //Error read input data
+	  GOTO Error;
+	  
+	ELSIF IS_ARRAY(#DB_ReceiveOpt) AND TypeOfElements(#DB_ReceiveOpt) = Byte THEN
+	  #RetValVarMove := MOVE_BLK_VARIANT(SRC := #ArrayInput,
+	                                     COUNT := DINT_TO_UDINT(#LengthByte),
+	                                     SRC_INDEX := 1,
+	                                     DEST_INDEX := #PointerByte,
+	                                     DEST => #DB_ReceiveOpt);
+	  IF #RetValVarMove <> 0 THEN
+	    #tError := w#16#86; //Error read moveblock
+	    GOTO Error;
+	  END_IF;
+	  
+	ELSE
+	  FOR #tLoop := 0 TO #LengthByte - 1 DO // Not Optimized
+	    POKE(area := 16#84,
+	         dbNumber := #tempDB,
+	         byteOffset := #PointerByte + #tLoop,
+	         value := #ArrayInput[1 + #tLoop]);
+	  END_FOR;
+	END_IF;
+	GOTO Com_End;
+	//-----------------------------------------------------------------------------
+	// Write comand
+	//----------------------------------------------------------------------------- 
+	Write: ;
+	IF #bHd_AE_JobEnd THEN
+	  GOTO AV_Reset;
+	END_IF;
+	
+	IF NOT #bHd_AA_JobStart OR
+	  #bHd_AF_JobError THEN
+	  RETURN;
+	END_IF;
+	
+	IF ((#ToggleOld AND #bHd_TO_ToggleOut) OR
+	  (NOT #ToggleOld AND NOT #bHd_TO_ToggleOut)) THEN
+	  RETURN;
+	END_IF;
+	
+	IF #TotalByte <= #BytePerPage THEN
+	  #LengthByte := #TotalByte;
+	ELSE
+	  #LengthByte := #BytePerPage;
+	END_IF;
+	
+	#tempDB := #DB_Send;
+	IF #LengthByte > 0 THEN
+	  IF IS_ARRAY(#DB_SendOpt) AND TypeOfElements(#DB_SendOpt) <> Byte THEN
+	    #tError := w#16#87; //Error read input data
+	    GOTO Error;
+	    
+	  ELSIF IS_ARRAY(#DB_SendOpt) AND TypeOfElements(#DB_SendOpt) = Byte THEN
+	    #RetValVarMove := MOVE_BLK_VARIANT(SRC := #DB_SendOpt,
+	                                       COUNT := DINT_TO_UDINT(#LengthByte),
+	                                       SRC_INDEX := #PointerByte,
+	                                       DEST_INDEX := 1,
+	                                       DEST => #ArrayOutput);
+	    
+	    IF #RetValVarMove <> 0 THEN
+	      #tError := w#16#88; //Error read input data
+	      GOTO Error;
+	    END_IF;
+	    
+	  ELSE
+	    
+	    FOR #tLoop := 0 TO #LengthByte - 1 DO
+	      #ArrayOutput[1 + #tLoop] := PEEK(area := 16#84,
+	                                       dbNumber := #tempDB,
+	                                       byteOffset := #PointerByte + #tLoop);
+	    END_FOR;
+	  END_IF;
+	END_IF;
+	Com_End:;
+	//-----------------------------------------------------------------------------
+	// Command block end 
+	//----------------------------------------------------------------------------- 
+	#TotalByte := #TotalByte - #LengthByte;
+	#PointerByte := #PointerByte + #LengthByte;
+	#ToggleOld := #bHd_TO_ToggleOut;
+	#bHd_TI_ToggleIn := NOT #bHd_TI_ToggleIn;
+	
+	WriteCom:;
+	
+	#FirstCycle := FALSE;
+	
+	IF #TotalByte > 0 THEN
+	  GOTO DataOut;//End;
+	END_IF;
+	
+	IF NOT #bHd_AE_JobEnd THEN
+	  GOTO DataOut;//End;
+	END_IF;
+	
+	AV_Reset: ; //Reset job
+	#ReadActive := FALSE;
+	#WriteActive := FALSE;
+	#ShortCom := FALSE;
+	#RdLengIn := FALSE;
+	#WriteCom := FALSE;
+	#WaitOnAE := FALSE;
+	#ToggleOld := false;
+	#bHd_AV_JobStart := FALSE;
+	#bHd_GR_Default := FALSE;
+	#bHd_KA_HeadOff := FALSE;
+	#bHd_TI_ToggleIn := FALSE;
+	
+	DataOut: // Outbput bit header
+	#ArrayOutput[0].%X0 := #bHd_AV_JobStart;
+	#ArrayOutput[0].%X2 := #bHd_GR_Default;
+	#ArrayOutput[0].%X4 := #bHd_HD_HeadSel;
+	#ArrayOutput[0].%X5 := #bHd_KA_HeadOff;
+	#ArrayOutput[0].%X6 := #bHd_TI_ToggleIn;
+	#ArrayOutput[0].%X7 := #bHd_Cttp_TagType;
+	#ArrayOutput[#PQcount - 1] := #ArrayOutput[0]; // Copy to 2.nd Bitstring
+	//-----------------------------------------------------------------------------
+	// cyclic write plc output to BIS input
+	//-----------------------------------------------------------------------------
+	
+	IF #HW_Init THEN
+	  
+	  IF #CLM_Proc THEN
+	    #tLCnt := 0;
+	    FOR #tLoop := UDINT_TO_DINT(#PQaddr) TO UDINT_TO_DINT(#PQaddr + #PQcount - 1) DO
+	      POKE(area := 16#82,
+	           dbNumber := 0,
+	           byteOffset := #tLoop,
+	           value := #ArrayOutput[#tLCnt]);
+	      #tLCnt := #tLCnt + 1;
+	    END_FOR;
+	    
+	  ELSE
+	    #RetVal_WR_DP := DPWR_DAT(LADDR := #HW_LADDR, RECORD := #ArrayOutput);
+	  END_IF;
+	END_IF;
+	
+	#RetVal_Get_ErrID := GET_ERR_ID();
+	
+	IF #RetVal_Get_ErrID <> 0
+	  AND NOT #Init
+	  AND NOT #ErrorInt THEN
+	  #tError := 16#53;
+	  GOTO Error;
+	END_IF;
+	
+	RETURN;
+	//-----------------------------------------------------------------------------
+	// Error output
+	//-----------------------------------------------------------------------------
+	Error: ;
+	#ErrorCode := #tError;
+	#Ready := FALSE;
+	#Error := TRUE;
+	#ErrorInt := TRUE;
+	#BIS_STA.Error := TRUE;
+	
+	GOTO AV_Reset;
+	
+END_FUNCTION_BLOCK
+
+DATA_BLOCK "BIS_V_CLM_COM_DB_1"
+{ S7_Optimized_Access := 'TRUE' }
+AUTHOR : BICU
+FAMILY : Ident
+VERSION : 1.0
+NON_RETAIN
+"BIS_V_CLM_COM"
+
+BEGIN
+
+END_DATA_BLOCK
+

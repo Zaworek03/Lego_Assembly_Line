@@ -1,0 +1,13 @@
+﻿DATA_BLOCK "DB_Cam_Input"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      Input : Array[0..127] of Byte;
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+

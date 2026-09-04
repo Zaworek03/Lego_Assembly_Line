@@ -1,0 +1,31 @@
+﻿TYPE "udtDbKomunikacja"
+VERSION : 0.1
+   STRUCT
+      Trigger : Bool;
+      NumerZlecenia : String[50];
+      NumerOperacji : DInt;
+      NumerPaletki : String[50];
+      Stanowisko : String[50];
+      Operator : String[50];
+      CzasCykluMs : DInt;
+      WynikQC : Bool;
+      IloscWyprodukowanych : DInt;
+      LiczbaWadliwych : DInt;
+      KodPostoju : String[20];
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "DB_WWW"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      Comm { S7_SetPoint := 'False'} : "udtDbKomunikacja";
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+

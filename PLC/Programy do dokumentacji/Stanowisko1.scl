@@ -1,0 +1,623 @@
+﻿TYPE "udtStanowiskoAssembly"
+VERSION : 0.1
+   STRUCT
+      Config : Struct
+         ID : Int;
+         "Name" : String[20];
+         HorlyRate : Real;
+      END_STRUCT;
+      Production : Struct
+         State : Int;   // 0 - Gotowy. 1 - Montaż, 2 - Zakończono, 3 - Awaria 
+         OrderNo : Int;
+         ProductNo : Int;
+      END_STRUCT;
+      "Time" : Struct
+         TargetTime : Time;
+         LastSec : UInt;
+         RemainingSec : Int;
+         RemainingStr : String[6];
+         Blink : Bool;
+      END_STRUCT;
+      Commands : Struct
+         Start : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FInish : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         ReportFault : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         AbortProcess : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FaultReason : Struct
+            MissingPart : Bool;
+            DamagedPart : Bool;
+            PalletFault : Bool;
+            WrongInstruction : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      Sensors : Struct
+         PalletPresent : Bool;
+         RFID : Struct
+            TagPresent : Bool;
+            CmdRead : Bool;
+            CmdWrite : Bool;
+            Status : Bool;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+      END_STRUCT;
+      Stats : Struct
+         DoneToday : Int;
+         Efficiency : Int;
+         ActudalPart : Int;
+         Instruction : Int;
+         Loaded : Bool;
+      END_STRUCT;
+      HMI : Struct
+         Clear : Bool;   // Czyści licznik
+         Container : Array[1..3] of Struct   // Tablica kontenerów 
+            value : Int;   // Ilość kontenerów 0 - 3
+            Add : Struct   // Impuls na reczne dodanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+            Subtract : Struct   // Impuls na reczne odejmowanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+         END_STRUCT;
+      END_STRUCT;
+      MontazState : Int;
+   END_STRUCT;
+
+END_TYPE
+
+TYPE "udtZlecenia"
+VERSION : 0.1
+   STRUCT
+      Zlecenie : Struct
+         ID : Int;   // Numer zlecenia
+         Model : Int;   // Rodzaj modelu 2-8
+         PartNo : Int;   // Nr sztuki
+         "Time" : Struct   // Czasy na stanowiskach
+            Stanowisko1 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            Stanowisko2 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            Stanowisko3 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            StanowiskoQC : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+         END_STRUCT;
+         Alarm : Struct
+            Stanowisko1 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            Stanowisko2 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            Stanowisko3 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            StanowieskoQC : Struct
+               Camera : Bool;
+               NOK : Bool;
+               PalletFault : Bool;
+               RFID : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         ReturnQC : Bool;   // True - poprawny wyrób, False zły wyrób
+         Priority : Int;   // 0 - Najniższy, 5 - Najwyższy
+         Status : Array[0..3] of Bool;   // Status czy skonczono na danym stanowisku
+         NOK : Struct
+            NoBrick : Bool;
+            WrongColour : Bool;
+            Offset : Bool;
+            Damage : Bool;
+            WrongNumber : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "DB_Data"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   STRUCT 
+      Stanowisko1 { S7_SetPoint := 'False'} : "udtStanowiskoAssembly";
+      Stanowisko2 : "udtStanowiskoAssembly";
+      Stanowisko3 : "udtStanowiskoAssembly";
+      StanowiskoQC : Struct
+         Config : Struct
+            ID : Int;
+            "Name" : String[20];
+            HorlyRate : Real;
+         END_STRUCT;
+         Production : Struct
+            State : Int;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+         "Time" : Struct
+            TargetTime : Time;
+            LastSec : UInt;
+            RemainingSec : Int;
+            RemainingStr : String[6];
+            Blink : Bool;
+         END_STRUCT;
+         Commands : Struct
+            Start : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            OK : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            NOK : Struct
+               Enable : Bool;
+               State : Bool;
+               NoBrick : Bool;
+               WrongColour : Bool;
+               Offset : Bool;
+               Damage : Bool;
+               WrongNumber : Bool;
+               Other : Bool;
+            END_STRUCT;
+            ReportFault : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         Sensors : Struct
+            PalletPresent : Bool;
+            RFID : Struct
+               TagPresent : Bool;
+               CmdRead : Bool;
+               CmdWrite : Bool;
+               Status : Bool;
+               OrderNo : Int;
+               ProductNo : Int;
+            END_STRUCT;
+         END_STRUCT;
+         Stats : Struct
+            DoneToday : Int;
+            Efficiency : Int;
+            ActudalPart : Int;
+            Instruction : Int;
+            Loaded : Bool;
+            PartsOK : Int;
+            PartsNOK : Int;
+            PartsPercent : Int;
+         END_STRUCT;
+         HMI : Struct
+            Clear : Bool;
+            CameraStatus : Int;
+         END_STRUCT;
+         QualityState : Int;
+         FaultReason : Struct
+            Camera : Bool;
+            NOK : Bool;
+            PalletFault : Bool;
+            RFID : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+         CameraControl : Struct
+            bInit : Bool;
+            bGetResult : Bool;
+            bResetError : Bool;
+            wynikOK : Bool;
+            bReq : Bool;
+            bTrigger : Bool;
+            bZrobInspekcje : Bool;
+            krok : Int;
+            wynikOV : Array[0..5] of Bool;
+            CameraStatus : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      ZlecenieIndex { S7_SetPoint := 'True'} : Array[0..3] of Int;
+      DoneAllTime : Array[0..3] of Int;
+   END_STRUCT;
+
+
+BEGIN
+   Stanowisko1.Production.State := 0;
+   Stanowisko1.Production.OrderNo := 0;
+
+END_DATA_BLOCK
+
+DATA_BLOCK "DB_Zlecenia"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      Zlecenie { S7_SetPoint := 'False'} : Array[0..199] of "udtZlecenia";
+      NastepneZlecenie : "udtZlecenia";
+      PusteZlecenie : "udtZlecenia";   // Nie dopisywac wartosci!!!
+      ResetZlecen { S7_SetPoint := 'True'} : Bool;
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "RFID_test"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Bufor_Odczyt : Array[0..10] of Byte;
+      Bufor_Zapis : Array[0..10] of Byte;
+      Bufor_Odczyt2 : Array[0..10] of Byte;
+      Bufor_Odczyt3 : Array[0..10] of Byte;
+      Bufor_Odczyt4 : Array[0..10] of Byte;
+   END_VAR
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Stanowisko1"
+TITLE = "Main Program Sweep (Cycle)"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      temp_start_time : Int;
+      temp_taget_time : Int;
+      i : Int;
+      Czas_DTL {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;
+      Status_Czasu : Int;
+      Minuty : Int;
+      Sekundy : Int;
+      StrMin : String;
+      StrSec : String;
+      temp_diff_time : Time;
+   END_VAR
+
+
+BEGIN
+	// ===================== STANOWISKO 1 =====================
+	CASE "DB_Data".Stanowisko1.Production.State OF
+	        
+	    0:
+	        //Ustawienie przyciskow
+	        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.FInish.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 0;
+	        
+	        //Wyzerowanie stanu przyciskow (na wypadek zaleglych klikniec)
+	        "DB_Data".Stanowisko1.Commands.FInish.State := 0;
+	        "DB_Data".Stanowisko1.Commands.ReportFault.State := 0;
+	        
+	        //Ustawienie awarii na 0
+	        "DB_Data".Stanowisko1.Commands.FaultReason.DamagedPart := 0;
+	        "DB_Data".Stanowisko1.Commands.FaultReason.MissingPart := 0;
+	        "DB_Data".Stanowisko1.Commands.FaultReason.Other := 0;
+	        "DB_Data".Stanowisko1.Commands.FaultReason.PalletFault := 0;
+	        "DB_Data".Stanowisko1.Commands.FaultReason.SensorFault := 0;
+	        "DB_Data".Stanowisko1.Commands.FaultReason.WrongInstruction := 0;
+	        
+	        //Reset czasu cyklu na wyswietlaczu
+	        "DB_Data".Stanowisko1."Time".RemainingStr := '00:00';
+	        
+	        //Reset numeru zlecenia
+	        "DB_Data".Stanowisko1.Production.OrderNo := 0;
+	        "DB_Data".Stanowisko1.Production.ProductNo := 0;
+	        
+	        //Zerowanie flagi ladowania
+	        "DB_Data".Stanowisko1.Stats.Loaded := 0;
+	        
+	        //Sprawdzenie czy jest zlecenie (numer int = 0 -> brak zlecenia)
+	        IF "DB_Zlecenia".NastepneZlecenie.Zlecenie.ID = 0 THEN
+	            //Brak zlecenia - Start zablokowany
+	            "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+	            "DB_Data".Stanowisko1.Stats.Instruction := 0;
+	        ELSE
+	            //Jest zlecenie
+	            "DB_Data".Stanowisko1.Stats.Instruction := 1;
+	            
+	            //Przejscie do montazu jezeli paletka jest aktywna i start klikniety
+	            IF "DB_Data".Stanowisko1.Sensors.PalletPresent THEN
+	                "DB_Data".Stanowisko1.Commands.Start.Enable := 1;
+	                IF "DB_Data".Stanowisko1.Commands.Start.State THEN
+	                    "DB_Data".Stanowisko1.Production.State := 1;
+	                    "DB_Data".Stanowisko1.Commands.Start.State := 0;
+	                    "DB_Data".Stanowisko1.MontazState := 0;
+	                END_IF;
+	            ELSE
+	                "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+	            END_IF;
+	        END_IF;
+	        
+	    1:
+	        //Ustawienie przycisków
+	        "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 1;
+	        "DB_Data".Stanowisko1.Commands.FInish.Enable := 1;
+	        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 1;
+	        
+	        CASE "DB_Data".Stanowisko1.MontazState OF
+	                //Ustawienie wartosci przed montazem
+	            0:
+	                "DB_Data".Stanowisko1.Production.OrderNo := "DB_Zlecenia".NastepneZlecenie.Zlecenie.ID;
+	                "DB_Data".Stanowisko1.Production.ProductNo := "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo;
+	                "DB_Data".Stanowisko1.Stats.Instruction := "DB_Zlecenia".NastepneZlecenie.Zlecenie.Model; //Modele od 2 do 8 (0-1 zarezerwowane dla informacji)
+	                #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.StartTime); // Zapis czasu rozpoczecia
+	                
+	                CASE "DB_Zlecenia".NastepneZlecenie.Zlecenie.Model OF
+	                    2:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 54;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 60;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 52;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                    3:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 39;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 42;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 66;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                    4:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 26;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 82;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 59;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                    5:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 27;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 29;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 53;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                    6:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 30;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 33;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 55;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                    7:
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime := 20;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko2.TargetTime := 33;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko3.TargetTime := 43;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".StanowiskoQC.TargetTime := 15;
+	                END_CASE;
+	                
+	                //"RFID_test".Bufor_Zapis
+	                "RFID_test".Bufor_Zapis[0] := INT_TO_BYTE("DB_Zlecenia".NastepneZlecenie.Zlecenie.ID);
+	                "RFID_test".Bufor_Zapis[1] := INT_TO_BYTE("DB_Zlecenia".NastepneZlecenie.Zlecenie.Model);
+	                "RFID_test".Bufor_Zapis[2] := INT_TO_BYTE("DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo);
+	                "DB_Data".Stanowisko1.Sensors.RFID.CmdWrite := TRUE;
+	                
+	                "DB_Data".Stanowisko1.MontazState := 1;
+	                
+	            1:
+	                #temp_taget_time := "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime;
+	                
+	                "DB_Data".Stanowisko1.Sensors.RFID.CmdWrite := FALSE;
+	                
+	                "DB_Data".Stanowisko1."Time".RemainingSec := "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.TargetTime;
+	                "DB_Data".Stanowisko1."Time".Blink := FALSE;
+	                
+	                "DB_Data".Stanowisko1.MontazState := 2;
+	                
+	            2:
+	                #Status_Czasu := RD_SYS_T(OUT => #Czas_DTL);
+	                
+	                IF #Czas_DTL.SECOND <> "DB_Data".Stanowisko1."Time".LastSec THEN
+	                    "DB_Data".Stanowisko1."Time".LastSec := #Czas_DTL.SECOND;
+	                    
+	                    IF "DB_Data".Stanowisko1."Time".RemainingSec > 0 THEN
+	                        "DB_Data".Stanowisko1."Time".RemainingSec := "DB_Data".Stanowisko1."Time".RemainingSec - 1;
+	                    END_IF;
+	                    
+	                    IF "DB_Data".Stanowisko1."Time".RemainingSec <= 0 THEN
+	                        "DB_Data".Stanowisko1."Time".Blink := NOT "DB_Data".Stanowisko1."Time".Blink;
+	                    END_IF;
+	                END_IF;
+	                
+	                #Minuty := "DB_Data".Stanowisko1."Time".RemainingSec / 60;
+	                #Sekundy := "DB_Data".Stanowisko1."Time".RemainingSec MOD 60;
+	                
+	                #StrMin := INT_TO_STRING(#Minuty);
+	                #StrSec := INT_TO_STRING(#Sekundy);
+	                
+	                #StrMin := RIGHT(IN := #StrMin, L := LEN(#StrMin) - 1);
+	                #StrSec := RIGHT(IN := #StrSec, L := LEN(#StrSec) - 1);
+	                
+	                IF #Minuty < 10 THEN
+	                    #StrMin := CONCAT(IN1 := '0', IN2 := #StrMin);
+	                END_IF;
+	                IF #Sekundy < 10 THEN
+	                    #StrSec := CONCAT(IN1 := '0', IN2 := #StrSec);
+	                END_IF;
+	                
+	                IF "DB_Data".Stanowisko1."Time".RemainingSec <= 0 AND "DB_Data".Stanowisko1."Time".Blink THEN
+	                    "DB_Data".Stanowisko1."Time".RemainingStr := '     ';
+	                ELSE
+	                    "DB_Data".Stanowisko1."Time".RemainingStr := CONCAT(IN1 := #StrMin, IN2 := CONCAT(IN1 := ':', IN2 := #StrSec));
+	                END_IF;
+	                
+	        END_CASE;
+	        
+	        //Przejscie do stanu awarii
+	        IF "DB_Data".Stanowisko1.Commands.ReportFault.State THEN
+	            "DB_Data".Stanowisko1.Production.State := 3;
+	            "DB_Data".Stanowisko1.Commands.ReportFault.State := 0;
+	        END_IF;
+	        
+	        //Przejscie do zakonczenia montazu
+	        IF "DB_Data".Stanowisko1.Commands.FInish.State THEN
+	            "DB_Data".Stanowisko1.Production.State := 2;
+	            "DB_Data".Stanowisko1.Commands.FInish.State := 0;
+	        END_IF;
+	        
+	    2:
+	        //Ustawienie przycisków
+	        "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.FInish.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 0;
+	        
+	        #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.EndTime); // Zapis czasu zakonczenia
+	        
+	        //Funkcja zapisujaca wyrob do bazy danych dla innych stanowisk
+	        FOR #i := 0 TO 199 DO
+	            
+	            // szukanie pierwszego wolnego miejsca (czyli takiego, gdzie ID zlecenia to 0)
+	            IF "DB_Zlecenia".Zlecenie[#i].Zlecenie.ID = 0 THEN
+	                
+	                "DB_Zlecenia".Zlecenie[#i] := "DB_Zlecenia".NastepneZlecenie;
+	                
+	                //Status stanowiska 1 - praca zakonczona
+	                "DB_Zlecenia".Zlecenie[#i].Zlecenie.Status[0] := TRUE;
+	                
+	                //Obliczenie faktycznego czasu pracy (sekundy, zaokraglone)
+	                #temp_diff_time := "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.EndTime - "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.StartTime;
+	                "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.ActualTime := DINT_TO_INT((TIME_TO_DINT(#temp_diff_time) + 500) / 1000);
+	                
+	                //Jesli zlecenie mialo wiecej niz 1 sztuke - zostaw ID/Model, zmniejsz PartNo, wyczysc Time/Alarm
+	                IF "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo > 1 THEN
+	                    "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo := "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo - 1;
+	                    "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time" := "DB_Zlecenia".PusteZlecenie.Zlecenie."Time";
+	                    "DB_Zlecenia".NastepneZlecenie.Zlecenie.Alarm := "DB_Zlecenia".PusteZlecenie.Zlecenie.Alarm;
+	                ELSE
+	                    "DB_Zlecenia".NastepneZlecenie := "DB_Zlecenia".PusteZlecenie;
+	                END_IF;
+	                EXIT;
+	            END_IF;
+	        END_FOR;
+	        
+	        "DB_Data".Stanowisko1.Stats.DoneToday := "DB_Data".Stanowisko1.Stats.DoneToday + 1;
+	        "DB_Data".DoneAllTime[0] := "DB_Data".DoneAllTime[0] + 1;
+	        
+	        "DB_Data".Stanowisko1.Production.State := 0;
+	    3:
+	        //Ustawienie przycisków
+	        "DB_Data".Stanowisko1.Commands.Start.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.AbortProcess.Enable := 1;
+	        "DB_Data".Stanowisko1.Commands.FInish.Enable := 0;
+	        "DB_Data".Stanowisko1.Commands.ReportFault.Enable := 0;
+	        
+	        //Dodanie alarmow
+	        "DB_Zlecenia".NastepneZlecenie.Zlecenie.Alarm.Stanowisko1 := "DB_Data".Stanowisko1.Commands.FaultReason;
+	        
+	        IF "DB_Data".Stanowisko1.Commands.AbortProcess.State THEN
+	            #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.EndTime); // Zapis czasu zakonczenia
+	            
+	            //Funkcja zapisujaca wyrob do bazy danych dla innych stanowisk
+	            FOR #i := 0 TO 199 DO
+	                IF "DB_Zlecenia".Zlecenie[#i].Zlecenie.ID = 0 THEN
+	                    
+	                    "DB_Zlecenia".Zlecenie[#i] := "DB_Zlecenia".NastepneZlecenie;
+	                    "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.Abort := TRUE;
+	                    
+	                    //Status stanowiska 1 - praca zakonczona (przez abort)
+	                    "DB_Zlecenia".Zlecenie[#i].Zlecenie.Status[0] := TRUE;
+	                    
+	                    //Obliczenie faktycznego czasu pracy (sekundy, zaokraglone)
+	                    #temp_diff_time := "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.EndTime - "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.StartTime;
+	                    "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.ActualTime := DINT_TO_INT((TIME_TO_DINT(#temp_diff_time) + 500) / 1000);
+	                    
+	                    IF "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo > 1 THEN
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo := "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo - 1;
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time" := "DB_Zlecenia".PusteZlecenie.Zlecenie."Time";
+	                        "DB_Zlecenia".NastepneZlecenie.Zlecenie.Alarm := "DB_Zlecenia".PusteZlecenie.Zlecenie.Alarm;
+	                    ELSE
+	                        "DB_Zlecenia".NastepneZlecenie := "DB_Zlecenia".PusteZlecenie;
+	                    END_IF;
+	                    
+	                    "DB_Data".Stanowisko1.Commands.AbortProcess.State := 0;
+	                    "DB_Data".Stanowisko1.Production.State := 0;
+	                    EXIT;
+	                END_IF;
+	            END_FOR;
+	        END_IF;
+	        
+	END_CASE;
+	IF "DB_Data".Stanowisko1.Commands.AbortProcess.State THEN
+	    "DB_Data".Stanowisko1.Production.State := 0;
+	    "DB_Data".Stanowisko1.Commands.AbortProcess.State := 0;
+	    
+	    #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time".Stanowisko1.EndTime); // Zapis czasu zakonczenia
+	    
+	    //Funkcja zapisujaca wyrob do bazy danych dla innych stanowisk
+	    FOR #i := 0 TO 199 DO
+	        IF "DB_Zlecenia".Zlecenie[#i].Zlecenie.ID = 0 THEN
+	            
+	            "DB_Zlecenia".Zlecenie[#i] := "DB_Zlecenia".NastepneZlecenie;
+	            "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.Abort := TRUE;
+	            
+	            //Status stanowiska 1 - praca zakonczona (przez abort)
+	            "DB_Zlecenia".Zlecenie[#i].Zlecenie.Status[0] := TRUE;
+	            
+	            //Obliczenie faktycznego czasu pracy (sekundy, zaokraglone)
+	            #temp_diff_time := "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.EndTime - "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.StartTime;
+	            "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".Stanowisko1.ActualTime := DINT_TO_INT((TIME_TO_DINT(#temp_diff_time) + 500) / 1000);
+	            
+	            IF "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo > 1 THEN
+	                "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo := "DB_Zlecenia".NastepneZlecenie.Zlecenie.PartNo - 1;
+	                "DB_Zlecenia".NastepneZlecenie.Zlecenie."Time" := "DB_Zlecenia".PusteZlecenie.Zlecenie."Time";
+	                "DB_Zlecenia".NastepneZlecenie.Zlecenie.Alarm := "DB_Zlecenia".PusteZlecenie.Zlecenie.Alarm;
+	            ELSE
+	                "DB_Zlecenia".NastepneZlecenie := "DB_Zlecenia".PusteZlecenie;
+	            END_IF;
+	            
+	            "DB_Data".Stanowisko1.Commands.AbortProcess.State := 0;
+	            "DB_Data".Stanowisko1.Production.State := 0;
+	            EXIT;
+	        END_IF;
+	    END_FOR;
+	END_IF;
+	IF "DB_Data".Stanowisko1.HMI.Clear THEN
+	    "DB_Data".Stanowisko1.Stats.DoneToday := 0;
+	    "DB_Data".Stanowisko1.HMI.Clear := 0;
+	END_IF;
+	
+END_ORGANIZATION_BLOCK
+

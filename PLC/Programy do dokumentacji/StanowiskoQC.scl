@@ -1,0 +1,572 @@
+﻿TYPE "udtStanowiskoAssembly"
+VERSION : 0.1
+   STRUCT
+      Config : Struct
+         ID : Int;
+         "Name" : String[20];
+         HorlyRate : Real;
+      END_STRUCT;
+      Production : Struct
+         State : Int;   // 0 - Gotowy. 1 - Montaż, 2 - Zakończono, 3 - Awaria 
+         OrderNo : Int;
+         ProductNo : Int;
+      END_STRUCT;
+      "Time" : Struct
+         TargetTime : Time;
+         LastSec : UInt;
+         RemainingSec : Int;
+         RemainingStr : String[6];
+         Blink : Bool;
+      END_STRUCT;
+      Commands : Struct
+         Start : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FInish : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         ReportFault : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         AbortProcess : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FaultReason : Struct
+            MissingPart : Bool;
+            DamagedPart : Bool;
+            PalletFault : Bool;
+            WrongInstruction : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      Sensors : Struct
+         PalletPresent : Bool;
+         RFID : Struct
+            TagPresent : Bool;
+            CmdRead : Bool;
+            CmdWrite : Bool;
+            Status : Bool;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+      END_STRUCT;
+      Stats : Struct
+         DoneToday : Int;
+         Efficiency : Int;
+         ActudalPart : Int;
+         Instruction : Int;
+         Loaded : Bool;
+      END_STRUCT;
+      HMI : Struct
+         Clear : Bool;   // Czyści licznik
+         Container : Array[1..3] of Struct   // Tablica kontenerów 
+            value : Int;   // Ilość kontenerów 0 - 3
+            Add : Struct   // Impuls na reczne dodanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+            Subtract : Struct   // Impuls na reczne odejmowanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+         END_STRUCT;
+      END_STRUCT;
+      MontazState : Int;
+   END_STRUCT;
+
+END_TYPE
+
+TYPE "udtZlecenia"
+VERSION : 0.1
+   STRUCT
+      Zlecenie : Struct
+         ID : Int;   // Numer zlecenia
+         Model : Int;   // Rodzaj modelu 2-8
+         PartNo : Int;   // Nr sztuki
+         "Time" : Struct   // Czasy na stanowiskach
+            Stanowisko1 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            Stanowisko2 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            Stanowisko3 : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+            StanowiskoQC : Struct
+               StartTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas rozpoczecia
+               EndTime {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;   // Czas zakonczenia
+               TargetTime : Int;   // Zakladany czas
+               ActualTime : Int;
+               Abort : Bool;   // Czy anulowano produkcje na tym stanowisku
+            END_STRUCT;
+         END_STRUCT;
+         Alarm : Struct
+            Stanowisko1 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            Stanowisko2 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            Stanowisko3 : Struct
+               MissingPart : Bool;
+               DamagedPart : Bool;
+               PalletFault : Bool;
+               WrongInstruction : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+            StanowieskoQC : Struct
+               Camera : Bool;
+               NOK : Bool;
+               PalletFault : Bool;
+               RFID : Bool;
+               SensorFault : Bool;
+               Other : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         ReturnQC : Bool;   // True - poprawny wyrób, False zły wyrób
+         Priority : Int;   // 0 - Najniższy, 5 - Najwyższy
+         Status : Array[0..3] of Bool;   // Status czy skonczono na danym stanowisku
+         NOK : Struct
+            NoBrick : Bool;
+            WrongColour : Bool;
+            Offset : Bool;
+            Damage : Bool;
+            WrongNumber : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "DB_Data"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   STRUCT 
+      Stanowisko1 { S7_SetPoint := 'False'} : "udtStanowiskoAssembly";
+      Stanowisko2 : "udtStanowiskoAssembly";
+      Stanowisko3 : "udtStanowiskoAssembly";
+      StanowiskoQC : Struct
+         Config : Struct
+            ID : Int;
+            "Name" : String[20];
+            HorlyRate : Real;
+         END_STRUCT;
+         Production : Struct
+            State : Int;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+         "Time" : Struct
+            TargetTime : Time;
+            LastSec : UInt;
+            RemainingSec : Int;
+            RemainingStr : String[6];
+            Blink : Bool;
+         END_STRUCT;
+         Commands : Struct
+            Start : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            OK : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            NOK : Struct
+               Enable : Bool;
+               State : Bool;
+               NoBrick : Bool;
+               WrongColour : Bool;
+               Offset : Bool;
+               Damage : Bool;
+               WrongNumber : Bool;
+               Other : Bool;
+            END_STRUCT;
+            ReportFault : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         Sensors : Struct
+            PalletPresent : Bool;
+            RFID : Struct
+               TagPresent : Bool;
+               CmdRead : Bool;
+               CmdWrite : Bool;
+               Status : Bool;
+               OrderNo : Int;
+               ProductNo : Int;
+            END_STRUCT;
+         END_STRUCT;
+         Stats : Struct
+            DoneToday : Int;
+            Efficiency : Int;
+            ActudalPart : Int;
+            Instruction : Int;
+            Loaded : Bool;
+            PartsOK : Int;
+            PartsNOK : Int;
+            PartsPercent : Int;
+         END_STRUCT;
+         HMI : Struct
+            Clear : Bool;
+            CameraStatus : Int;
+         END_STRUCT;
+         QualityState : Int;
+         FaultReason : Struct
+            Camera : Bool;
+            NOK : Bool;
+            PalletFault : Bool;
+            RFID : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+         CameraControl : Struct
+            bInit : Bool;
+            bGetResult : Bool;
+            bResetError : Bool;
+            wynikOK : Bool;
+            bReq : Bool;
+            bTrigger : Bool;
+            bZrobInspekcje : Bool;
+            krok : Int;
+            wynikOV : Array[0..5] of Bool;
+            CameraStatus : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      ZlecenieIndex { S7_SetPoint := 'True'} : Array[0..3] of Int;
+      DoneAllTime : Array[0..3] of Int;
+   END_STRUCT;
+
+
+BEGIN
+   Stanowisko1.Production.State := 0;
+   Stanowisko1.Production.OrderNo := 0;
+
+END_DATA_BLOCK
+
+DATA_BLOCK "RFID_test"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+NON_RETAIN
+   VAR 
+      Bufor_Odczyt : Array[0..10] of Byte;
+      Bufor_Zapis : Array[0..10] of Byte;
+      Bufor_Odczyt2 : Array[0..10] of Byte;
+      Bufor_Odczyt3 : Array[0..10] of Byte;
+      Bufor_Odczyt4 : Array[0..10] of Byte;
+   END_VAR
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "DB_Zlecenia"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      Zlecenie { S7_SetPoint := 'False'} : Array[0..199] of "udtZlecenia";
+      NastepneZlecenie : "udtZlecenia";
+      PusteZlecenie : "udtZlecenia";   // Nie dopisywac wartosci!!!
+      ResetZlecen { S7_SetPoint := 'True'} : Bool;
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "StanowiskoQC"
+TITLE = "Main Program Sweep (Cycle)"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      temp_start_time : Int;
+      temp_taget_time : Int;
+      i : Int;
+      Czas_DTL {InstructionName := 'DTL'; LibVersion := '1.0'} : DTL;
+      Status_Czasu : Int;
+      Minuty : Int;
+      Sekundy : Int;
+      StrMin : String;
+      StrSec : String;
+      idx : Int;
+      temp_diff_time : Time;
+   END_VAR
+
+
+BEGIN
+	// ===================== STANOWISKO QC =====================
+	CASE "DB_Data".StanowiskoQC.Production.State OF
+	        
+	    0:
+	        //Przyciski off
+	        "DB_Data".StanowiskoQC.Commands.OK.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.NOK.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.ReportFault.Enable := 0;
+	        
+	        //Reset stanu przyciskow
+	        "DB_Data".StanowiskoQC.Commands.OK.State := 0;
+	        "DB_Data".StanowiskoQC.Commands.NOK.State := 0;
+	        "DB_Data".StanowiskoQC.Commands.ReportFault.State := 0;
+	        
+	        //Reset awarii
+	        "DB_Data".StanowiskoQC.FaultReason.Camera := 0;
+	        "DB_Data".StanowiskoQC.FaultReason.NOK := 0;
+	        "DB_Data".StanowiskoQC.FaultReason.PalletFault := 0;
+	        "DB_Data".StanowiskoQC.FaultReason.RFID := 0;
+	        "DB_Data".StanowiskoQC.FaultReason.SensorFault := 0;
+	        "DB_Data".StanowiskoQC.FaultReason.Other := 0;
+	        
+	        //Reset czasu i kamery
+	        "DB_Data".StanowiskoQC."Time".RemainingStr := '00:00';
+	        "DB_Data".StanowiskoQC.HMI.CameraStatus := 0;
+	        
+	        //Reset zlecenia
+	        "DB_Data".StanowiskoQC.Production.OrderNo := 0;
+	        "DB_Data".StanowiskoQC.Production.ProductNo := 0;
+	        
+	        "DB_Data".StanowiskoQC.Stats.Loaded := 0;
+	        "DB_Data".StanowiskoQC.Stats.Instruction := 1;
+	        
+	        //Zabezpieczenie indeksu bazy
+	        "DB_Data".ZlecenieIndex[3] := -1;
+	        "RFID_test".Bufor_Odczyt4[0] := 0;
+	        "RFID_test".Bufor_Odczyt4[1] := 0;
+	        "RFID_test".Bufor_Odczyt4[2] := 0;
+	        
+	        //Start jezeli paletka obecna
+	        IF "DB_Data".StanowiskoQC.Sensors.PalletPresent THEN
+	            "DB_Data".StanowiskoQC.Commands.Start.Enable := 1;
+	            IF "DB_Data".StanowiskoQC.Commands.Start.State THEN
+	                "DB_Data".StanowiskoQC.Production.State := 1;
+	                "DB_Data".StanowiskoQC.Commands.Start.State := 0;
+	                "DB_Data".StanowiskoQC.QualityState := 0;
+	            END_IF;
+	        ELSE
+	            "DB_Data".StanowiskoQC.Commands.Start.Enable := 0;
+	        END_IF;
+	        
+	        
+	    1:
+	        "DB_Data".StanowiskoQC.Commands.Start.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.OK.Enable := 1;
+	        "DB_Data".StanowiskoQC.Commands.NOK.Enable := 1;
+	        "DB_Data".StanowiskoQC.Commands.ReportFault.Enable := 1;
+	        
+	        CASE "DB_Data".StanowiskoQC.QualityState OF
+	            0:
+	                //Komenda odczytu RFID
+	                "DB_Data".StanowiskoQC.Sensors.RFID.CmdRead := TRUE;
+	                
+	                //Dane z bufora
+	                "DB_Data".StanowiskoQC.Production.OrderNo := BYTE_TO_INT("RFID_test".Bufor_Odczyt4[0]);
+	                "DB_Data".StanowiskoQC.Stats.Instruction := BYTE_TO_INT("RFID_test".Bufor_Odczyt4[1]);
+	                "DB_Data".StanowiskoQC.Production.ProductNo := BYTE_TO_INT("RFID_test".Bufor_Odczyt4[2]);
+	                
+	                //Szukanie TargetTime
+	                FOR #i := 0 TO 199 DO
+	                    IF "DB_Zlecenia".Zlecenie[#i].Zlecenie.ID = "DB_Data".StanowiskoQC.Production.OrderNo AND "DB_Zlecenia".Zlecenie[#i].Zlecenie.PartNo = "DB_Data".StanowiskoQC.Production.ProductNo THEN
+	                        "DB_Data".StanowiskoQC."Time".RemainingSec := "DB_Zlecenia".Zlecenie[#i].Zlecenie."Time".StanowiskoQC.TargetTime;
+	                        "DB_Data".ZlecenieIndex[3] := #i;
+	                        EXIT;
+	                    END_IF;
+	                END_FOR;
+	                
+	                //Zlecenie inspekcji kamery
+	                "DB_Data".StanowiskoQC.CameraControl.bZrobInspekcje := TRUE;
+	                
+	                IF "DB_Data".StanowiskoQC.Production.OrderNo <> 0 THEN
+	                    "DB_Data".StanowiskoQC.Sensors.RFID.CmdRead := FALSE;
+	                    "DB_Data".StanowiskoQC.QualityState := 1;
+	                END_IF;
+	                
+	            1:
+	                "DB_Data".StanowiskoQC."Time".Blink := FALSE;
+	                #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.StartTime);
+	                "DB_Data".StanowiskoQC.QualityState := 2;
+	                
+	            2:
+	                #Status_Czasu := RD_SYS_T(OUT => #Czas_DTL);
+	                
+	                IF #Czas_DTL.SECOND <> "DB_Data".StanowiskoQC."Time".LastSec THEN
+	                    "DB_Data".StanowiskoQC."Time".LastSec := #Czas_DTL.SECOND;
+	                    
+	                    IF "DB_Data".StanowiskoQC."Time".RemainingSec > 0 THEN
+	                        "DB_Data".StanowiskoQC."Time".RemainingSec := "DB_Data".StanowiskoQC."Time".RemainingSec - 1;
+	                    END_IF;
+	                    
+	                    IF "DB_Data".StanowiskoQC."Time".RemainingSec <= 0 THEN
+	                        "DB_Data".StanowiskoQC."Time".Blink := NOT "DB_Data".StanowiskoQC."Time".Blink;
+	                    END_IF;
+	                END_IF;
+	                
+	                #Minuty := "DB_Data".StanowiskoQC."Time".RemainingSec / 60;
+	                #Sekundy := "DB_Data".StanowiskoQC."Time".RemainingSec MOD 60;
+	                #StrMin := INT_TO_STRING(#Minuty);
+	                #StrSec := INT_TO_STRING(#Sekundy);
+	                #StrMin := RIGHT(IN := #StrMin, L := LEN(#StrMin) - 1);
+	                #StrSec := RIGHT(IN := #StrSec, L := LEN(#StrSec) - 1);
+	                
+	                IF #Minuty < 10 THEN
+	                    #StrMin := CONCAT(IN1 := '0', IN2 := #StrMin);
+	                END_IF;
+	                IF #Sekundy < 10 THEN
+	                    #StrSec := CONCAT(IN1 := '0', IN2 := #StrSec);
+	                END_IF;
+	                
+	                IF "DB_Data".StanowiskoQC."Time".RemainingSec <= 0 AND "DB_Data".StanowiskoQC."Time".Blink THEN
+	                    "DB_Data".StanowiskoQC."Time".RemainingStr := '     ';
+	                ELSE
+	                    "DB_Data".StanowiskoQC."Time".RemainingStr := CONCAT(IN1 := #StrMin, IN2 := CONCAT(IN1 := ':', IN2 := #StrSec));
+	                END_IF;
+	                
+	        END_CASE;
+	        
+	        //Status kamery (zabezpieczony indeks; sprawdz offset -1 vs -2)
+	        #idx := "DB_Data".StanowiskoQC.Stats.Instruction - 2;
+	        IF #idx >= 0 AND #idx <= 5 THEN
+	            IF "DB_Data".StanowiskoQC.CameraControl.wynikOV[#idx] THEN
+	                "DB_Data".StanowiskoQC.HMI.CameraStatus := 1;
+	            ELSE
+	                "DB_Data".StanowiskoQC.HMI.CameraStatus := 2;
+	            END_IF;
+	        ELSE
+	            "DB_Data".StanowiskoQC.HMI.CameraStatus := 0;
+	        END_IF;
+	        
+	        //ReportFault -> stan awarii
+	        IF "DB_Data".StanowiskoQC.Commands.ReportFault.State THEN
+	            "DB_Data".StanowiskoQC.Production.State := 3;
+	            "DB_Data".StanowiskoQC.Commands.ReportFault.State := 0;
+	        END_IF;
+	        
+	        //OK -> zakonczenie (ReturnQC = TRUE)
+	        IF "DB_Data".StanowiskoQC.Commands.OK.State THEN
+	            "DB_Data".StanowiskoQC.Commands.OK.State := 0;
+	            "DB_Data".StanowiskoQC.Stats.PartsOK := "DB_Data".StanowiskoQC.Stats.PartsOK + 1;
+	            "DB_Data".StanowiskoQC.Stats.DoneToday := "DB_Data".StanowiskoQC.Stats.DoneToday + 1;
+	            "DB_Data".DoneAllTime[3] := "DB_Data".DoneAllTime[3] + 1;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.ReturnQC := TRUE;
+	            "DB_Data".StanowiskoQC.Production.State := 2;
+	        END_IF;
+	        
+	        //NOK -> zakonczenie (ReturnQC = FALSE)
+	        IF "DB_Data".StanowiskoQC.Commands.NOK.State THEN
+	            "DB_Data".StanowiskoQC.Commands.NOK.State := 0;
+	            "DB_Data".StanowiskoQC.Stats.PartsNOK := "DB_Data".StanowiskoQC.Stats.PartsNOK + 1;
+	            "DB_Data".StanowiskoQC.Stats.DoneToday := "DB_Data".StanowiskoQC.Stats.DoneToday + 1;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.ReturnQC := FALSE;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Damage := "DB_Data".StanowiskoQC.Commands.NOK.Damage;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.NoBrick := "DB_Data".StanowiskoQC.Commands.NOK.NoBrick;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Offset := "DB_Data".StanowiskoQC.Commands.NOK.Offset;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Other := "DB_Data".StanowiskoQC.Commands.NOK.Other;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.WrongColour := "DB_Data".StanowiskoQC.Commands.NOK.WrongColour;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.WrongNumber := "DB_Data".StanowiskoQC.Commands.NOK.WrongNumber;
+	            "DB_Data".StanowiskoQC.Production.State := 2;
+	        END_IF;
+	        
+	    2:
+	        "DB_Data".StanowiskoQC.Commands.Start.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.OK.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.NOK.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.ReportFault.Enable := 0;
+	        
+	        "DB_Data".StanowiskoQC.Stats.PartsPercent := (("DB_Data".StanowiskoQC.Stats.PartsOK * 100) / "DB_Data".StanowiskoQC.Stats.DoneToday);
+	        
+	        IF "DB_Data".ZlecenieIndex[3] >= 0 THEN
+	            #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.EndTime);
+	            
+	            //Status stanowiska QC - praca zakonczona
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.Status[3] := TRUE;
+	            
+	            //Obliczenie faktycznego czasu pracy (sekundy, zaokraglone)
+	            #temp_diff_time := "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.EndTime - "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.StartTime;
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.ActualTime := DINT_TO_INT((TIME_TO_DINT(#temp_diff_time) + 500) / 1000);
+	        END_IF;
+	        
+	        "DB_Data".ZlecenieIndex[3] := -1;
+	        "DB_Data".StanowiskoQC.Production.State := 0;
+	        
+	    3:
+	        "DB_Data".StanowiskoQC.Commands.Start.Enable := 0;
+	        "DB_Data".StanowiskoQC.Commands.OK.Enable := 1;
+	        "DB_Data".StanowiskoQC.Commands.NOK.Enable := 1;
+	        "DB_Data".StanowiskoQC.Commands.ReportFault.Enable := 0;
+	        
+	        IF "DB_Data".ZlecenieIndex[3] >= 0 THEN
+	            "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.Alarm.StanowieskoQC := "DB_Data".StanowiskoQC.FaultReason;
+	        END_IF;
+	        
+	        IF "DB_Data".StanowiskoQC.Commands.OK.State OR "DB_Data".StanowiskoQC.Commands.NOK.State THEN
+	            IF "DB_Data".ZlecenieIndex[3] >= 0 THEN
+	                #temp_start_time := RD_LOC_T(OUT => "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.EndTime);
+	                
+	                //Status stanowiska QC - praca zakonczona (z trybu awarii)
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.Status[3] := TRUE;
+	                
+	                //Obliczenie faktycznego czasu pracy (sekundy, zaokraglone)
+	                #temp_diff_time := "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.EndTime - "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.StartTime;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie."Time".StanowiskoQC.ActualTime := DINT_TO_INT((TIME_TO_DINT(#temp_diff_time) + 500) / 1000);
+	                
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.Alarm.StanowieskoQC := "DB_Data".StanowiskoQC.FaultReason;
+	                
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Damage := "DB_Data".StanowiskoQC.Commands.NOK.Damage;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.NoBrick := "DB_Data".StanowiskoQC.Commands.NOK.NoBrick;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Offset := "DB_Data".StanowiskoQC.Commands.NOK.Offset;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.Other := "DB_Data".StanowiskoQC.Commands.NOK.Other;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.WrongColour := "DB_Data".StanowiskoQC.Commands.NOK.WrongColour;
+	                "DB_Zlecenia".Zlecenie["DB_Data".ZlecenieIndex[3]].Zlecenie.NOK.WrongNumber := "DB_Data".StanowiskoQC.Commands.NOK.WrongNumber;
+	            END_IF;
+	            
+	            "DB_Data".ZlecenieIndex[3] := -1;
+	            "DB_Data".StanowiskoQC.Production.OrderNo := 0;
+	            "DB_Data".StanowiskoQC.Production.ProductNo := 0;
+	            "DB_Data".StanowiskoQC.Stats.Instruction := 1;
+	            "DB_Data".StanowiskoQC.Production.State := 0;
+	            "DB_Data".StanowiskoQC.Commands.OK.State := 0;
+	            "DB_Data".StanowiskoQC.Commands.NOK.State := 0;
+	        END_IF;
+	        
+	END_CASE;
+	IF "DB_Data".StanowiskoQC.HMI.Clear THEN
+	    "DB_Data".StanowiskoQC.Stats.DoneToday := 0;
+	    "DB_Data".StanowiskoQC.Stats.PartsNOK := 0;
+	    "DB_Data".StanowiskoQC.Stats.PartsOK := 0;
+	    "DB_Data".StanowiskoQC.Stats.PartsPercent := 0;
+	    "DB_Data".StanowiskoQC.HMI.Clear := 0;
+	END_IF;
+END_ORGANIZATION_BLOCK
+

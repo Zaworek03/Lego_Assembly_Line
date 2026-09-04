@@ -1,0 +1,329 @@
+﻿TYPE "udtStanowiskoAssembly"
+VERSION : 0.1
+   STRUCT
+      Config : Struct
+         ID : Int;
+         "Name" : String[20];
+         HorlyRate : Real;
+      END_STRUCT;
+      Production : Struct
+         State : Int;   // 0 - Gotowy. 1 - Montaż, 2 - Zakończono, 3 - Awaria 
+         OrderNo : Int;
+         ProductNo : Int;
+      END_STRUCT;
+      "Time" : Struct
+         TargetTime : Time;
+         LastSec : UInt;
+         RemainingSec : Int;
+         RemainingStr : String[6];
+         Blink : Bool;
+      END_STRUCT;
+      Commands : Struct
+         Start : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FInish : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         ReportFault : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         AbortProcess : Struct
+            Enable : Bool;
+            State : Bool;
+         END_STRUCT;
+         FaultReason : Struct
+            MissingPart : Bool;
+            DamagedPart : Bool;
+            PalletFault : Bool;
+            WrongInstruction : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      Sensors : Struct
+         PalletPresent : Bool;
+         RFID : Struct
+            TagPresent : Bool;
+            CmdRead : Bool;
+            CmdWrite : Bool;
+            Status : Bool;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+      END_STRUCT;
+      Stats : Struct
+         DoneToday : Int;
+         Efficiency : Int;
+         ActudalPart : Int;
+         Instruction : Int;
+         Loaded : Bool;
+      END_STRUCT;
+      HMI : Struct
+         Clear : Bool;   // Czyści licznik
+         Container : Array[1..3] of Struct   // Tablica kontenerów 
+            value : Int;   // Ilość kontenerów 0 - 3
+            Add : Struct   // Impuls na reczne dodanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+            Subtract : Struct   // Impuls na reczne odejmowanie
+               Enable : Bool;
+               Status : Bool;
+            END_STRUCT;
+         END_STRUCT;
+      END_STRUCT;
+      MontazState : Int;
+   END_STRUCT;
+
+END_TYPE
+
+DATA_BLOCK "MB_CLIENT_DB"
+{InstructionName := 'MB_CLIENT';
+ LibVersion := '6.0';
+ S7_Optimized_Access := 'TRUE' }
+AUTHOR : SIMATIC
+FAMILY : MBUS_TCP
+NAME : MB_CLI
+VERSION : 6.0
+NON_RETAIN
+MB_CLIENT
+
+BEGIN
+
+END_DATA_BLOCK
+
+DATA_BLOCK "DB_Data"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+   STRUCT 
+      Stanowisko1 { S7_SetPoint := 'False'} : "udtStanowiskoAssembly";
+      Stanowisko2 : "udtStanowiskoAssembly";
+      Stanowisko3 : "udtStanowiskoAssembly";
+      StanowiskoQC : Struct
+         Config : Struct
+            ID : Int;
+            "Name" : String[20];
+            HorlyRate : Real;
+         END_STRUCT;
+         Production : Struct
+            State : Int;
+            OrderNo : Int;
+            ProductNo : Int;
+         END_STRUCT;
+         "Time" : Struct
+            TargetTime : Time;
+            LastSec : UInt;
+            RemainingSec : Int;
+            RemainingStr : String[6];
+            Blink : Bool;
+         END_STRUCT;
+         Commands : Struct
+            Start : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            OK : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+            NOK : Struct
+               Enable : Bool;
+               State : Bool;
+               NoBrick : Bool;
+               WrongColour : Bool;
+               Offset : Bool;
+               Damage : Bool;
+               WrongNumber : Bool;
+               Other : Bool;
+            END_STRUCT;
+            ReportFault : Struct
+               Enable : Bool;
+               State : Bool;
+            END_STRUCT;
+         END_STRUCT;
+         Sensors : Struct
+            PalletPresent : Bool;
+            RFID : Struct
+               TagPresent : Bool;
+               CmdRead : Bool;
+               CmdWrite : Bool;
+               Status : Bool;
+               OrderNo : Int;
+               ProductNo : Int;
+            END_STRUCT;
+         END_STRUCT;
+         Stats : Struct
+            DoneToday : Int;
+            Efficiency : Int;
+            ActudalPart : Int;
+            Instruction : Int;
+            Loaded : Bool;
+            PartsOK : Int;
+            PartsNOK : Int;
+            PartsPercent : Int;
+         END_STRUCT;
+         HMI : Struct
+            Clear : Bool;
+            CameraStatus : Int;
+         END_STRUCT;
+         QualityState : Int;
+         FaultReason : Struct
+            Camera : Bool;
+            NOK : Bool;
+            PalletFault : Bool;
+            RFID : Bool;
+            SensorFault : Bool;
+            Other : Bool;
+         END_STRUCT;
+         CameraControl : Struct
+            bInit : Bool;
+            bGetResult : Bool;
+            bResetError : Bool;
+            wynikOK : Bool;
+            bReq : Bool;
+            bTrigger : Bool;
+            bZrobInspekcje : Bool;
+            krok : Int;
+            wynikOV : Array[0..5] of Bool;
+            CameraStatus : Bool;
+         END_STRUCT;
+      END_STRUCT;
+      ZlecenieIndex { S7_SetPoint := 'True'} : Array[0..3] of Int;
+      DoneAllTime : Array[0..3] of Int;
+   END_STRUCT;
+
+
+BEGIN
+   Stanowisko1.Production.State := 0;
+   Stanowisko1.Production.OrderNo := 0;
+
+END_DATA_BLOCK
+
+DATA_BLOCK "DB_PTL"
+{ S7_Optimized_Access := 'FALSE' }
+VERSION : 0.1
+NON_RETAIN
+   STRUCT 
+      PTL_state : Array[0..8] of Bool;
+      Stanowisko : Array[0..2] of Struct
+         Row1 : Int;   // 0 - brak, 3 - wszytskie kontenery
+         Row2 : Int;   // 0 - brak, 3 - wszytskie kontenery
+         Row3 : Int;   // 0 - brak, 3 - wszytskie kontenery
+      END_STRUCT;
+      ConnParams {InstructionName := 'TCON_IP_v4'; LibVersion := '1.0'; S7_SetPoint := 'False'} : TCON_IP_v4;
+      InitDone : Bool;
+      Wyzwalacz : Bool;
+      mb_done : Bool;
+      mb_busy : Bool;
+      mb_error : Bool;
+      mb_status : Word;
+      PTL_Buttons : Array[1..9] of Word;
+      PTL_State_Old : Array[0..8] of Bool;
+   END_STRUCT;
+
+
+BEGIN
+
+END_DATA_BLOCK
+
+ORGANIZATION_BLOCK "Czujniki"
+TITLE = "Main Program Sweep (Cycle)"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_TEMP 
+      i : Int;
+   END_VAR
+
+
+BEGIN
+	// ------------------------------------------------------------------
+	// 1. PRZEKAZANIE DANYCH DO APLIKACJI C# / SQL
+	// ------------------------------------------------------------------
+	//Czujniki odleglosciowe od 1 stanowiska do 4
+	"DB_Data".Stanowisko1.Sensors.PalletPresent := "Tag_1";
+	"DB_Data".Stanowisko2.Sensors.PalletPresent := "Tag_2";
+	"DB_Data".Stanowisko3.Sensors.PalletPresent := "Tag_10";
+	"DB_Data".StanowiskoQC.Sensors.PalletPresent := "Tag_11";
+	
+	// Zapisujemy do bazy, czy czytnik w ogóle widzi tag (z fizycznego wejścia)
+	"DB_Data".Stanowisko1.Sensors.RFID.TagPresent := "RFID1";
+	"DB_Data".Stanowisko2.Sensors.RFID.TagPresent := "RFID2";
+	"DB_Data".Stanowisko3.Sensors.RFID.TagPresent := "RFID3";
+	"DB_Data".StanowiskoQC.Sensors.RFID.TagPresent := "RFID4";
+	
+	
+	FOR #i := 1 TO 9 DO
+	    "DB_PTL".PTL_state[#i - 1] := "DB_PTL".PTL_Buttons[#i].%X0;
+	END_FOR;
+	
+	FOR #i := 0 TO 8 DO
+	    IF "DB_PTL".PTL_state[#i] AND NOT "DB_PTL".PTL_State_Old[#i] THEN
+	        
+	        CASE #i OF
+	            0..2:
+	                //Stanowisko1 - kontenery 1..3 (przyciski 0..2)
+	                IF "DB_Data".Stanowisko1.HMI.Container[#i + 1].value > 0 THEN
+	                    "DB_Data".Stanowisko1.HMI.Container[#i + 1].value -= 1;
+	                END_IF;
+	                
+	            3..5:
+	                //Stanowisko2 - kontenery 1..3 (przyciski 3..5)
+	                IF "DB_Data".Stanowisko2.HMI.Container[#i - 2].value > 0 THEN
+	                    "DB_Data".Stanowisko2.HMI.Container[#i - 2].value -= 1;
+	                END_IF;
+	                
+	            6..8:
+	                //Stanowisko3 - kontenery 1..3 (przyciski 6..8)
+	                IF "DB_Data".Stanowisko3.HMI.Container[#i - 5].value > 0 THEN
+	                    "DB_Data".Stanowisko3.HMI.Container[#i - 5].value -= 1;
+	                END_IF;
+	                
+	        END_CASE;
+	        
+	    END_IF;
+	    
+	    // zapamiętaj stan na następny cykl (zawsze, na końcu)
+	    "DB_PTL".PTL_State_Old[#i] := "DB_PTL".PTL_state[#i];
+	END_FOR;
+	
+	
+	// 1. Inicjalizacja parametrów połączenia
+	IF NOT "DB_PTL".InitDone THEN
+	    "DB_PTL".ConnParams.InterfaceId := 64;
+	    "DB_PTL".ConnParams.ID := 1;
+	    "DB_PTL".ConnParams.ConnectionType := 11;
+	    "DB_PTL".ConnParams.ActiveEstablished := TRUE;
+	    "DB_PTL".ConnParams.RemoteAddress.ADDR[1] := 192;
+	    "DB_PTL".ConnParams.RemoteAddress.ADDR[2] := 168;
+	    "DB_PTL".ConnParams.RemoteAddress.ADDR[3] := 1;
+	    "DB_PTL".ConnParams.RemoteAddress.ADDR[4] := 30;
+	    "DB_PTL".ConnParams.RemotePort := 502;
+	    "DB_PTL".Wyzwalacz := TRUE;
+	    
+	    "DB_PTL".InitDone := TRUE;
+	END_IF;
+	
+	// 2. Wywołanie bloku Modbus Client do odczytu PTL Node 1
+	"MB_CLIENT_DB"(
+	               REQ := "DB_PTL".Wyzwalacz,
+	               DISCONNECT := FALSE,
+	               MB_MODE := 0,
+	               MB_DATA_ADDR := 40017,                   // Zaczynamy czytać od rejestru 17...
+	               MB_DATA_LEN := 9,                       // ...i czytamy od razu 9 rejestrów naraz!
+	               DONE => "DB_PTL".mb_done,
+	               BUSY => "DB_PTL".mb_busy,
+	               ERROR => "DB_PTL".mb_error,
+	               STATUS => "DB_PTL".mb_status,
+	               CONNECT := "DB_PTL".ConnParams,
+	               MB_DATA_PTR := "DB_PTL".PTL_Buttons     // Wrzucamy wszystko do naszej tablicy
+	);
+	
+	
+	
+	
+END_ORGANIZATION_BLOCK
+
