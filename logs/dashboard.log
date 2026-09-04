@@ -6,6 +6,3 @@ info: Microsoft.Hosting.Lifetime[0]
       Hosting environment: Production
 info: Microsoft.Hosting.Lifetime[0]
       Content root path: C:\Users\Rizz & Bricks inc\Documents\Lego_Assembly_Line\WEB\Dashboard\bin\Debug\net10.0\
-[Dashboard] wolny tik: 258 ms
-info: LiniaProdukcyjnaDashboard.Services.InventoryService[0]
-      [INV] Reset magazynu do stanu bazowego wykonany przez op=(null)
